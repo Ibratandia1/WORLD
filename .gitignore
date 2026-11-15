@@ -1,0 +1,14 @@
+# Dépendances (réinstallées avec `npm install`)
+node_modules/
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Dossier « game world » : un autre dépôt git vide, créé à part (non suivi ici)
+game world/
+
+# Secrets (ne jamais sauvegarder une clé API)
+.env
+*.key

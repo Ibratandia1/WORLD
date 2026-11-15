@@ -1,0 +1,12 @@
+﻿{
+  "name": "world",
+  "version": "0.1.0",
+  "private": true,
+  "description": "World - jeu mobile de simulation de vie (prototype Phaser)",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0"
+  }
+}

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#b8a6ec">
+  <title>World</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="cloud c1"></div><div class="cloud c2"></div><div class="cloud c3"></div>
+  <div id="game"></div>
+  <div id="night"></div>
+
+  <!-- En haut à gauche : l'essentiel (icônes sans texte) -->
+  <div id="hud">
+    <div class="pill"><span>⏰</span><b id="v-time">07:00</b><small id="v-day">J1</small></div>
+    <div class="pill"><span id="v-weather">☀️</span></div>
+    <div class="pill" id="p-money"><span>💶</span><b id="v-money">0</b></div>
+    <div class="pill"><span>⚡</span><i class="bar"><i id="v-energy"></i></i></div>
+    <div class="pill"><span>🍔</span><i class="bar"><i id="v-hunger"></i></i></div>
+  </div>
+
+  <!-- En haut à droite : le temps -->
+  <div id="controls">
+    <button id="b-pause">⏸</button>
+    <button id="b-play" class="on">▶</button>
+    <button id="b-fast">⏩</button>
+    <button id="b-full">⛶</button>
+  </div>
+
+  <!-- En bas à gauche : ma vie et raccourcis -->
+  <div id="dock">
+    <div class="pill"><span>🥫</span><b id="v-food">0</b></div>
+    <div class="pill tap" id="p-job"><span>💼</span><b id="v-job">—</b><small id="v-warn" class="warn"></small></div>
+    <div class="pill tap" id="p-home"><span id="v-homeic">🏠</span><b id="v-home">✓</b></div>
+    <button id="b-routine">🔁</button>
+    <button id="b-look">👕</button>
+    <button id="b-center">🎯</button>
+  </div>
+
+  <!-- Étages (dans un immeuble) -->
+  <div id="floors" class="hidden"></div>
+
+  <!-- Écran d'accueil -->
+  <div id="start" class="hidden"></div>
+  <div id="skip">⏩</div>
+  <div id="saved">💾</div>
+
+  <!-- Fenêtre d'événements, en bas à droite -->
+  <div id="box"></div>
+
+  <!-- Création / personnalisation du personnage -->
+  <div id="custom" class="hidden"></div>
+
+  <div id="rotate"><div>📱↻</div><p>Tourne ton téléphone</p></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
