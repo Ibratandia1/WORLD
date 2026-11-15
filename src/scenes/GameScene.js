@@ -2,14 +2,17 @@ import { TW, TH, toScreen, toTile } from '../iso.js';
 import { TYPES } from '../map/types.js';
 import { ACTIONS } from '../sim/actions.js';
 import { state } from '../state.js';
-import { ensureCharTexture } from '../look.js';
+import { ensureCharTexture, randomLook } from '../look.js';
 import { attachControls } from '../camera.js';
-import { drawBuildingTile, drawShadow, drawGroundDetails, drawStreetDecor, makeCarTextures, Traffic, rng, makeBirdTextures, Birds, twin, NIGHT, NIGHT_MAX } from '../city/render.js';
+import { findPath } from '../sim/pathfinding.js';
+import { freeUnits, isClosed } from '../sim/city.js';
+import { drawBuildingTile, drawShadow, drawGroundDetails, drawStreetDecor, makeCarTextures, Traffic, Crowd, rng, makeBirdTextures, Birds, twin, NIGHT, NIGHT_MAX } from '../city/render.js';
 
 const EMOJI_FONT = '"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
 const GROUND = {
   pave: [0xefe3cc, 0xe6d8bd],
   road: [0x9aa0b4, 0x9399ad],
+  cobble: [0xd8ccb4, 0xd2c5ab],
   grass: [0x8fd36f, 0x84c965],
   water: [0x74bdf0, 0x6cb4e8],
 };
@@ -40,6 +43,7 @@ export class GameScene extends Phaser.Scene {
     this.drawBuildings();
     this.spots = drawStreetDecor(this, this.map, this.lights, this.darks);
     this.traffic = new Traffic(this, this.map);
+    this.crowd = new Crowd(this, this.map, randomLook, ensureCharTexture);
     makeBirdTextures(this);
     this.birds = new Birds(this, this.map);
 
@@ -58,7 +62,8 @@ export class GameScene extends Phaser.Scene {
 
   update(time, delta) {
     this.world.update(delta);
-    if (!this.world.paused) { this.traffic.update(delta); this.birds.update(delta, this.world.actors); }
+    if (!this.world.paused) { this.traffic.update(delta, this.world.hour); this.birds.update(delta, this.world.actors); }
+    this.crowd.update(delta, this.world.hour, findPath, this.world.paused);
     if ((this.lightTick = (this.lightTick || 0) + delta) > 400) { this.lightTick = 0; this.syncLights(); }
     this.syncViews(time);
     if ((this.homeTick = (this.homeTick || 0) + delta) > 1000) { this.homeTick = 0; this.syncHomeBubbles(); }
@@ -107,9 +112,15 @@ export class GameScene extends Phaser.Scene {
           }
           speck(10, [0xffffff, 0xcfc2a8]);
         }
-        if (name === 'road') {
-          speck(40, [0x7f8598, 0xb3b8c8, 0x8a90a3]);
-          if (i === 0) { g.lineStyle(2, 0xffffff, 0.75); g.lineBetween(25, 12.5, 39, 19.5); }
+        if (name === 'road') speck(40, [0x7f8598, 0xb3b8c8, 0x8a90a3]); // le marquage dépend du sens de la rue : voir drawGroundDetails
+        if (name === 'cobble') {
+          // vieux pavés arrondis des ruelles et des places
+          for (let k = 0; k < 26; k++) {
+            const x = 6 + Math.random() * (TW - 12), y = 3 + Math.random() * (TH - 6);
+            if (Math.abs(x - HW) / HW + Math.abs(y - HH) / HH > 0.8) continue;
+            g.fillStyle(Phaser.Display.Color.ValueToColor(c).darken(12).color, 0.8); g.fillEllipse(x, y + 0.6, 6, 3.4);
+            g.fillStyle(Phaser.Display.Color.ValueToColor(c).lighten(4).color, 1); g.fillEllipse(x, y, 5, 2.8);
+          }
         }
         if (name === 'grass') {
           speck(26, [0x6fbf5a, 0xa8e08a, 0x5aa84a], 2);
@@ -258,9 +269,15 @@ export class GameScene extends Phaser.Scene {
     for (const { b, c, t } of this.bubbles) {
       if (b.type !== 'home') continue;
       const mine = b.id === p.home;
-      const vacant = !this.world.actors.some(a => a.home === b.id);
+      const vacant = freeUnits(this.world, b) > 0;
       c.setVisible(mine || vacant);
       const icon = mine ? (p.housing === 'own' ? '🔑' : '🏠') : '🔑';
+      if (t.text !== icon) t.setText(icon);
+    }
+    // Commerces fermés (faillite) : une pancarte à la place de l'icône
+    for (const { b, t } of this.bubbles) {
+      if (b.type === 'home') continue;
+      const icon = isClosed(this.world, b.id) ? '🔒' : TYPES[b.type].icon;
       if (t.text !== icon) t.setText(icon);
     }
   }
@@ -385,6 +402,16 @@ export class GameScene extends Phaser.Scene {
     const isMe = e => e.actor === state.player;
     this.world.on('done', e => { if (isMe(e)) this.floatDelta(e); });
     this.world.on('fail', e => { if (isMe(e)) this.floatText(e.reason, '#e2475b'); });
+    // La ville vivante : des habitants arrivent, d'autres s'en vont
+    this.world.on('actorAdded', e => this.addActorView(e.actor));
+    this.world.on('actorRemoved', e => {
+      const v = this.views.get(e.actor.id);
+      if (!v) return;
+      for (const o of [v.spr, v.marker, v.ring, v.veh]) if (o) o.destroy();
+      this.views.delete(e.actor.id);
+    });
+    // Un commerce repris change de nom : l'icône reste, le nom suit dans les fiches
+    this.world.on('bizOpened', () => this.syncHomeBubbles());
   }
 
   floatDelta(e) {

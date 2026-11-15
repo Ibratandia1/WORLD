@@ -14,6 +14,22 @@ export function parseMap(def) {
   const buildings = [];
   const byLetter = {};
 
+  // Identifiants stables : l'ordre `order` d'abord (les sauvegardes en dépendent), puis l'ordre d'apparition
+  const make = ch => {
+    const bdef = def.buildings[ch];
+    const type = TYPES[bdef.type];
+    const b = {
+      id: buildings.length, letter: ch, type: bdef.type, name: bdef.name,
+      rent: bdef.rent || 0, price: bdef.price || 0, jobs: bdef.jobs || null,
+      units: bdef.units || (bdef.type === 'home' ? 1 : 0),
+      height: type.height, tiles: [], entrances: [],
+    };
+    byLetter[ch] = b;
+    buildings.push(b);
+    return b;
+  };
+  for (const ch of def.order || '') if (def.buildings[ch] && rows.some(r => r.includes(ch))) make(ch);
+
   for (let y = 0; y < h; y++) {
     tiles.push([]);
     for (let x = 0; x < w; x++) {
@@ -25,17 +41,7 @@ export function parseMap(def) {
       }
       const bdef = def.buildings[ch];
       if (!bdef) throw new Error(`Carte : symbole inconnu "${ch}" en ${x},${y}`);
-      let b = byLetter[ch];
-      if (!b) {
-        const type = TYPES[bdef.type];
-        b = {
-          id: buildings.length, letter: ch, type: bdef.type, name: bdef.name,
-          rent: bdef.rent || 0, price: bdef.price || 0, jobs: bdef.jobs || null,
-          height: type.height, tiles: [], entrances: [],
-        };
-        byLetter[ch] = b;
-        buildings.push(b);
-      }
+      const b = byLetter[ch] || make(ch);
       b.tiles.push({ x, y });
       tiles[y].push({ ground: 'pave', walk: false, deco: null, building: b.id });
     }
@@ -65,8 +71,19 @@ export function parseMap(def) {
   const walkable = [];
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (walk(x, y)) walkable.push({ x, y });
 
+  // Trottoirs, ruelles et places : là où flânent les passants
+  const footpaths = walkable.filter(p => tiles[p.y][p.x].ground !== 'road');
+  // Case praticable la plus proche (pour replacer quelqu'un quand le plan change)
+  const nearestWalkable = (x, y) => {
+    let best = walkable[0], bd = Infinity;
+    for (const p of walkable) { const d = (p.x - x) ** 2 + (p.y - y) ** 2; if (d < bd) { bd = d; best = p; } }
+    return best;
+  };
+
   return {
-    name: def.name, w, h, tiles, buildings, byLetter, entranceMap, walk,
+    name: def.name, layout: def.layout || 1, w, h, tiles, buildings, byLetter, entranceMap, walk,
+    walkable, footpaths, nearestWalkable,
     randomWalkable: () => walkable[Math.floor(Math.random() * walkable.length)],
+    randomFootpath: () => footpaths[Math.floor(Math.random() * footpaths.length)],
   };
 }

@@ -172,26 +172,44 @@ export function drawGroundDetails(scene, map) {
   const P = (x, y) => toScreen(x, y);
   const r = rng(1234);
 
+  const isRoad = (x, y) => ground(x, y) === 'road';
+  const roadLinks = (x, y) => ({ e: isRoad(x + 1, y), w: isRoad(x - 1, y), s: isRoad(x, y + 1), n: isRoad(x, y - 1) });
+  const linkCount = l => l.e + l.w + l.s + l.n;
+  const straight = l => (linkCount(l) === 2 && ((l.e && l.w) || (l.n && l.s))) || (linkCount(l) === 1);
+  const isJunction = (x, y) => isRoad(x, y) && !straight(roadLinks(x, y));
+
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const gr = ground(x, y);
-      // Bordure entre trottoir et rue
-      if (gr === 'pave' && !tiles[y][x].building) {
-        for (const dy of [1, -1]) {
-          if (ground(x, y + dy) !== 'road') continue;
-          const yy = y + dy / 2;
-          const a = P(x - 0.5, yy), b = P(x + 0.5, yy);
+      // Bordure entre trottoir (ou ruelle) et rue, dans les 4 directions
+      if ((gr === 'pave' || gr === 'cobble' || gr === 'grass') && !tiles[y][x].building) {
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          if (!isRoad(x + dx, y + dy)) continue;
+          const a = dy ? P(x - 0.5, y + dy / 2) : P(x + dx / 2, y - 0.5);
+          const b = dy ? P(x + 0.5, y + dy / 2) : P(x + dx / 2, y + 0.5);
           g.lineStyle(4, 0xd4d7df, 1); g.lineBetween(a.x, a.y, b.x, b.y);
           g.lineStyle(1, 0x8d93a3, 1); g.lineBetween(a.x, a.y + 2, b.x, b.y + 2);
         }
       }
-      // Passages piétons
-      if (gr === 'road' && x % 5 === 3) {
-        g.lineStyle(3, 0xffffff, 0.85);
-        for (let k = 0; k < 4; k++) {
-          const v = -0.36 + k * 0.24;
-          const a = P(x - 0.32, y + v), b = P(x + 0.32, y + v);
-          g.lineBetween(a.x, a.y, b.x, b.y);
+      if (gr === 'road') {
+        const l = roadLinks(x, y);
+        const alongX = l.e || l.w;
+        if (straight(l)) {
+          // Passage piéton juste avant un carrefour ou un coude, sinon pointillés au milieu
+          const nearJ = alongX ? (isJunction(x + 1, y) || isJunction(x - 1, y)) : (isJunction(x, y + 1) || isJunction(x, y - 1));
+          if (nearJ) {
+            g.lineStyle(3, 0xffffff, 0.85);
+            for (let k = 0; k < 4; k++) {
+              const v = -0.36 + k * 0.24;
+              const a = alongX ? P(x - 0.32, y + v) : P(x + v, y - 0.32);
+              const b = alongX ? P(x + 0.32, y + v) : P(x + v, y + 0.32);
+              g.lineBetween(a.x, a.y, b.x, b.y);
+            }
+          } else if ((x + y) % 2 === 0) {
+            const a = alongX ? P(x - 0.22, y) : P(x, y - 0.22);
+            const b = alongX ? P(x + 0.22, y) : P(x, y + 0.22);
+            g.lineStyle(2, 0xffffff, 0.7); g.lineBetween(a.x, a.y, b.x, b.y);
+          }
         }
       }
       // Herbe : touffes et fleurs
@@ -252,12 +270,15 @@ export function drawStreetDecor(scene, map, lights, darks) {
         scene.tweens.add({ targets: jets, scaleY: 0.85, alpha: 0.7, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       }
 
-      if (!t.walk || t.ground !== 'pave') continue;
+      if (!t.walk || (t.ground !== 'pave' && t.ground !== 'cobble')) continue;
 
-      // Lampadaires le long des rues
-      const roadDir = ground(x, y + 1) === 'road' ? 1 : ground(x, y - 1) === 'road' ? -1 : 0;
-      if (roadDir && x % 4 === 2) {
-        const px = x, py = y + roadDir * 0.36;
+      // Lampadaires le long des rues (dans les deux sens), lanternes sur les places pavées
+      const side = ground(x, y + 1) === 'road' ? [0, 1] : ground(x, y - 1) === 'road' ? [0, -1]
+        : ground(x + 1, y) === 'road' ? [1, 0] : ground(x - 1, y) === 'road' ? [-1, 0] : null;
+      const along = side ? (side[1] ? x : y) : 0;
+      const plazaLamp = !side && t.ground === 'cobble' && (x * 7 + y * 3) % 11 === 0;
+      if ((side && along % 4 === 2) || plazaLamp) {
+        const px = x + (side ? side[0] * 0.36 : 0), py = y + (side ? side[1] * 0.36 : 0);
         const b = toScreen(px, py);
         const g = add(px, py);
         g.fillStyle(0x000000, 0.15); g.fillEllipse(b.x, b.y + 1, 8, 3);
@@ -270,9 +291,9 @@ export function drawStreetDecor(scene, map, lights, darks) {
         const pool = scene.add.graphics().setDepth(0.6).setBlendMode(Phaser.BlendModes.ADD);
         for (const [w, h, a] of [[110, 46, 0.08], [76, 32, 0.12], [44, 18, 0.16]]) { pool.fillStyle(0xffc766, a); pool.fillEllipse(b.x, b.y + 2, w, h); }
         lights.push(halo, pool);
-      } else if (roadDir && x % 4 === 0 && r() < 0.7) {
+      } else if (side && t.ground === 'pave' && along % 4 === 0 && r() < 0.7) {
         // Bacs à fleurs
-        const px = x + 0.1, py = y + roadDir * 0.3;
+        const px = x + (side[0] ? side[0] * 0.3 : 0.1), py = y + (side[1] ? side[1] * 0.3 : 0.1);
         const b = toScreen(px, py);
         const g = add(px, py);
         isoBox(g, b.x, b.y, 0.32, 0.2, 6, 0xcfc6b4);
@@ -289,8 +310,10 @@ export function drawStreetDecor(scene, map, lights, darks) {
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const t = tiles[y][x];
     if (t.walk && t.ground === 'grass' && !t.deco && (x + y * 3) % 7 === 0) benchTiles.push({ x, y });
+    // quelques bancs aussi sur les places pavées
+    else if (t.walk && t.ground === 'cobble' && (x * 5 + y) % 13 === 0) benchTiles.push({ x, y });
   }
-  for (const { x, y } of benchTiles.slice(0, 8)) {
+  for (const { x, y } of benchTiles.slice(0, 14)) {
     spots.benches.push({ x, y });
     const b = toScreen(x, y);
     const g = add(x, y);
@@ -456,33 +479,188 @@ export function makeCarTextures(scene) {
   });
 }
 
+// Combien de voitures / de passants selon l'heure (heures de pointe, nuit calme)
+export function cityPulse(hour) {
+  if (hour < 5.5) return 0.15;
+  if (hour < 7) return 0.4;
+  if (hour < 9.5) return 1;      // pointe du matin
+  if (hour < 12) return 0.6;
+  if (hour < 14) return 0.85;    // déjeuner
+  if (hour < 17) return 0.6;
+  if (hour < 19.5) return 1;     // pointe du soir
+  if (hour < 22) return 0.55;
+  return 0.3;
+}
+
+// Voitures qui suivent le réseau de rues : virages, baïonnettes, carrefours ; elles entrent et sortent par les bords.
 export class Traffic {
   constructor(scene, map) {
     this.scene = scene;
     this.map = map;
     this.cars = [];
-    const roads = [];
-    for (let y = 0; y < map.h; y++) if (map.tiles[y].every(t => t.ground === 'road')) roads.push(y);
-    const r = rng(4242);
-    for (const ry of roads) {
-      for (let i = 0; i < 3; i++) {
-        for (const dir of [1, -1]) {
-          const spr = scene.add.image(0, 0, `car_${Math.floor(r() * CAR_COLORS.length)}`).setOrigin(0.5, 0.65);
-          this.cars.push({ spr, dir, y: ry + (dir > 0 ? 0.22 : -0.22), x: r() * map.w, speed: 1.6 + r() * 1.2 });
-        }
-      }
+    this.road = (x, y) => x >= 0 && y >= 0 && x < map.w && y < map.h && map.tiles[y][x].ground === 'road';
+    // Entrées : rues qui touchent le bord de la carte
+    this.gates = [];
+    for (let y = 0; y < map.h; y++) for (let x = 0; x < map.w; x++) {
+      if (!this.road(x, y)) continue;
+      const dir = x === 0 ? [1, 0] : x === map.w - 1 ? [-1, 0] : y === map.h - 1 ? [0, -1] : y === 0 ? [0, 1] : null;
+      if (dir) this.gates.push({ x, y, dir });
     }
+    this.max = 18;
+    this.spawnIn = 0;
+    this.r = rng(4242);
+    // Quelques voitures déjà en route au chargement
+    for (let i = 0; i < 8; i++) this.spawn(true);
   }
 
-  update(dt) {
-    const w = this.map.w;
+  spawn(midway = false) {
+    if (!this.gates.length) return;
+    const r = this.r;
+    const gate = this.gates[Math.floor(r() * this.gates.length)];
+    const spr = this.scene.add.image(0, 0, `car_${Math.floor(r() * CAR_COLORS.length)}`).setOrigin(0.5, 0.65).setAlpha(0);
+    const c = { spr, x: gate.x, y: gate.y, dir: gate.dir, prevDir: gate.dir, t: 0, speed: 1.5 + r() * 1.1, life: 0, leaving: false };
+    c.next = this.pickNext(c);
+    if (midway) for (let k = Math.floor(r() * 12); k > 0 && c.next; k--) this.advance(c); // déjà plus loin dans la rue
+    if (!c.next) { spr.destroy(); return; }
+    this.cars.push(c);
+  }
+
+  // Prochaine case de rue : tout droit de préférence, sinon on tourne (jamais demi-tour)
+  pickNext(c) {
+    const [dx, dy] = c.dir;
+    const opts = [[dx, dy], [-dy, dx], [dy, -dx]].filter(([ax, ay]) => this.road(c.x + ax, c.y + ay));
+    if (!opts.length) return null;
+    const straight = opts.find(([ax, ay]) => ax === dx && ay === dy);
+    const d = straight && (opts.length === 1 || this.r() < 0.6) ? straight : opts[Math.floor(this.r() * opts.length)];
+    return { x: c.x + d[0], y: c.y + d[1], dir: d };
+  }
+
+  advance(c) {
+    c.x = c.next.x; c.y = c.next.y; c.prevDir = c.dir; c.dir = c.next.dir; c.t = 0;
+    c.next = this.pickNext(c);
+  }
+
+  // Position à l'écran : sur la file de droite, avec un virage adouci
+  posOf(c) {
+    const off = 0.22;
+    const lane = d => [-d[1] * off, d[0] * off];
+    const k = Math.min(1, c.t / 0.5);
+    const l0 = lane(c.prevDir), l1 = lane(c.dir);
+    const nx = c.next ? c.next.x : c.x + c.dir[0], ny = c.next ? c.next.y : c.y + c.dir[1];
+    return {
+      x: c.x + (nx - c.x) * c.t + l0[0] + (l1[0] - l0[0]) * k,
+      y: c.y + (ny - c.y) * c.t + l0[1] + (l1[1] - l0[1]) * k,
+    };
+  }
+
+  update(dt, hour = 12) {
+    const target = Math.round(this.max * cityPulse(hour));
+    this.spawnIn -= dt;
+    if (this.cars.length < target && this.spawnIn <= 0) { this.spawn(); this.spawnIn = 900 + Math.random() * 1500; }
+    const tint = this.scene.nightTint || 0xffffff;
     for (const c of this.cars) {
-      c.x += c.dir * c.speed * dt / 1000;
-      if (c.x > w + 1) c.x = -1.5;
-      if (c.x < -1.5) c.x = w + 1;
-      const s = toScreen(c.x, c.y);
-      const fade = Math.min(1, Math.max(0, (c.x + 1) / 1.2), Math.max(0, (w + 0.5 - c.x) / 1.2));
-      c.spr.setPosition(s.x, s.y).setDepth(depthAt(c.x, c.y) + 4).setAlpha(fade).setTint(this.scene.nightTint || 0xffffff);
+      c.life += dt;
+      const p = this.posOf(c);
+      // On freine derrière la voiture de devant (même file, même sens)
+      const blocked = this.cars.some(o => o !== c && o.dir[0] === c.dir[0] && o.dir[1] === c.dir[1] && (() => {
+        const q = this.posOf(o);
+        const ax = (q.x - p.x) * c.dir[0] + (q.y - p.y) * c.dir[1];
+        const side = Math.abs((q.x - p.x) * c.dir[1] - (q.y - p.y) * c.dir[0]);
+        return ax > 0 && ax < 0.85 && side < 0.3;
+      })());
+      if (!blocked || c.leaving) c.t += c.speed * dt / 1000;
+      while (c.t >= 1 && !c.leaving) {
+        if (c.next) this.advance(c);
+        if (!c.next) { c.leaving = true; c.t = 0; } // bord de la carte : la voiture sort en s'effaçant
+      }
+      const q = this.posOf(c);
+      const fadeIn = Math.min(1, c.life / 600);
+      const fadeOut = c.leaving ? Math.max(0, 1 - c.t) : 1;
+      const s = toScreen(q.x, q.y);
+      // La texture est orientée le long de x ; en miroir, elle suit l'axe y
+      c.spr.setPosition(s.x, s.y).setDepth(depthAt(q.x, q.y) + 4)
+        .setFlipX(c.dir[1] !== 0).setAlpha(Math.min(fadeIn, fadeOut)).setTint(tint);
     }
+    // Voitures sorties de la carte
+    this.cars = this.cars.filter(c => {
+      if (c.leaving && c.t >= 1) { c.spr.destroy(); return false; }
+      return true;
+    });
+  }
+}
+
+// ---------- Passants : des gens de passage qui traversent le quartier (décor, plus nombreux aux heures de pointe) ----------
+export class Crowd {
+  constructor(scene, map, makeLook, ensureTex) {
+    this.scene = scene;
+    this.map = map;
+    this.makeLook = makeLook;
+    this.ensureTex = ensureTex;
+    this.people = [];
+    this.max = 14;
+    this.spawnIn = 0;
+    this.n = 0;
+    // Entrées / sorties : bords de la carte côté trottoir et bouche de métro
+    this.gates = map.footpaths.filter(p => p.x === 0 || p.y === map.h - 1 || p.x === map.w - 1);
+    const metro = map.buildings.find(b => b.type === 'metro');
+    if (metro) for (const e of metro.entrances) this.gates.push(e, e);
+  }
+
+  spawn(findPath) {
+    const g = this.gates[Math.floor(Math.random() * this.gates.length)];
+    let to = this.gates[Math.floor(Math.random() * this.gates.length)];
+    // un détour par le quartier (place, parc, vitrine) de temps en temps
+    const via = Math.random() < 0.6 ? this.map.randomFootpath() : null;
+    const leg1 = findPath(this.map, g, (x, y) => (via ? x === via.x && y === via.y : x === to.x && y === to.y));
+    if (!leg1) return;
+    let path = leg1.path;
+    if (via) {
+      const leg2 = findPath(this.map, via, (x, y) => x === to.x && y === to.y);
+      if (!leg2) return;
+      path = path.concat(leg2.path);
+    }
+    if (path.length < 6) return;
+    // On réutilise un petit nombre de textures : un numéro libre, recréé avec une nouvelle apparence
+    const used = new Set(this.people.map(p => p.slot));
+    let slot = 0;
+    while (used.has(slot)) slot++;
+    const id = `pass${slot}`;
+    const fake = { id, look: this.makeLook() };
+    const key = `char_${id}_0`;
+    for (const k of [key, `${key}_1`, `${key}_2`]) if (this.scene.textures.exists(k)) this.scene.textures.remove(k);
+    this.ensureTex(this.scene, fake);
+    const spr = this.scene.add.image(0, 0, fake.texKey).setOrigin(0.5, 0.93).setScale(1.5).setAlpha(0);
+    this.people.push({ spr, slot, key: fake.texKey, x: g.x, y: g.y, path, speed: 1.1 + Math.random() * 0.5, life: 0, facing: 1, pause: 0 });
+  }
+
+  update(dt, hour, findPath, paused) {
+    const target = Math.round(this.max * cityPulse(hour));
+    this.spawnIn -= dt;
+    if (!paused && this.people.length < target && this.spawnIn <= 0) { this.spawn(findPath); this.spawnIn = 700 + Math.random() * 1400; }
+    const tint = this.scene.nightTint || 0xffffff;
+    const now = this.scene.time.now;
+    for (const p of this.people) {
+      if (!paused) {
+        p.life += dt;
+        if (p.pause > 0) p.pause -= dt;
+        else {
+          let budget = p.speed * dt / 1000;
+          while (budget > 0 && p.path.length) {
+            const t = p.path[0];
+            const dx = t.x - p.x, dy = t.y - p.y, d = Math.hypot(dx, dy);
+            if (Math.abs(dx - dy) > 0.01) p.facing = dx - dy > 0 ? 1 : -1;
+            if (d <= budget) { p.x = t.x; p.y = t.y; p.path.shift(); budget -= d; if (Math.random() < 0.01) p.pause = 1500 + Math.random() * 2500; }
+            else { p.x += dx / d * budget; p.y += dy / d * budget; budget = 0; }
+          }
+        }
+      }
+      const s = toScreen(p.x, p.y);
+      const walking = p.path.length && p.pause <= 0 && !paused;
+      const key = walking ? `${p.key}_${Math.floor(now / 170) % 2 ? 1 : 2}` : p.key;
+      const fade = Math.min(1, p.life / 500, p.path.length ? 1 : 0);
+      p.spr.setTexture(key).setPosition(s.x, s.y - (walking ? Math.abs(Math.sin(now * 0.0185)) * 1.5 : 0))
+        .setDepth(depthAt(p.x, p.y) + 5).setFlipX(p.facing < 0).setAlpha(fade).setTint(tint);
+    }
+    this.people = this.people.filter(p => { if (!p.path.length) { p.spr.destroy(); return false; } return true; });
   }
 }

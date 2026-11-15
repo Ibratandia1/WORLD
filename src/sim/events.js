@@ -188,6 +188,20 @@ export const EVENTS = [
     text: (a, w, o) => `${o.name} : « Un ticket à gratter ? Le gros lot est à 200 € ! »`,
     choices: [{ icon: '🎟️', label: 'Acheter un ticket', action: 'scratch' }, { icon: '🙅', label: 'Non merci' }],
   },
+
+  // ---------- La vie du quartier ----------
+  {
+    // Le matin, au calme : les nouvelles des jours passés (arrivées, départs, faillites, prix)
+    id: 'journal', icon: '📰', title: 'Le journal du quartier', once: 'day', cooldown: 600,
+    when: (a, w, d) => {
+      if (!w.city || a.doing || w.hour < 7 || w.hour > 12) return null;
+      const fresh = w.city.news.filter(n => n.seq > (d.newsSeen || 0) && n.day >= w.day - 2);
+      return fresh.length ? fresh : null;
+    },
+    onFire: (a, w, news, d) => { d.newsSeen = news[news.length - 1].seq; },
+    text: (a, w, news) => news.slice(-4).map(n => `${n.icon} ${n.text}`).join('\n'),
+    choices: OK,
+  },
 ];
 
 // Conséquences annoncées par le monde (avertissement, renvoi, loyer…)
@@ -238,6 +252,11 @@ const PUSHED = {
     icon: '✉️', title: `Relance de ${landlordName(w)}`,
     text: `Tu dois ${a.rentDue} €. Sans paiement sous 4 jours, c’est l’expulsion.`,
     choices: [{ icon: '🧾', label: 'Payer maintenant', action: 'pay_rent' }, { icon: '⏳', label: 'Plus tard' }],
+  }),
+  bizClosed: (a, w, e) => ({
+    icon: '🔒', title: 'Ton lieu de travail ferme',
+    text: `${e.building.name} a fait faillite, faute de clients : ton contrat s’arrête. Un repreneur rouvrira le local dans quelques jours, et d’autres commerces recrutent.`,
+    choices: OK,
   }),
   evicted: (a, w, e) => ({
     icon: '🚪', title: 'Expulsion',

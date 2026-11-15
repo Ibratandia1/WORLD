@@ -6,6 +6,7 @@ import { reviewDay, weekdayOf, DAY_SHORT, shiftNow, shiftOf, todayLog, sellerAt,
 import { vehicleOf, itemById } from './catalog.js';
 import { newDayHousing } from './housing.js';
 import { chatterLine } from './social.js';
+import { priceMul, isClosed } from './city.js';
 
 export const MIN_PER_SEC = 1;    // minutes de jeu par seconde réelle (vitesse x1) : une journée ≈ 24 min
 const WALK = 1.6;                // cases parcourues par minute de jeu
@@ -44,6 +45,16 @@ export class World extends Emitter {
   actorById(id) { return this.actors.find(a => a.id === id); }
 
   addActor(a) { this.actors.push(a); return a; }
+  // Un habitant quitte le quartier : on le retire du monde (les liens vers lui sont simplement ignorés)
+  removeActor(a) {
+    this.cancel(a, true);
+    for (const o of this.actors) {
+      if (o.current && o.current.params && o.current.params.who === a.id) this.cancel(o);
+      if (o.plan && o.plan.params && o.plan.params.who === a.id) this.cancel(o);
+    }
+    this.actors = this.actors.filter(o => o !== a);
+    this.emit('actorRemoved', { actor: a });
+  }
 
   // ---------- Boucle ----------
   update(ms) {
@@ -80,6 +91,7 @@ export class World extends Emitter {
     }
 
     if (this.day !== prevDay) this.newDay();
+    if (this.city) this.city.update();
     for (const d of this.directors) d.update(dt);
   }
 
@@ -89,7 +101,7 @@ export class World extends Emitter {
     if (!choice) return;
     const params = choice.params || {};
     if (this.check(a, choice.id, params) === true) this.perform(a, choice.id, params);
-    else if (!a.isPlayer) this.perform(a, 'goto', this.map.randomWalkable());
+    else if (!a.isPlayer) this.perform(a, 'goto', this.map.randomFootpath());
   }
 
   rollWeather() {
@@ -204,8 +216,21 @@ export class World extends Emitter {
   }
 
   // ---------- Actions (même porte d'entrée pour joueur et PNJ) ----------
-  costOf(def, a, params = {}) {
-    return typeof def.cost === 'function' ? def.cost(a, this, params) : (def.cost || 0);
+  // Prix d'une action. Dans un commerce, le prix suit sa clientèle (voir city.js) ;
+  // sans lieu précis, on prend le moins cher des lieux possibles.
+  costOf(def, a, params = {}, buildingId = null) {
+    let c = typeof def.cost === 'function' ? def.cost(a, this, params) : (def.cost || 0);
+    if (def.seller && c > 0) {
+      if (buildingId == null && def.instant) buildingId = a.inside;
+      let mul = 1;
+      if (buildingId != null) mul = priceMul(this, buildingId);
+      else if (def.place && def.place.type) {
+        const muls = [...this.placeIds(a, def.place, params)].map(id => priceMul(this, id));
+        if (muls.length) mul = Math.min(...muls);
+      }
+      c = Math.round(c * mul * 10) / 10;
+    }
+    return c;
   }
 
   check(a, id, params = {}) {
@@ -281,7 +306,10 @@ export class World extends Emitter {
     if (place.param) return new Set(params[place.param] != null ? [params[place.param]] : []);
     if (place.own === 'home') return new Set(a.home != null ? [a.home] : []);
     if (place.own === 'job') return new Set(a.job ? [a.job.building] : []);
-    return new Set(this.map.buildings.filter(b => b.type === place.type).map(b => b.id));
+    const all = this.map.buildings.filter(b => b.type === place.type && !isClosed(this, b.id)).map(b => b.id);
+    // `at` : une adresse précise choisie (son café préféré, la boulangerie la moins chère…)
+    if (params.at != null) return new Set(all.includes(params.at) ? [params.at] : []);
+    return new Set(all);
   }
 
   arrive(a) {
@@ -297,7 +325,7 @@ export class World extends Emitter {
     if (def.seller && !sellerAt(this, this.building(plan.buildingId), a) && !(a.job && a.job.building === plan.buildingId)) {
       this.stay(a, plan.buildingId); this.fail(a, plan.id, 'Fermé : plus personne au comptoir'); return;
     }
-    const cost = this.costOf(def, a, plan.params);
+    const cost = this.costOf(def, a, plan.params, plan.buildingId);
     a.money -= cost;
     a.inside = plan.buildingId;
     const dur = def.durationFor ? def.durationFor(a, this, plan.params) : def.duration;
@@ -323,7 +351,7 @@ export class World extends Emitter {
     if (!instant) this.stay(a, where); // on reste dans le lieu après l'action
     a.mood = clamp(a.mood, 0, 100);
     const delta = { money: a.money - before.money, energy: a.energy - before.energy, hunger: a.hunger - before.hunger, mood: a.mood - before.mood };
-    this.emit('done', { actor: a, id, def, delta, msg });
+    this.emit('done', { actor: a, id, def, delta, msg, cost, where: shopId });
   }
 
   // Arrête ce que fait l'acteur. Sans `leave`, il reste dans le lieu où il se trouve.

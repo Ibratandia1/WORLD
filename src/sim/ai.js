@@ -1,9 +1,36 @@
 import { shiftNow, openings } from './jobs.js';
 import { nearby, canPause } from './social.js';
+import { ACTIONS } from './actions.js';
+import { priceMul } from './city.js';
 
 // Heure du coucher : assez tôt pour 8 h de sommeil avant le service du lendemain
 const bedtimeOf = a => (a.job ? (a.job.start + 24 - 8.75) % 24 : 23);
 const isBedtime = (h, bt) => ((h - bt + 24) % 24) < 6;
+
+// Où aller ? Chacun choisit parmi les commerces ouverts : plutôt proche, plutôt pas cher,
+// et on a ses adresses préférées (qui changent de temps en temps). C'est ce qui fait vivre ou couler un commerce.
+function shop(a, w, id) {
+  const def = ACTIONS[id];
+  if (w.check(a, id) !== true) return null;
+  const ids = [...w.openIds(a, def)];
+  if (!ids.length) return null;
+  a.fav = a.fav || {};
+  const type = def.place.type;
+  const weights = ids.map(bid => {
+    const e = w.building(bid).entrances[0];
+    const d = Math.abs(e.x - a.px) + Math.abs(e.y - a.py);
+    let wt = 1 / (1 + d / 8);
+    wt /= priceMul(w, bid) ** 4;
+    if (a.fav[type] === bid) wt *= 3;
+    return wt;
+  });
+  let r = Math.random() * weights.reduce((t, x) => t + x, 0);
+  let at = ids[ids.length - 1];
+  for (let i = 0; i < ids.length; i++) { r -= weights[i]; if (r <= 0) { at = ids[i]; break; } }
+  if (a.fav[type] !== at && Math.random() < 0.2) a.fav[type] = at; // nouvelle adresse fétiche
+  const params = { at };
+  return w.check(a, id, params) === true ? { id, params } : null;
+}
 
 // Cerveau des PNJ, et routine automatique du joueur (opts.player).
 // Il ne fait que choisir : l'action passe ensuite par world.perform comme pour tout le monde.
@@ -14,16 +41,22 @@ export function decide(a, w, opts = {}) {
   // 1. Payer ses dettes de loyer dès que possible
   if (a.housing === 'rent' && a.rentDue > 0 && a.money >= a.rentDue) return { id: 'pay_rent' };
 
+  // 1b. Sans logement (nouvel arrivant, expulsé) : louer un appartement libre et abordable
+  if (!player && a.home == null && w.city && a.role !== 'landlord') {
+    const b = w.city.homeFor(a);
+    if (b) return { id: 'rent_home', params: { building: b.id } };
+  }
+
   // 2a. Métiers de rue (facteur, police) : tournée dans le quartier pendant le service
   if (a.job && a.job.street && shiftNow(a.job, w)) {
-    if (a.hunger > 80 && a.money >= 4) return { id: 'eat_bakery' };
-    return { id: 'goto', params: w.map.randomWalkable() };
+    if (a.hunger > 80 && a.money >= 4) { const c = shop(a, w, 'eat_bakery'); if (c) return c; }
+    return { id: 'goto', params: w.map.randomFootpath() };
   }
 
   // 2b. Aller travailler : on part en avance, on mange vite si besoin
   const s = a.job && !a.job.street && shiftNow(a.job, w);
   if (s && w.minutes < s.end - 30 && a.energy > 8) {
-    if (a.hunger > 70 && a.money >= 4 && w.minutes < s.start - 35) return { id: 'eat_bakery' };
+    if (a.hunger > 45 && a.money >= 4 && w.minutes < s.start - 35) { const c = shop(a, w, 'eat_bakery'); if (c) return c; }
     if (w.minutes >= s.start - 45) return { id: 'work' };
     return null; // trop tôt : on attend, sans se lancer dans une longue activité
   }
@@ -33,20 +66,23 @@ export function decide(a, w, opts = {}) {
     return { id: a.home != null ? 'sleep' : 'sleep_rough' };
   }
 
-  // 4. Manger
-  // (les commerces ne servent que s'il y a un vendeur : on prend la première option possible)
-  const ok = id => w.check(a, id) === true;
-  if (a.hunger > 55) {
-    if (a.food > 0 && a.home != null) return { id: 'eat_home' };
-    if (a.money > 40 && ok('eat_cafe')) return { id: 'eat_cafe' };
-    if (ok('eat_bakery')) return { id: 'eat_bakery' };
+  // 4. Manger (les commerces ne servent que s'il y a un vendeur)
+  // Le matin, un croissant à la boulangerie ; à midi et le soir, on cuisine ou on va au café
+  if (h >= 6 && h < 10 && a.hunger > 30 && a.money > 8 && Math.random() < 0.6) {
+    const c = shop(a, w, 'eat_bakery'); if (c) return c;
   }
-  if (a.home != null && a.food < 2 && a.money > 60 && ok('groceries')) return { id: 'groceries' };
+  if (a.hunger > 55) {
+    if (a.food > 0 && a.home != null && Math.random() < 0.7) return { id: 'eat_home' };
+    if (a.money > 40) { const c = shop(a, w, 'eat_cafe'); if (c) return c; }
+    const c = shop(a, w, 'eat_bakery'); if (c) return c;
+    if (a.food > 0 && a.home != null) return { id: 'eat_home' };
+  }
+  if (a.home != null && a.food < 2 && a.money > 60) { const c = shop(a, w, 'groceries'); if (c) return c; }
 
-  // 5. Chercher du travail
+  // 5. Chercher du travail (on postule un peu partout, pas toujours au même endroit)
   if (!a.job && a.role !== 'landlord' && h >= 8 && h < 18) {
-    const b = w.map.buildings.find(b => openings(w, b) > 0 && a.lastApply[b.id] !== w.day);
-    if (b) return { id: 'apply', params: { building: b.id } };
+    const list = w.map.buildings.filter(b => openings(w, b) > 0 && a.lastApply[b.id] !== w.day);
+    if (list.length) return { id: 'apply', params: { building: list[Math.floor(Math.random() * list.length)].id } };
   }
 
   // Moral bas : on se détend (télé à la maison, livre, banc) — PNJ comme routine du joueur
@@ -62,7 +98,7 @@ export function decide(a, w, opts = {}) {
   const others = nearby(w, a).filter(o => o.controller !== 'player' && !o.doing && canPause(o, w));
   if (others.length && Math.random() < 0.2) return { id: 'talk', params: { who: others[Math.floor(Math.random() * others.length)].id } };
   const r = Math.random();
-  if (r < 0.15 && a.money > 10) return { id: 'coffee' };
-  if (r < 0.2 && a.money > 20) return { id: 'scratch' };
-  return { id: 'goto', params: w.map.randomWalkable() };
+  if (r < 0.15 && a.money > 10) { const c = shop(a, w, 'coffee'); if (c) return c; }
+  if (r < 0.2 && a.money > 20) { const c = shop(a, w, 'scratch'); if (c) return c; }
+  return { id: 'goto', params: w.map.randomFootpath() };
 }

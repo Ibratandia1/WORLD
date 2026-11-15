@@ -108,6 +108,7 @@ export const fmtShift = job => `${job.start}h–${job.start + job.hours}h`;
 
 export function openings(w, b) {
   if (!b.jobs) return 0;
+  if (w.city && w.city.biz[b.id] && w.city.biz[b.id].closed) return 0; // local fermé (faillite)
   const taken = w.actors.filter(a => a.job && a.job.building === b.id).length;
   return Math.max(0, b.jobs.slots - taken);
 }

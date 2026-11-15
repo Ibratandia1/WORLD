@@ -5,6 +5,7 @@ import { openCustomizer } from './customize.js';
 import { fmtShift, DAY_SHORT, MAX_WARNINGS, RAISE_EVERY, JOB_TITLES, openings, isWorkday } from './sim/jobs.js';
 import { rel, level, near } from './sim/social.js';
 import { weeklyRent, occupants, LATE_EVICT } from './sim/housing.js';
+import { freeUnits } from './sim/city.js';
 import { CATALOG } from './sim/catalog.js';
 import { canReach } from './sim/actions.js';
 import { ROLE_TITLES } from './sim/social.js';
@@ -259,7 +260,7 @@ export class UI {
       const def = c.action ? ACTIONS[c.action] : null;
       return this.choiceHTML(`data-choice="${i}"`, c.icon, c.label, def ? this.meta(def, c.params) : '', this.director.check(c));
     }).join('');
-    return `${this.head(ev.icon, ev.title, false)}<p>${esc(ev.text)}</p><div class="choices">${buttons}</div>`;
+    return `${this.head(ev.icon, ev.title, false)}<p>${esc(ev.text).replace(/\n/g, '<br>')}</p><div class="choices">${buttons}</div>`;
   }
 
   // Panneau d'un lieu : vu de la rue (inside = false) ou depuis l'intérieur.
@@ -267,7 +268,8 @@ export class UI {
     const p = this.player, w = this.world;
     const buttons = [];
     if (!inside) buttons.push(this.actBtn('enter', { building: b.id }));
-    for (const id of Object.keys(ACTIONS)) if (w.canDoAt(p, id, b)) buttons.push(this.actBtn(id));
+    // Ici même (pas dans le commerce du même type le plus proche)
+    for (const id of Object.keys(ACTIONS)) if (w.canDoAt(p, id, b)) buttons.push(this.actBtn(id, ACTIONS[id].place.type ? { at: b.id } : {}));
 
     // Emploi
     let note = '';
@@ -287,12 +289,13 @@ export class UI {
           if (p.rentDue > 0) buttons.push(this.actBtn('pay_rent'));
           buttons.push(this.actBtn('buy_home', { building: b.id }, `Acheter (${money(b.price)} €)`));
         }
-      } else if (!occupants(w, b).length) {
-        note = `<p>Libre · ${weeklyRent(b)} €/semaine ou ${money(b.price)} € à l’achat</p>`;
+      } else if (freeUnits(w, b) > 0) {
+        const f = freeUnits(w, b);
+        note = `<p>${f} appartement${f > 1 ? 's' : ''} libre${f > 1 ? 's' : ''} sur ${b.units} · ${weeklyRent(b)} €/semaine${occupants(w, b).length ? '' : ` ou ${money(b.price)} € à l’achat`}</p>`;
         buttons.push(this.actBtn('rent_home', { building: b.id }));
-        buttons.push(this.actBtn('buy_home', { building: b.id }, `Acheter (${money(b.price)} €)`));
+        if (!occupants(w, b).length) buttons.push(this.actBtn('buy_home', { building: b.id }, `Acheter (${money(b.price)} €)`));
       } else if (!inside) {
-        note = '<p>Des gens habitent ici.</p>';
+        note = `<p>Complet : ${b.units} appartement${b.units > 1 ? 's' : ''}, tous occupés.</p>`;
       }
     }
 
@@ -306,7 +309,18 @@ export class UI {
         const when = !n ? '' : n.day === w.day ? `aujourd’hui à ${Math.floor((n.start % 1440) / 60)}h` : `${DAY_SHORT[weekdayOf(n.day)]} à ${Math.floor((n.start % 1440) / 60)}h`;
         status = `🔴 Fermé${when ? ` · ouvre ${when}` : ''}`;
       }
-      note = `<p class="status">${status}</p>${note}`;
+      // Santé du commerce (ville vivante) : fréquentation et prix
+      const biz = w.city && w.city.biz[b.id];
+      let life = '';
+      if (biz && biz.closed) {
+        status = `🔒 Fermé définitivement · un repreneur arrive ${biz.reopenDay - w.day <= 1 ? 'demain' : `dans ${biz.reopenDay - w.day} jours`}`;
+      } else if (biz && biz.hist.length) {
+        const avg = biz.hist.reduce((t, d) => t + d.n, 0) / biz.hist.length;
+        const mood = avg >= 12 ? '🔥 Bondé' : avg >= 5 ? '🙂 Bonne clientèle' : avg >= 2 ? '😐 Calme' : '⚠️ Presque vide';
+        const price = biz.price === 1 ? 'prix normaux' : biz.price > 1 ? `prix +${Math.round((biz.price - 1) * 100)} %` : `promos −${Math.round((1 - biz.price) * 100)} %`;
+        life = `<p>${mood} · ${Math.round(avg * 10) / 10} clients/jour · ${price}</p>`;
+      }
+      note = `<p class="status">${status}</p>${life}${note}`;
     }
 
     if (inside) {

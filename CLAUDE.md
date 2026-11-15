@@ -20,7 +20,7 @@ L'utilisateur parle français : répondre en français, textes du jeu en frança
   - `events.js` événements **contextuels** (aucun tirage purement aléatoire) + conséquences poussées par le monde ; délai mini entre deux événements
   - `people.js` habitants de départ
 - Rythme : 1,5 min de jeu / s ; pendant une action du joueur le temps accélère selon `skip` (travail ×6, sommeil ×16).
-- `src/map/` : `quartier.js` (grille texte du Marais), `types.js` (apparence par type de lieu), `parse.js`
+- `src/map/` : `quartier.js` (grille texte du Marais, tracé organique), `types.js` (apparence par type de lieu), `parse.js`
 - `src/scenes/GameScene.js` : rendu iso (textures générées), toucher → action ; bascule vers l'intérieur quand `player.inside` change
 - Intérieurs : **dessinés par le code, en un seul plan structuré par étage** (l'utilisateur a refusé les illustrations « trop IA » ; `assets/interiors.webp` n'est plus utilisé). Filtre pixel art (`PIXELATE` dans InteriorScene) sur la caméra de la pièce ; une 2e caméra affiche les étiquettes nettes (calques `worldLayer` / `uiLayer` : tout nouvel objet doit aller dans l'un des deux via `w()` / `u()`).
 - Étages : un plan peut avoir `floors` (bureau : RDC accueil + cafétéria, 1er open space, 2e réunion + direction ; logement : hall + appartement). Boutons d'étage à gauche, la vue suit l'étage du joueur, le socle montre la façade des étages inférieurs.
@@ -56,3 +56,9 @@ L'utilisateur parle français : répondre en français, textes du jeu en frança
 - Commerces : actions `seller: true` = il faut un employé en service dans le lieu (`sellerAt`). Équipes du matin / du soir (`SHIFTS.alt`) : ouvert ~6h–22h.
 - Impôts : `incomeTax` (prélèvement à la source, barème selon le salaire horaire) sur tous les salaires ; taxe foncière hebdo des propriétaires ; bilan le lundi (`taxBill`) ; `world.treasury`.
 - Débogage : `window.world` dans la console ; `world.step(1)` en boucle pour simuler vite.
+- Tracé organique (carte 36×30, `layout: 2`) : rues en coude / baïonnette (`=`), ruelles et places pavées (`:` = sol `cobble`), place du Marché (fontaine), place des Vosges. Plan conçu avec un petit script « peintre » puis collé en lignes. ⚠ `order` dans quartier.js fixe les ids des bâtiments (ajouter les lettres À LA FIN). Changer `layout` replace les acteurs des vieilles sauvegardes (`nearestWalkable`).
+- Logements : `units` = appartements ; `freeUnits(w, b)` (city.js) pour louer, icône 🔑 s'il en reste.
+- Chemins : Dijkstra, la rue coûte 4 (on marche sur les trottoirs, on traverse au plus court). PNJ flânent via `randomFootpath`.
+- Rendu des rues dans les 4 sens : bordures, passages piétons avant les carrefours, pointillés, lampadaires des deux côtés, lanternes sur les places. `Traffic` suit le graphe des rues (file de droite, virages, freinage, entrées/sorties par les bords) ; `Crowd` = passants de décor (non cliquables) ; densité selon `cityPulse(heure)`.
+- Ville vivante : `src/sim/city.js` (`world.city`). Ventes comptées via l'événement `done` (`cost`, `where`) ; prix `priceMul` ajustés le lundi selon la clientèle (cafés, boulangeries, supérettes) ; faillite si < 1,5 client/jour sur 7 jours (après 10 jours avec équipe) → `bizClosed`, local repris 3–5 j plus tard sous un nouveau nom (`bizOpened`). Arrivées (métro, quand il y a travail + logement), départs après 4 jours difficiles (`removeActor`, ids dans `city.gone`). Nouveaux arrivants : ids `n1, n2…`, recréés depuis la sauvegarde. Journal du quartier = événement `journal` le matin.
+- Les PNJ choisissent leur commerce (`shop()` dans ai.js : distance, prix, adresse préférée `a.fav`) et passent `params.at` ; le panneau d'un lieu passe aussi `at` (on achète ici, pas au plus proche).

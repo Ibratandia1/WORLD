@@ -2,6 +2,7 @@ import { shiftNow, shiftOf, todayLog, isWorkday, fmtShift, openings, makeJob, ne
 import { weeklyRent, occupants } from './housing.js';
 import { addRel, near, rel, reply, tip as jobTip, canPause } from './social.js';
 import { itemById, hasPhone } from './catalog.js';
+import { isClosed, freeUnits } from './city.js';
 
 // RÈGLE D'OR : toutes les actions du jeu sont ici, et le joueur comme les PNJ
 // passent par world.perform(acteur, id, params). Un futur joueur en ligne
@@ -40,6 +41,7 @@ export const ACTIONS = {
       const b = w.building(p.building);
       if (!b) return 'Lieu inconnu';
       if (b.type === 'home' && b.id !== a.home) return 'Ce n’est pas chez toi';
+      if (isClosed(w, b.id)) return 'Fermé (le local cherche un repreneur)';
       if (a.inside === b.id) return 'Tu es déjà ici';
       return true;
     },
@@ -110,6 +112,7 @@ export const ACTIONS = {
     can: (a, w, p) => {
       const b = w.building(p.building);
       if (!b || !b.jobs) return 'On ne recrute pas ici';
+      if (isClosed(w, b.id)) return 'Local fermé';
       if (a.job && a.job.building === b.id) return 'Tu y travailles déjà';
       if (openings(w, b) === 0) return 'Aucun poste libre';
       if (a.lastApply[b.id] === w.day) return 'Déjà postulé aujourd’hui';
@@ -256,7 +259,7 @@ export const ACTIONS = {
       const b = homeCheck(w, p);
       if (!b) return 'Pas un logement';
       if (a.home === b.id) return 'Tu habites déjà ici';
-      if (occupants(w, b).length) return 'Déjà occupé';
+      if (freeUnits(w, b) <= 0) return 'Complet : aucun appartement libre';
       if (a.rentDue > 0) return 'Paie d’abord ton loyer actuel';
       return true;
     },
