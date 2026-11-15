@@ -229,6 +229,7 @@ export function drawStreetDecor(scene, map, lights, darks) {
   const ground = (x, y) => (tiles[y] && tiles[y][x] ? tiles[y][x].ground : null);
   const r = rng(98765);
   const add = (x, y, extra = 2) => twin(scene, depthAt(x, y) + extra, darks);
+  const spots = { benches: [], fountains: [] }; // objets de la rue avec lesquels on peut interagir
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
@@ -238,6 +239,7 @@ export function drawStreetDecor(scene, map, lights, darks) {
       if (t.deco === 'tree') drawTree(add(x, y, 0), s.x, s.y, r() < 0.25);
 
       if (t.deco === 'fountain') {
+        spots.fountains.push({ x, y });
         const g = add(x, y, 0);
         g.fillStyle(0x000000, 0.15); g.fillEllipse(s.x, s.y + 3, 50, 20);
         g.fillStyle(0xcfc6b4); g.fillEllipse(s.x, s.y, 48, 22);
@@ -289,6 +291,7 @@ export function drawStreetDecor(scene, map, lights, darks) {
     if (t.walk && t.ground === 'grass' && !t.deco && (x + y * 3) % 7 === 0) benchTiles.push({ x, y });
   }
   for (const { x, y } of benchTiles.slice(0, 8)) {
+    spots.benches.push({ x, y });
     const b = toScreen(x, y);
     const g = add(x, y);
     isoBox(g, b.x, b.y, 0.5, 0.16, 2, { top: 0xb98458, left: 0x8a5a3c, right: 0x734a32 }, 5);
@@ -311,6 +314,7 @@ export function drawStreetDecor(scene, map, lights, darks) {
       g.fillStyle(shade(col, 0.85)); g.fillRect(b.x + dx - 13, b.y - 19, 26, 2);
     }
   }
+  return spots;
 }
 
 export function drawTree(g, x, y, blossom = false) {

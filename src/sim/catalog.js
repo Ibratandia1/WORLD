@@ -22,6 +22,9 @@ export const CATALOG = [
 
   // Supérette
   { id: 'smartphone', shop: 'shop', cat: 'Objets', name: 'Smartphone', icon: '📱', price: 300, item: 'phone' },
+  // Cadeaux à offrir (consommables : on peut en acheter plusieurs) — gift = gain de relation
+  { id: 'chocolats', shop: 'shop', cat: 'Cadeaux', name: 'Boîte de chocolats', icon: '🍫', price: 8, consumable: true, gift: 10 },
+  { id: 'fleurs', shop: 'shop', cat: 'Cadeaux', name: 'Bouquet de fleurs', icon: '💐', price: 15, consumable: true, gift: 15 },
 ];
 
 export const itemById = id => CATALOG.find(i => i.id === id);

@@ -134,6 +134,19 @@ export class World extends Emitter {
     a.energy -= (sleeping ? 0 : 0.035) * dt;
     a.hunger += (sleeping ? 0.02 : 0.055) * dt;
     if (a.hunger >= 100) a.energy -= 0.05 * dt;
+
+    // Moral : s'use doucement, plus vite au travail, avec des dettes, la faim ou l'épuisement
+    let moodDrift = -0.008;
+    if (a.doing === 'work' || a.doing === 'overtime') moodDrift -= 0.012;
+    if (a.money < 0) moodDrift -= 0.02;
+    if (a.rentLate > 0) moodDrift -= 0.01;
+    if (a.hunger > 80 || a.energy < 15) moodDrift -= 0.015;
+    if (a.home == null) moodDrift -= 0.02;
+    if (a.doing === 'talk' || a.doing === 'listen') moodDrift += 0.12; // parler avec quelqu'un fait du bien
+    if (sleeping) moodDrift = 0.004;
+    a.mood = clamp((a.mood ?? 70) + moodDrift * dt, 0, 100);
+    // Le moral au plus bas fatigue
+    if (a.mood < 20) a.energy -= 0.01 * dt;
     if (this.weather === 'rain' && a.outdoors && a.path.length && !a.items.umbrella) a.energy -= 0.04 * dt;
 
     // Métiers de rue (facteur, police) : on travaille en tournée dans le quartier
@@ -297,7 +310,7 @@ export class World extends Emitter {
     const def = ACTIONS[id];
     const where = !instant && a.current ? a.current.buildingId : null;
     const cost = instant ? instantCost : (a.current && a.current.cost) || 0;
-    const before = { money: a.money + cost, energy: a.energy, hunger: a.hunger };
+    const before = { money: a.money + cost, energy: a.energy, hunger: a.hunger, mood: a.mood };
     let msg = def.effect ? def.effect(a, this, params || {}) : null;
     // Qui t'a servi ?
     const shopId = instant ? a.inside : where;
@@ -308,7 +321,8 @@ export class World extends Emitter {
     a.energy = clamp(a.energy, 0, 100);
     a.hunger = clamp(a.hunger, 0, 100);
     if (!instant) this.stay(a, where); // on reste dans le lieu après l'action
-    const delta = { money: a.money - before.money, energy: a.energy - before.energy, hunger: a.hunger - before.hunger };
+    a.mood = clamp(a.mood, 0, 100);
+    const delta = { money: a.money - before.money, energy: a.energy - before.energy, hunger: a.hunger - before.hunger, mood: a.mood - before.mood };
     this.emit('done', { actor: a, id, def, delta, msg });
   }
 

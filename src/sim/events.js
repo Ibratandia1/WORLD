@@ -99,6 +99,16 @@ export const EVENTS = [
     choices: a => [sleepChoice(a), { icon: '☕', label: 'Un café serré', action: 'coffee' }, { icon: '💪', label: 'Tenir bon' }],
   },
   {
+    id: 'blues', icon: '😔', title: 'Coup de blues', cooldown: 720,
+    text: 'Tu n’as pas trop le moral. Un peu de détente ou un ami te ferait du bien.',
+    when: a => a.mood < 25 && !a.doing && !a.routine,
+    choices: a => [
+      ...(a.home != null ? [{ icon: '📺', label: 'Rentrer regarder la télé', action: 'watch_tv' }] : []),
+      ...(a.outdoors ? [{ icon: '🪑', label: 'Souffler un moment', action: 'sit_bench' }] : []),
+      { icon: '💪', label: 'Ça va passer' },
+    ],
+  },
+  {
     id: 'dette', icon: '📉', title: 'Compte à découvert', cooldown: 1440,
     text: 'Ta banque t’envoie un message inquiet. Il va falloir travailler et dépenser moins.',
     when: a => a.money < 0,

@@ -47,6 +47,9 @@ L'utilisateur parle français : répondre en français, textes du jeu en frança
 - Pas de noms ni de bulles au-dessus des têtes (demande utilisateur) ; le joueur a une flèche + un anneau jaune au sol.
 - Personnages : dessin 16×28 + contour sombre → textures 18×30 ; 3 images (debout, `_1`, `_2` = marche). `drawCharacter(look, rect, frame)`.
 - Les PNJ ne doivent pas importuner le joueur : ils ne lancent jamais de discussion avec lui ; l'événement « salut » est rare (amis seulement, 1 fois / 3 jours / personne) ; délai mini entre événements 120 min.
+- Moral (`actor.mood`, jauge 😊) : s'use avec le travail, les dettes, la faim, l'absence de logement ; remonte avec discussions, loisirs (télé, livre, banc), repas, cadeaux. Influence l'embauche et l'énergie ; événement « Coup de blues » ; la routine et les PNJ se détendent quand il est bas.
+- Interactions : PNJ (saluer, plaisanter, cadeau, café, balade — débloqués par la relation), objets d'intérieur à plusieurs usages (`actions: [...]` dans layouts.js → menu), objets de rue (bancs, fontaine, pigeons via `scene.spots` / `birds.pigeons`) avec « Y aller » si trop loin. Cadeaux = articles `consumable` de la supérette (`actor.gifts`).
+- Git : dépôt initialisé (branche main). Le dossier « game world » (autre dépôt vide de l'utilisateur) est ignoré.
 - Conversation : thèmes (`TOPICS` dans chat.js) → réponse du PNJ + choix de réponses (`choices` : react/rel/topic). Avec l'IA, le serveur renvoie aussi `suggestions` (réponses proposées au joueur).
 - Nuit : obscurité dans Phaser, pas en DOM. `twin()` (render.js) double chaque dessin d'un calque couleur nuit juste au-dessus ; les lumières sont dessinées encore au-dessus. Rectangle d'obscurité du sol à la profondeur 0,55 ; sprites teintés via `scene.nightTint`.
 - Commerces : actions `seller: true` = il faut un employé en service dans le lieu (`sellerAt`). Équipes du matin / du soir (`SHIFTS.alt`) : ouvert ~6h–22h.

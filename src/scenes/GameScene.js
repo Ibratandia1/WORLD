@@ -38,7 +38,7 @@ export class GameScene extends Phaser.Scene {
     // Obscurité du sol et du ciel (sous les flaques de lumière des lampadaires)
     this.darks.push(this.add.rectangle(0, 0, 40000, 40000, NIGHT).setDepth(0.55).setAlpha(0));
     this.drawBuildings();
-    drawStreetDecor(this, this.map, this.lights, this.darks);
+    this.spots = drawStreetDecor(this, this.map, this.lights, this.darks);
     this.traffic = new Traffic(this, this.map);
     makeBirdTextures(this);
     this.birds = new Birds(this, this.map);
@@ -350,6 +350,15 @@ export class GameScene extends Phaser.Scene {
       if (a.isPlayer || !a.outdoors) continue;
       if (Math.abs(wp.x - v.spr.x) < 13 && wp.y > v.spr.y - 46 && wp.y < v.spr.y + 4) return state.ui.showPerson(a);
     }
+    // Objets de la rue : pigeons, fontaine, bancs
+    const nearScreen = (x, y, r) => { const s = toScreen(x, y); return Math.hypot(wp.x - s.x, wp.y - (s.y - 6)) < r; };
+    const pigeon = this.birds.pigeons.find(pg => pg.flying <= 0 && nearScreen(pg.x, pg.y, 14));
+    if (pigeon) return state.ui.showObject({ name: 'Pigeons', icon: '🐦', actions: ['feed_pigeons'], at: { x: pigeon.x, y: pigeon.y } });
+    const f = this.spots.fountains.find(s => nearScreen(s.x, s.y, 26));
+    if (f) return state.ui.showObject({ name: 'Fontaine', icon: '⛲', actions: ['wish_fountain'], at: f });
+    const bench = this.spots.benches.find(s => nearScreen(s.x, s.y, 16));
+    if (bench) return state.ui.showObject({ name: 'Banc', icon: '🪑', actions: ['sit_bench', 'feed_pigeons'], at: bench });
+
     for (const { b, c } of this.bubbles) {
       if (!c.visible) continue;
       if (Math.abs(wp.x - c.x) < 18 && wp.y > c.y - 30 && wp.y < c.y + 4) return state.ui.showPlace(b);
@@ -383,6 +392,7 @@ export class GameScene extends Phaser.Scene {
     if (Math.abs(d.money) >= 0.5) parts.push(`${d.money > 0 ? '+' : ''}${Math.round(d.money * 10) / 10} €`);
     if (Math.abs(d.energy) >= 1) parts.push(`⚡${d.energy > 0 ? '+' : ''}${Math.round(d.energy)}`);
     if (Math.abs(d.hunger) >= 1) parts.push(`🍔${d.hunger < 0 ? '+' : ''}${Math.round(-d.hunger)}`);
+    if (d.mood && Math.abs(d.mood) >= 1) parts.push(`😊${d.mood > 0 ? '+' : ''}${Math.round(d.mood)}`);
     if (e.msg) parts.push(e.msg);
     if (parts.length) this.floatText(parts.join('  '), d.money < 0 ? '#3d3357' : '#2e8b57');
   }

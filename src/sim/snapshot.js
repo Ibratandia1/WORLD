@@ -5,7 +5,7 @@ export const SNAPSHOT_VERSION = 2;
 const ACTOR_FIELDS = [
   'money', 'energy', 'hunger', 'food', 'karma', 'items', 'job', 'px', 'py', 'facing', 'thinkIn',
   'home', 'housing', 'rentDue', 'rentLate', 'firedDay', 'lastApply', 'relations', 'routine',
-  'owned', 'vehicle', 'referrals', 'taxWeek', // ajoutés sans changer de version : les anciennes sauvegardes restent valides
+  'owned', 'vehicle', 'referrals', 'taxWeek', 'mood', 'gifts', // ajoutés sans changer de version : les anciennes sauvegardes restent valides
 ];
 
 export function takeSnapshot(world, directors = []) {

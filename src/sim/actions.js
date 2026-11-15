@@ -127,6 +127,7 @@ export const ACTIONS = {
       if (manager) chance += (rel(a, manager) - 10) / 200;               // le responsable te connaît ?
       if (a.firedDay != null && w.day - a.firedDay < 7) chance -= 0.3;   // renvoi récent
       if (a.energy < 30) chance -= 0.15;
+      chance += ((a.mood ?? 70) - 50) / 250;                             // le moral se voit en entretien
       if (a.hunger > 80) chance -= 0.1;
       const who = manager ? `Entretien avec ${manager.name} : ` : '';
       if (Math.random() > Math.max(0.05, Math.min(0.95, chance))) return `${who}refusé… Réessaie un autre jour.`;
@@ -140,15 +141,15 @@ export const ACTIONS = {
   // ---------- Manger, dormir ----------
   coffee: {
     icon: '☕', label: 'Un café', place: { type: 'cafe' }, duration: 10, cost: 2.5, seller: true,
-    effect: a => { a.energy += 15; },
+    effect: a => { a.energy += 15; a.mood += 2; },
   },
 
   eat_cafe: {
     icon: '🍽️', label: 'Déjeuner', place: { type: 'cafe' }, duration: 40, cost: 12, seller: true,
     effect: (a, w, p) => {
-      a.hunger -= 45; a.energy += 5;
+      a.hunger -= 45; a.energy += 5; a.mood += 5;
       const t = p && p.with && w.actorById(p.with);
-      if (t) { addRel(a, t, 8); return `Bon moment avec ${t.name}`; }
+      if (t) { addRel(a, t, 8); a.mood += 6; t.mood += 6; return `Bon moment avec ${t.name} · ❤ +8`; }
       return null;
     },
   },
@@ -193,7 +194,40 @@ export const ACTIONS = {
 
   nap: {
     icon: '🛋️', label: 'Sieste', place: { own: 'home' }, duration: 60, skip: 12,
-    effect: a => { a.energy += 20; },
+    effect: a => { a.energy += 20; a.mood += 3; },
+  },
+
+  // ---------- Loisirs ----------
+  watch_tv: {
+    icon: '📺', label: 'Regarder la télé', place: { own: 'home' }, duration: 60, skip: 8,
+    effect: a => { a.mood += 12; a.energy += 4; return 'Un bon film, ça détend.'; },
+  },
+
+  read_book: {
+    icon: '📖', label: 'Lire un livre', place: { own: 'home' }, duration: 45, skip: 8,
+    effect: a => { a.mood += 9; a.karma += 0.5; return 'Quel bon roman !'; },
+  },
+
+  sit_bench: {
+    icon: '🪑', label: 'S’asseoir sur le banc', here: true, duration: 20, skip: 4,
+    can: a => (a.outdoors ? true : 'Seulement dehors'),
+    effect: a => { a.energy += 5; a.mood += 6; return 'Un moment de calme au soleil.'; },
+  },
+
+  feed_pigeons: {
+    icon: '🐦', label: 'Nourrir les pigeons', instant: true, cost: 1,
+    can: a => (a.outdoors ? true : 'Seulement dehors'),
+    effect: a => { a.mood += 4; a.karma += 0.5; return 'Les pigeons se régalent !'; },
+  },
+
+  wish_fountain: {
+    icon: '🪙', label: 'Faire un vœu (1 €)', instant: true, cost: 1,
+    can: a => (a.outdoors ? true : 'Seulement dehors'),
+    effect: a => {
+      a.mood += 3;
+      if (Math.random() < 0.05) { a.money += 20; return '✨ Ton vœu est exaucé : +20 € trouvés par terre !'; }
+      return 'Plouf ! On verra si le vœu se réalise…';
+    },
   },
 
   sleep_rough: {
@@ -256,6 +290,7 @@ export const ACTIONS = {
       const t = target(w, p);
       if (!t) return null;
       addRel(a, t, t.doing === 'work' ? 3 : 6);
+      a.mood += 4; t.mood += 3;
       return reply(w, t, a);
     },
   },
@@ -304,7 +339,50 @@ export const ACTIONS = {
 
   wave: {
     icon: '👋', label: 'Saluer', instant: true, can: nearCheck,
-    effect: (a, w, p) => { addRel(a, target(w, p), 2); },
+    effect: (a, w, p) => { const t = target(w, p); addRel(a, t, 2); return `${t.name} te rend ton salut · ❤ +2`; },
+  },
+
+  joke: {
+    icon: '😂', label: 'Plaisanter', here: true, duration: 5, skip: 2,
+    can: (a, w, p) => { const c = nearCheck(a, w, p); return c !== true ? c : rel(a, target(w, p)) >= 10 ? true : 'Faites d’abord connaissance'; },
+    effect: (a, w, p) => {
+      const t = target(w, p);
+      // ça marche mieux si l'autre a bon moral
+      if (Math.random() < 0.45 + t.mood / 200) { addRel(a, t, 5); a.mood += 4; t.mood += 4; return `😂 ${t.name} éclate de rire · ❤ +5`; }
+      addRel(a, t, -2); return `😐 ${t.name} ne trouve pas ça drôle… · ❤ -2`;
+    },
+  },
+
+  gift: {
+    icon: '🎁', label: 'Offrir un cadeau', instant: true,
+    can: (a, w, p) => {
+      const c = nearCheck(a, w, p);
+      if (c !== true) return c;
+      return Object.values(a.gifts).some(n => n > 0) ? true : 'Achète d’abord un cadeau (supérette)';
+    },
+    effect: (a, w, p) => {
+      const t = target(w, p);
+      const id = ['fleurs', 'chocolats'].find(g => a.gifts[g] > 0);
+      const it = itemById(id);
+      a.gifts[id]--;
+      const gain = it.gift;
+      addRel(a, t, gain); t.mood += 10; a.mood += 5;
+      return `${it.icon} ${t.name} est ravi·e de ton cadeau ! · ❤ +${gain}`;
+    },
+  },
+
+  stroll: {
+    icon: '🌳', label: 'Se promener ensemble', here: true, duration: 30, skip: 4,
+    can: (a, w, p) => {
+      const t = target(w, p);
+      if (!t) return 'Personne';
+      if (!a.outdoors || !t.outdoors || !near(a, t)) return 'À faire dehors, ensemble';
+      if (rel(a, t) < 20) return 'Vous n’êtes pas assez proches';
+      if (!canPause(t, w)) return `${t.name} n’est pas disponible`;
+      return true;
+    },
+    onStart: (a, w, p) => { const t = target(w, p); w.perform(t, 'listen', { who: a.id, minutes: 30 }); },
+    effect: (a, w, p) => { const t = target(w, p); addRel(a, t, 8); a.mood += 10; t.mood += 8; return `🌳 Belle balade avec ${t.name} · ❤ +8`; },
   },
 
   // ---------- Petites actions de rue ----------
@@ -337,13 +415,14 @@ export const ACTIONS = {
     can: (a, w, p) => {
       const it = itemById(p.item);
       if (!it) return 'Article inconnu';
-      if (a.owned.includes(it.id)) return 'Déjà acheté';
+      if (!it.consumable && a.owned.includes(it.id)) return 'Déjà acheté';
       if (a.inside == null || w.building(a.inside).type !== it.shop) return 'À acheter en boutique';
       if (!sellerAt(w, w.building(a.inside), a)) return 'Personne à la caisse (fermé)';
       return true;
     },
     effect: (a, w, p) => {
       const it = itemById(p.item);
+      if (it.consumable) { a.gifts[it.id] = (a.gifts[it.id] || 0) + 1; return `${it.icon} ${it.name} dans ton sac (${a.gifts[it.id]})`; }
       a.owned.push(it.id);
       if (it.look) { a.look = { ...a.look, ...it.look }; a.texKey = `char_${a.id}_${Date.now()}`; w.emit('lookChanged', { actor: a }); }
       if (it.vehicle) a.vehicle = it.id;

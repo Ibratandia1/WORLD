@@ -21,7 +21,7 @@ const dur = m => {
   return `${Math.floor(m / 60)} h${r ? String(r).padStart(2, '0') : ''}`;
 };
 const hearts = r => '❤'.repeat(Math.round(r / 20)) + '♡'.repeat(5 - Math.round(r / 20));
-const SOCIAL = ['talk', 'treat', 'ask_tip', 'wave'];
+const SOCIAL = ['talk', 'treat', 'ask_tip', 'wave', 'joke', 'gift', 'stroll'];
 
 // Interface en HTML par-dessus le canvas : barre d'icônes + fenêtre en bas à droite.
 // La fenêtre montre, par priorité : un lieu touché, « Ma vie », une personne touchée, un événement, ton activité.
@@ -44,7 +44,7 @@ export class UI {
     for (const ev of ['plan', 'start', 'cancel', 'arrive']) world.on(ev, e => { if (mine(e)) this.refresh(); });
     world.on('done', e => {
       if (!mine(e)) return;
-      if (this.person && SOCIAL.includes(e.id) && e.msg) this.reply = e.msg;
+      if (this.person && SOCIAL.includes(e.id) && e.msg) chatLog(this.person).push({ from: 'note', text: e.msg });
       this.refresh(true);
     });
 
@@ -99,6 +99,7 @@ export class UI {
     $('p-money').classList.toggle('neg', p.money < 0);
     this.bar('v-energy', p.energy);
     this.bar('v-hunger', 100 - p.hunger);
+    this.bar('v-mood', p.mood);
     $('v-food').textContent = p.food;
 
     // Travail : heure de début (ou ● pendant le service) et avertissements
@@ -121,7 +122,9 @@ export class UI {
     // dehors, l'obscurité est gérée dans le jeu (pour que les lumières restent vives)
     $('night').style.opacity = (night * (p.inside != null ? 0.12 : 0)).toFixed(2);
 
-    if (this.person) {
+    if (this.object) {
+      if (this.objectNear(this.object) !== this.objectKey) this.render(); // on vient d'arriver près de l'objet
+    } else if (this.person) {
       engage(this.person); // tant que la fenêtre est ouverte, la personne reste avec toi
       const k = this.personSig(this.person);
       if (k !== this.personKey) this.render();
@@ -143,7 +146,7 @@ export class UI {
     el.className = v < 25 ? 'low' : v < 50 ? 'mid' : '';
   }
 
-  closePanels() { this.place = null; this.person = null; this.life = false; }
+  closePanels() { this.place = null; this.person = null; this.life = false; this.object = null; }
   refresh(force = false) {
     if (force || (!this.place && !this.life && !this.person && !this.director.active)) this.render();
   }
@@ -151,6 +154,35 @@ export class UI {
   showPlace(b) { this.closePanels(); this.place = b; this.render(true); }
   showPerson(a) { this.closePanels(); this.person = a; this.reply = null; this.chatOffers = []; this.chatChoices = []; engage(a); this.render(true); }
   showLife() { this.closePanels(); this.life = true; this.render(true); }
+  showObject(o) { this.closePanels(); this.object = o; this.render(true); }
+
+  // Distance du joueur à un objet de la rue (en cases)
+  objectNear(o) {
+    if (!o.at) return true;
+    const p = this.player;
+    return p.outdoors && Math.hypot(p.px - o.at.x, p.py - o.at.y) <= 1.6;
+  }
+
+  // Objet touché : les choses qu'on peut faire avec
+  objectHTML(o) {
+    const isNear = this.objectNear(o);
+    const buttons = o.actions.map(id => {
+      if (!isNear) return this.choiceHTML('', ACTIONS[id].icon, ACTIONS[id].label, '', 'Approche-toi d’abord');
+      if (o.building && ACTIONS[id].place && !this.world.canDoAt(this.player, id, o.building)) return this.choiceHTML('', ACTIONS[id].icon, ACTIONS[id].label, '', 'Pas possible ici');
+      return this.actBtn(id);
+    });
+    if (!isNear) buttons.unshift(this.choiceHTML('data-goobj', '🚶', 'Y aller', '', true));
+    return `${this.head(o.icon, o.name)}<div class="choices">${buttons.join('')}</div>`;
+  }
+
+  goToObject(o) {
+    const w = this.world, p = this.player;
+    const tiles = [o.at, ...[[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]].map(([dx, dy]) => ({ x: o.at.x + dx, y: o.at.y + dy }))]
+      .map(t => ({ x: Math.round(t.x), y: Math.round(t.y) })).filter(t => w.map.walk(t.x, t.y));
+    tiles.sort((a, b) => Math.hypot(a.x - p.px, a.y - p.py) - Math.hypot(b.x - p.px, b.y - p.py));
+    if (tiles.length) w.perform(p, 'goto', tiles[0]);
+    this.render();
+  }
 
   // ---------- Contenu de la fenêtre ----------
   render(pop = false) {
@@ -167,6 +199,7 @@ export class UI {
       if (n) { n.value = typed; if (focused) n.focus(); }
       const lg = box.querySelector('.log'); if (lg) lg.scrollTop = lg.scrollHeight;
     }
+    else if (this.object) { this.objectKey = this.objectNear(this.object); box.innerHTML = this.objectHTML(this.object); }
     else if (this.director.active) box.innerHTML = this.eventHTML(this.director.active);
     else {
       const info = this.statusInfo();
@@ -342,9 +375,15 @@ export class UI {
     const job = t.job ? `${role}${esc(jobTitle(w, t.job))}${t.job.street ? '' : ` · ${esc(w.building(t.job.building).name)}`}` : (t.role ? ROLE_TITLES[t.role] : 'Sans emploi');
     const now = t.doing ? `<br>${ACTIONS[t.doing].icon} ${esc(ACTIONS[t.doing].label)}` : '';
     const reach = canReach(p, t);
+    // Interactions : elles se débloquent avec la relation (le bouton grisé dit pourquoi)
     const extra = [];
     if (!near(p, t)) extra.push(this.choiceHTML('data-join', '🚶', 'Rejoindre', '', true));
+    extra.push(this.actBtn('wave', { who: t.id }));
+    extra.push(this.actBtn('joke', { who: t.id }));
+    const nGifts = Object.values(p.gifts || {}).reduce((s, n) => s + n, 0);
+    extra.push(this.actBtn('gift', { who: t.id }, nGifts ? `Offrir un cadeau (${nGifts})` : null));
     if (p.inside != null && w.building(p.inside).type === 'cafe') extra.push(this.actBtn('treat', { who: t.id }));
+    if (p.outdoors) extra.push(this.actBtn('stroll', { who: t.id }));
 
     // Fil de la conversation
     const log = chatLog(t).slice(-8).map(m => m.from === 'player'
@@ -363,7 +402,7 @@ export class UI {
       <form class="say-form" data-chat><input id="chat-in" maxlength="300" autocomplete="off" placeholder="${reach ? 'Ou écris librement…' : 'Trop loin pour parler'}" ${reach && !this.chatWaiting ? '' : 'disabled'}><button type="submit" ${reach ? '' : 'disabled'}>➤</button></form>${mode}</div>`;
 
     return `${this.head('🧑', t.name)}<p>${licon} ${lname} · <span class="hearts">${hearts(r)}</span><br>${job}${now}</p>
-      ${chat}${extra.length ? `<div class="choices">${extra.join('')}</div>` : ''}`;
+      <div class="sec"><b>✨ Interagir</b><div class="choices">${extra.join('')}</div></div>${chat}`;
   }
 
   // Envoi commun (texte libre, thème ou réponse proposée)
@@ -432,6 +471,7 @@ export class UI {
     if (btn.hasAttribute('data-routine')) { $('b-routine').click(); return; }
     if (btn.hasAttribute('data-look')) { openCustomizer(); return; }
     if (btn.hasAttribute('data-join')) { this.join(this.person); return; }
+    if (btn.hasAttribute('data-goobj')) { this.goToObject(this.object); return; }
     if (btn.dataset.topic) { this.converse(t => sendTopic(t, btn.dataset.topic)); return; }
     if (btn.dataset.pick != null) {
       const c = (this.chatChoices || [])[Number(btn.dataset.pick)];
@@ -450,7 +490,7 @@ export class UI {
       const params = btn.dataset.p ? JSON.parse(btn.dataset.p) : {};
       const r = w.perform(p, id, params);
       // On garde les panneaux « personne » et « Ma vie » ouverts ; un lieu se referme quand on agit
-      if (r.ok && this.place) this.place = null;
+      if (r.ok && (this.place || this.object)) { this.place = null; this.object = null; }
       this.render();
     }
   }

@@ -49,6 +49,12 @@ export function decide(a, w, opts = {}) {
     if (b) return { id: 'apply', params: { building: b.id } };
   }
 
+  // Moral bas : on se détend (télé à la maison, livre, banc) — PNJ comme routine du joueur
+  if (a.mood < (player ? 45 : 35)) {
+    if (a.home != null && Math.random() < (player ? 0.7 : 0.4)) return { id: Math.random() < 0.6 ? 'watch_tv' : 'read_book' };
+    if (a.outdoors && Math.random() < 0.4) return { id: 'sit_bench' };
+  }
+
   if (player) return null; // la routine du joueur ne flâne pas toute seule
 
   // 6. Vie sociale et flânerie des PNJ

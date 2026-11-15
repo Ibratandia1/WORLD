@@ -509,7 +509,11 @@ export class InteriorScene extends Phaser.Scene {
       const t = toTile(wp.x, wp.y + off);
       const it = this.itemAt.get(`${t.x},${t.y}`);
       const st = this.stations.find(s => s.floor === this.floorIdx && s.x === t.x && s.y === t.y);
-      const action = (it && it.action) || (st && st.a.find(a => a !== 'any'));
+      // Meuble à plusieurs usages : petit menu dans la fenêtre
+      if (it && it.actions && it.actions.length > 1) {
+        return state.ui.showObject({ name: it.name || 'Objet', icon: '✨', actions: it.actions, building: this.building });
+      }
+      const action = (it && (it.action || (it.actions && it.actions[0]))) || (st && st.a.find(a => a !== 'any'));
       if (action) return this.tryAction(action);
       if (it && it.k === 'stairs_up') return this.setFloor((this.floorIdx + 1) % this.floors.length);
     }
@@ -531,6 +535,7 @@ export class InteriorScene extends Phaser.Scene {
     if (Math.abs(d.money) >= 0.5) parts.push(`${d.money > 0 ? '+' : ''}${Math.round(d.money * 10) / 10} €`);
     if (Math.abs(d.energy) >= 1) parts.push(`⚡${d.energy > 0 ? '+' : ''}${Math.round(d.energy)}`);
     if (Math.abs(d.hunger) >= 1) parts.push(`🍔${d.hunger < 0 ? '+' : ''}${Math.round(-d.hunger)}`);
+    if (d.mood && Math.abs(d.mood) >= 1) parts.push(`😊${d.mood > 0 ? '+' : ''}${Math.round(d.mood)}`);
     if (e.msg) parts.push(e.msg);
     if (parts.length) this.floatText(parts.join('  '), d.money < 0 ? '#3d3357' : '#2e8b57');
   }

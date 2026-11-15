@@ -22,6 +22,8 @@ export class Actor {
     this.energy = o.energy ?? 80;   // 0..100
     this.hunger = o.hunger ?? 20;   // 0..100 (100 = affamé)
     this.food = o.food ?? 1;        // repas au frigo
+    this.mood = o.mood ?? 70;       // moral 0..100 (amis et loisirs le font monter, travail / dettes / solitude baisser)
+    this.gifts = {};                // cadeaux en poche (fleurs, chocolats…) : id -> quantité
     this.karma = 0;
     this.items = {};
     this.owned = o.owned || [];      // achats en boutique (ids du catalogue)
