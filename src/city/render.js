@@ -114,6 +114,28 @@ export function drawBuildingTile(g, lg, cx, cy, h, T, info) {
     }
   }
 
+  // Mairie : colonnes de pierre au rez-de-chaussée, fronton, grande porte, horloge et drapeau
+  if (type === 'cityhall') {
+    for (const side of sides) {
+      const base = side === 'L' ? T.left : T.right;
+      q(g, face(side, 0, 26), shade(base, 0.9));
+      for (const u of [0.1, 0.36, 0.62, 0.88]) {
+        q(g, face(side, 2, 24, u - 0.045, u + 0.045), shade(0xfaf5ea, dim(side)));
+        q(g, face(side, 2, 24, u + 0.02, u + 0.045), shade(0xd8ccb2, dim(side)));
+        q(g, face(side, 22, 25, u - 0.06, u + 0.06), shade(0xe8dfcc, dim(side)));
+      }
+      q(g, face(side, 24, 30), shade(0xeee5d2, dim(side)));   // entablement
+      q(g, face(side, 29, 31), shade(0xb9ab8f, dim(side)));
+      if (side === 'L' && info.door) {
+        q(g, face('L', 0, 20, 0.4, 0.6), 0x4a3424);          // grande porte
+        q(g, face('L', 14, 20, 0.4, 0.6), 0xffd98a, 0.5);
+        q(lg, face('L', 1, 19, 0.42, 0.58), 0xffcf6b);
+        q(g, face('L', h - 22, h - 10, 0.43, 0.57), 0xfaf5ea); // horloge
+        q(g, face('L', h - 20, h - 12, 0.46, 0.54), 0x2b2f3a);
+      }
+    }
+  }
+
   // Ombre de contact au pied des façades (le bâtiment « pèse » sur le sol)
   for (const side of sides) q(g, face(side, 0, 4), 0x000000, 0.16);
 
@@ -150,8 +172,52 @@ export function drawBuildingTile(g, lg, cx, cy, h, T, info) {
     isoBox(g, p.x, p.y, 0.4, 0.3, 2, 0x6fbf5a);
     g.fillStyle(0xf28ab2); g.fillCircle(p.x - 3, p.y - 3, 1.5); g.fillCircle(p.x + 4, p.y - 4, 1.5);
   }
+  if (type === 'cityhall' && info.door) {
+    // Drapeau tricolore sur le toit
+    const p = roofAt(0, 0);
+    g.fillStyle(0x34323d); g.fillRect(p.x - 1, p.y - 34, 2, 34);
+    for (const [i, c] of [[0, 0x2b4ea2], [1, 0xffffff], [2, 0xd8504d]].map(([i, c]) => [i, c])) {
+      g.fillStyle(c); g.fillRect(p.x + 1 + i * 5, p.y - 34, 5, 11);
+    }
+    g.fillStyle(0xf2c94c); g.fillCircle(p.x, p.y - 35, 1.6);
+  }
   g.lineStyle(1, 0x000000, 0.1);
   g.lineBetween(cx, cy + HH - h, cx, cy + HH);
+}
+
+// Statue de Marianne sur son socle, avec parterre de fleurs ; un projecteur l'éclaire la nuit
+export function drawStatue(g, lights, scene, x, y) {
+  const s = { x, y };
+  g.fillStyle(0x000000, 0.18); g.fillEllipse(s.x + 3, s.y + 4, 46, 18);
+  // parterre
+  g.fillStyle(0x5aa84a); g.fillEllipse(s.x, s.y + 1, 44, 19);
+  for (let i = 0; i < 14; i++) {
+    const a = (i / 14) * Math.PI * 2;
+    g.fillStyle([0xd8504d, 0xffffff, 0x2b4ea2, 0xf2c94c][i % 4]); g.fillCircle(s.x + Math.cos(a) * 19, s.y + 1 + Math.sin(a) * 7.5, 1.8);
+  }
+  // socle de pierre (2 marches + colonne)
+  isoBox(g, s.x, s.y, 0.5, 0.5, 4, { top: 0xe8dfcc, left: 0xcfc4ad, right: 0xb5a98f });
+  isoBox(g, s.x, s.y, 0.38, 0.38, 4, { top: 0xf0e8d6, left: 0xd8ccb4, right: 0xbfb39a }, 4);
+  isoBox(g, s.x, s.y, 0.24, 0.24, 18, { top: 0xf3ecdc, left: 0xddd2bb, right: 0xc4b89f }, 8);
+  g.fillStyle(0xb8963c); g.fillRect(s.x - 5, s.y - 18, 6, 3); // plaque dorée
+  // Marianne en bronze patiné : robe drapée, bras levé tenant un rameau, bonnet
+  const B = 0x5f8f7f, D = 0x456e61, L = 0x86b5a3;
+  const top = s.y - 26;
+  g.fillStyle(D); g.fillTriangle(s.x - 7, top, s.x + 7, top, s.x, top - 22);       // robe
+  g.fillStyle(B); g.fillTriangle(s.x - 6, top, s.x + 4, top, s.x - 1, top - 21);
+  g.fillStyle(L); g.fillTriangle(s.x - 3, top - 4, s.x, top - 4, s.x - 2, top - 18);
+  g.fillStyle(B); g.fillRect(s.x - 3, top - 27, 5, 7);                            // buste
+  g.fillStyle(B); g.fillCircle(s.x - 0.5, top - 30, 3.2);                          // tête
+  g.fillStyle(D); g.fillTriangle(s.x - 4, top - 31, s.x + 3, top - 31, s.x + 4, top - 36); // bonnet
+  g.lineStyle(2, B, 1); g.lineBetween(s.x + 2, top - 25, s.x + 7, top - 38);       // bras levé
+  g.fillStyle(0x7fae5a); g.fillCircle(s.x + 8, top - 40, 2.5); g.fillCircle(s.x + 6, top - 42, 2); // rameau
+  g.lineStyle(2, D, 1); g.lineBetween(s.x - 3, top - 24, s.x - 7, top - 14);       // bras baissé
+  g.fillStyle(D); g.fillRect(s.x - 10, top - 15, 5, 7);                            // tablette
+  // projecteur la nuit
+  const glow = scene.add.graphics().setBlendMode(Phaser.BlendModes.ADD).setAlpha(0);
+  for (const [r, a] of [[30, 0.08], [20, 0.12], [12, 0.16]]) { glow.fillStyle(0xfff0c0, a); glow.fillEllipse(s.x, top - 18, r * 1.2, r * 2); }
+  lights.push(glow);
+  return glow;
 }
 
 // Ombre portée au sol (soleil en haut à gauche)
@@ -247,7 +313,7 @@ export function drawStreetDecor(scene, map, lights, darks) {
   const ground = (x, y) => (tiles[y] && tiles[y][x] ? tiles[y][x].ground : null);
   const r = rng(98765);
   const add = (x, y, extra = 2) => twin(scene, depthAt(x, y) + extra, darks);
-  const spots = { benches: [], fountains: [] }; // objets de la rue avec lesquels on peut interagir
+  const spots = { benches: [], fountains: [], statues: [] }; // objets de la rue avec lesquels on peut interagir
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
@@ -255,6 +321,12 @@ export function drawStreetDecor(scene, map, lights, darks) {
       const s = toScreen(x, y);
 
       if (t.deco === 'tree') drawTree(add(x, y, 0), s.x, s.y, r() < 0.25);
+
+      if (t.deco === 'statue') {
+        spots.statues.push({ x, y });
+        const glow = drawStatue(add(x, y, 0), lights, scene, s.x, s.y);
+        glow.setDepth(depthAt(x, y) + 0.2);
+      }
 
       if (t.deco === 'fountain') {
         spots.fountains.push({ x, y });
@@ -276,7 +348,8 @@ export function drawStreetDecor(scene, map, lights, darks) {
       const side = ground(x, y + 1) === 'road' ? [0, 1] : ground(x, y - 1) === 'road' ? [0, -1]
         : ground(x + 1, y) === 'road' ? [1, 0] : ground(x - 1, y) === 'road' ? [-1, 0] : null;
       const along = side ? (side[1] ? x : y) : 0;
-      const plazaLamp = !side && t.ground === 'cobble' && (x * 7 + y * 3) % 11 === 0;
+      const nearMonument = [-1, 0, 1].some(dy => [-1, 0, 1].some(dx => { const n = tiles[y + dy] && tiles[y + dy][x + dx]; return n && (n.deco === 'statue' || n.deco === 'fountain'); }));
+      const plazaLamp = !side && !nearMonument && t.ground === 'cobble' && (x * 7 + y * 3) % 11 === 0;
       if ((side && along % 4 === 2) || plazaLamp) {
         const px = x + (side ? side[0] * 0.36 : 0), py = y + (side ? side[1] * 0.36 : 0);
         const b = toScreen(px, py);

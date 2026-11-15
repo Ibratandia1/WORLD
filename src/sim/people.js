@@ -61,6 +61,12 @@ export const PEOPLE = [
     look: { body: 0xe86a8c, hairColor: 0x2b1d16, hairStyle: 'long', skin: 0xb57a52, legs: 0x323246, accessory: 'solaires', outfit: 'robe' } },
   { name: 'Rayan', home: 'D', job: { at: 'V', wage: 14 }, money: 260,
     look: { body: 0x8a8f99, hairColor: 0x111111, hairStyle: 'casquette', skin: 0x8a5634, legs: 0x3a4766, accessory: 'aucun' } },
+
+  // --- La mairie ---
+  { name: 'M. Delorme', home: 'H', job: { at: 'Z', wage: 15 }, money: 1800, role: 'mayor',
+    look: { body: 0x2b3245, hairColor: 0xdddddd, hairStyle: 'court', skin: 0xf0c8a8, legs: 0x1e2742, accessory: 'lunettes', outfit: 'costume' } },
+  { name: 'Agnès', home: 'H', job: { at: 'Z', wage: 15 }, money: 400,
+    look: { body: 0x3cb5c9, hairColor: 0x4a3020, hairStyle: 'chignon', skin: 0xd9a77e, legs: 0x2a2f3d, accessory: 'lunettes', outfit: 'veste' } },
 ];
 
 export function spawnPeople(world, profile = null) {

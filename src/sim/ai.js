@@ -79,6 +79,14 @@ export function decide(a, w, opts = {}) {
   }
   if (a.home != null && a.food < 2 && a.money > 60) { const c = shop(a, w, 'groceries'); if (c) return c; }
 
+  // 4b. Citoyens : voter pendant les élections, demander l'aide sociale quand on est à court
+  const g = w.gov;
+  if (!player && g && g.votingOpen && !g.votes[a.id] && h >= 9 && h < 17 && Math.random() < 0.5) {
+    const f = g.choose(a);
+    if (f && w.check(a, 'vote', { for: f }) === true) return { id: 'vote', params: { for: f } };
+  }
+  if (!player && (!a.job || a.job.street) && a.money < 120 && w.check(a, 'allocation') === true) return { id: 'allocation' };
+
   // 5. Chercher du travail (on postule un peu partout, pas toujours au même endroit)
   if (!a.job && a.role !== 'landlord' && h >= 8 && h < 18) {
     const list = w.map.buildings.filter(b => openings(w, b) > 0 && a.lastApply[b.id] !== w.day);

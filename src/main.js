@@ -4,6 +4,7 @@ import { World } from './sim/world.js';
 import { spawnPeople } from './sim/people.js';
 import { EventDirector } from './sim/events.js';
 import { CityLife } from './sim/city.js';
+import { Government } from './sim/gov.js';
 import { UI } from './ui.js';
 import { GameScene } from './scenes/GameScene.js';
 import { InteriorScene } from './scenes/InteriorScene.js';
@@ -20,6 +21,7 @@ const world = new World(parseMap(QUARTIER));
 const player = spawnPeople(world, profile);
 const director = new EventDirector(world, player);
 new CityLife(world); // la ville vivante : commerces, arrivées, départs (world.city)
+new Government(world); // la mairie : maire, impôts, aides, élections (world.gov)
 // Mode test (?test dans l'adresse) : partie neuve, jamais sauvegardée — la vraie partie n'est pas touchée
 const TEST = new URLSearchParams(location.search).has('test');
 const resumed = TEST ? false : loadGame(world, [director]); // reprend la dernière partie s'il y en a une

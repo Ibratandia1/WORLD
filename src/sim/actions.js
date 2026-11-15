@@ -3,6 +3,7 @@ import { weeklyRent, occupants } from './housing.js';
 import { addRel, near, rel, reply, tip as jobTip, canPause } from './social.js';
 import { itemById, hasPhone } from './catalog.js';
 import { isClosed, freeUnits } from './city.js';
+import { AID_EVERY, CAMPAIGN_FEE, TAX_POLICIES, AID_POLICIES } from './gov.js';
 
 // RÈGLE D'OR : toutes les actions du jeu sont ici, et le joueur comme les PNJ
 // passent par world.perform(acteur, id, params). Un futur joueur en ligne
@@ -461,6 +462,85 @@ export const ACTIONS = {
     icon: '☂️', label: 'Acheter un parapluie', instant: true, cost: 12,
     can: a => (a.items.umbrella ? 'Tu en as déjà un' : true),
     effect: a => { a.items.umbrella = true; },
+  },
+
+  // ---------- L'État : mairie, aides, élections ----------
+  allocation: {
+    icon: '💶', label: 'Demander l’aide sociale', place: { type: 'cityhall' }, duration: 20, seller: true,
+    can: (a, w) => {
+      if (!w.gov) return 'Pas de mairie';
+      if (a.job && !a.job.street) return 'Réservée aux personnes sans emploi';
+      if (a.money >= 300) return 'Tu as assez pour vivre (moins de 300 € requis)';
+      if (a.aidDay != null && w.day - a.aidDay < AID_EVERY) return `Déjà aidé·e cette semaine (encore ${AID_EVERY - (w.day - a.aidDay)} j)`;
+      if ((w.treasury || 0) < w.gov.aidAmount) return 'Les caisses de la ville sont vides';
+      return true;
+    },
+    effect: (a, w) => {
+      const n = w.gov.aidAmount;
+      if ((w.treasury || 0) < n) return 'Les caisses de la ville sont vides…';
+      w.treasury -= n; a.money += n; a.aidDay = w.day; a.mood += 4;
+      w.gov.aidPaid += n;
+      return `Aide sociale accordée : +${n} €`;
+    },
+  },
+
+  vote: {
+    icon: '🗳️', label: 'Voter', place: { type: 'cityhall' }, duration: 10, seller: true, custom: true,
+    can: (a, w, p) => {
+      const g = w.gov;
+      if (!g || !g.votingOpen) return 'Pas d’élection en ce moment';
+      if (g.votes[a.id]) return 'Tu as déjà voté';
+      if (!p || !g.candidates.includes(p.for)) return 'Choisis un candidat';
+      return true;
+    },
+    effect: (a, w, p) => {
+      w.gov.votes[a.id] = p.for; a.mood += 2; a.karma += 0.5;
+      const c = w.actorById(p.for);
+      return `A voté${c ? ` pour ${c.name}` : ''} !`;
+    },
+  },
+
+  run_mayor: {
+    icon: '📣', label: 'Se présenter à la mairie', place: { type: 'cityhall' }, duration: 15, seller: true, cost: CAMPAIGN_FEE, custom: true,
+    can: (a, w) => {
+      const g = w.gov;
+      if (!g || !g.campaignOpen) return 'Les candidatures ouvrent 5 jours avant les élections';
+      if (g.candidates.includes(a.id)) return 'Tu es déjà candidat·e';
+      if (g.votingOpen && Object.keys(g.votes).length) return 'Trop tard : le vote a commencé';
+      if (a.home == null) return 'Il faut une adresse dans le quartier';
+      return true;
+    },
+    effect: (a, w) => {
+      w.gov.candidates.push(a.id);
+      w.gov.post('📣', `${a.name} se présente aux élections municipales.`);
+      return 'Candidature déposée ! Fais-toi des amis : on vote pour ceux qu’on apprécie.';
+    },
+  },
+
+  set_policy: {
+    icon: '📜', label: 'Changer la politique', instant: true, custom: true,
+    can: (a, w, p) => {
+      const g = w.gov;
+      if (!g || g.mayor !== a.id) return 'Seul le maire décide';
+      if (a.inside == null || w.building(a.inside).type !== 'cityhall') return 'Cela se décide à la mairie';
+      if (!p || !((p.tax && TAX_POLICIES[p.tax]) || (p.aid && AID_POLICIES[p.aid]))) return 'Choix inconnu';
+      if ((p.tax && g.tax === p.tax) || (p.aid && g.aid === p.aid)) return 'C’est déjà la politique en place';
+      return true;
+    },
+    effect: (a, w, p) => {
+      const g = w.gov;
+      if (p.tax) g.tax = p.tax;
+      if (p.aid) g.aid = p.aid;
+      const label = p.tax ? TAX_POLICIES[p.tax].label : AID_POLICIES[p.aid].label;
+      g.post('📜', `Décision du maire ${a.name} : ${label.toLowerCase()}.`);
+      return `${label} : c’est voté.`;
+    },
+  },
+
+  admire_statue: {
+    icon: '🗽', label: 'Admirer la statue', here: true, duration: 10, skip: 3,
+    can: a => (a.outdoors ? true : 'Seulement dehors'),
+    effect: a => { a.mood += 5; a.karma += 0.2; return 'Marianne veille sur le quartier.'; },
   },
 };
 

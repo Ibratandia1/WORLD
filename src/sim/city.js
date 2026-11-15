@@ -11,7 +11,7 @@ const WEEK = 7;
 const FAIL_AVG = 1.5;        // clients par jour en dessous desquels le commerce coule (moyenne sur 7 jours)
 const REOPEN_DAYS = [3, 5];  // jours avant qu'un repreneur rouvre le local
 const HARD_DAYS = 4;         // jours difficiles d'affilée avant de quitter le quartier
-const STAY_ROLES = new Set(['police', 'postman', 'landlord']);
+const STAY_ROLES = new Set(['police', 'postman', 'landlord', 'mayor']);
 
 // Noms de remplacement quand un local est repris (inventés)
 const NEW_NAMES = {
@@ -52,7 +52,7 @@ export class CityLife {
     this.gone = [];       // ids des habitants partis (pour les sauvegardes)
     this.born = 0;        // compteur des nouveaux arrivants (ids stables)
     this.arrivalAt = null;
-    for (const b of world.map.buildings) if (b.jobs && b.type !== 'office') this.biz[b.id] = this.blank(1);
+    for (const b of world.map.buildings) if (b.jobs && b.type !== 'office' && b.type !== 'cityhall') this.biz[b.id] = this.blank(1);
 
     world.on('done', e => this.onSale(e));
     world.on('newDay', () => this.newDay());

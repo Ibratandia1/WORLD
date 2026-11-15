@@ -229,6 +229,33 @@ export const LAYOUTS = {
     ],
   },
 
+  // Mairie : guichets (aide sociale), bureau de vote avec l'urne, bureau du maire, salle du conseil
+  cityhall: {
+    w: 13, h: 9, wallH: 96, wall: 0xf6efe0, floor: [0xe8dcc4, 0xddd0b5], entrance: { x: 6, y: 8 },
+    winL: [2, 6], winR: [2, 10],
+    zones: [
+      { x: 0, y: 0, w: 6, h: 2, floor: [0xeae4da, 0xdfd8cc], walls: false, wall: 0x2b4ea2, label: 'Guichets', icon: '💶', sub: 'au guichet' },
+      { x: 9, y: 0, w: 4, h: 4, floor: [0xd9cbe9, 0xcfbfe2], wall: 0x6273d9, label: 'Bureau du maire', icon: '🏛️', sub: '', doors: [[9, 3]] },
+      { x: 0, y: 5, w: 4, h: 4, floor: [0xd7e4f5, 0xcadaf0], wall: 0x2b4ea2, label: 'Bureau de vote', icon: '🗳️', sub: '', doors: [[3, 5]] },
+    ],
+    items: [
+      ...[0, 1, 2, 3, 4, 5].map(x => ({ k: 'counter', x, y: 1, action: 'allocation', name: 'Guichet' })),
+      { k: 'register', x: 1, y: 1, on: true }, { k: 'register', x: 4, y: 1, on: true },
+      { k: 'frame', wall: 'R', at: 2, c: 0x2b4ea2 }, { k: 'clock', wall: 'R', at: 4.5 },
+      { k: 'flagstand', x: 6, y: 0 }, { k: 'bust', x: 7, y: 2 },
+      { k: 'bossdesk', x: 11, y: 2 }, { k: 'armchair', x: 11, y: 1 },
+      { k: 'bookshelf', x: 12, y: 0 }, { k: 'flagstand', x: 10, y: 0 }, { k: 'frame', wall: 'R', at: 11, c: 0xd8504d },
+      { k: 'urne', x: 1, y: 7, name: 'Urne' }, { k: 'tablec', x: 2, y: 6 },
+      { k: 'bench', x: 7, y: 5 }, { k: 'bench', x: 9, y: 6 }, { k: 'rug', x: 7, y: 7, flat: true, c: 0xd8504d, w: 1.2, d: 2.6 },
+      { k: 'bigplant', x: 12, y: 8 }, { k: 'bigplant', x: 4, y: 8 }, { k: 'plant', x: 8, y: 0 },
+    ],
+    stations: [
+      S(11, 1, ['work'], { pose: 'sit' }), S(1, 0, ['work']), S(4, 0, ['work']), S(3, 0, ['work'], { prio: -1 }),
+      S(1, 2, ['allocation', 'any']), S(4, 2, ['allocation', 'any']), S(2, 7, ['vote', 'run_mayor', 'any']), S(1, 6, ['vote', 'any']),
+      S(7, 5, ['any'], { seat: true }), S(9, 6, ['any'], { seat: true }),
+    ],
+  },
+
   metro: {
     w: 8, h: 6, wallH: 76, wall: 0xeef3ef, floor: [0xd5d8de, 0xcbced6], entrance: { x: 2, y: 5 },
     winL: [], winR: [],

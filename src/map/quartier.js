@@ -3,7 +3,7 @@
 //
 // Légende du sol :
 //   w  Seine (eau)     .  trottoir     =  rue (voitures)     :  ruelle / place pavée (piétons)
-//   g  herbe           T  arbre        o  fontaine
+//   g  herbe           T  arbre        o  fontaine         x  statue
 // Lettres majuscules : un bâtiment (toutes les cases d'une même lettre forment un seul lieu).
 // Chaque ligne doit avoir la même longueur.
 //
@@ -13,7 +13,7 @@ export const QUARTIER = {
   name: 'Le Marais',
   layout: 2, // version du tracé : quand elle change, les sauvegardes replacent les passants sur le nouveau plan
 
-  order: 'ACKOSBMDGEPRFLYV' + 'HNUIJQ',
+  order: 'ACKOSBMDGEPRFLYV' + 'HNUIJQ' + 'Z',
 
   legend: {
     w: { ground: 'water', walk: false },
@@ -23,6 +23,7 @@ export const QUARTIER = {
     g: { ground: 'grass', walk: true },
     T: { ground: 'grass', walk: false, deco: 'tree' },
     o: { ground: 'grass', walk: false, deco: 'fountain' },
+    x: { ground: 'cobble', walk: false, deco: 'statue' }, // statue de Marianne, devant la mairie
   },
 
   // Logements : rent = loyer par jour (payé chaque lundi pour la semaine), price = prix d'achat,
@@ -52,6 +53,8 @@ export const QUARTIER = {
     I: { type: 'home', name: 'Studios place du Marché', rent: 22, price: 2700, units: 4 },
     J: { type: 'home', name: 'Duplex place des Vosges', rent: 70, price: 12000, units: 1 },
     Q: { type: 'home', name: 'Chambres impasse Guéménée', rent: 18, price: 2200, units: 5 },
+    // --- L'État dans le quartier ---
+    Z: { type: 'cityhall', name: 'Mairie du Marais', jobs: { slots: 4, wage: 15 } },
   },
 
   rows: [
@@ -78,12 +81,12 @@ export const QUARTIER = {
     '.gTgg:....=..........:.II..=.JJ.....',
     '.....:....=............=============',
     '========================...=........',
-    '..........=................=.TggTg..',
-    '.YY..:QQ..=.VVV.:.gTgggTg..=.gggggT.',
-    '.YY..:QQ..=.VVV.:.gggogg...=........',
-    '.....:....=.....:.gTgggTg..=.gTggTg.',
-    '.gTg.:....=..:::::.........=........',
-    '.ggT.:..T.=..:.............=........',
+    '..........=................=.ZZZZ...',
+    '.YY..:QQ..=.VVV.:.gTgggTg..=.ZZZZ.T.',
+    '.YY..:QQ..=.VVV.:.gggogg...=.ZZZZ...',
+    '.....:....=.....:.gTgggTg..=.:::::..',
+    '.gTg.:....=..:::::.........=T::x::T.',
+    '.ggT.:..T.=..:.............=.:::::..',
     '..........=................=........',
   ],
 };

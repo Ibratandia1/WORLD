@@ -8,7 +8,7 @@ const ACTOR_FIELDS = [
   'money', 'energy', 'hunger', 'food', 'karma', 'items', 'job', 'px', 'py', 'facing', 'thinkIn',
   'home', 'housing', 'rentDue', 'rentLate', 'firedDay', 'lastApply', 'relations', 'routine',
   'owned', 'vehicle', 'referrals', 'taxWeek', 'mood', 'gifts', // ajoutés sans changer de version : les anciennes sauvegardes restent valides
-  'hardDays', 'newcomer', 'fav',
+  'hardDays', 'newcomer', 'fav', 'aidDay', 'role',
 ];
 // Pour les nouveaux arrivants (absents de la liste de départ), on garde aussi qui ils sont
 const NEWCOMER_FIELDS = ['name', 'look', 'role', 'controller'];
@@ -20,6 +20,7 @@ export function takeSnapshot(world, directors = []) {
     layout: world.map.layout,
     savedAt: Date.now(),
     city: world.city ? world.city.snapshot() : null,
+    gov: world.gov ? world.gov.snapshot() : null,
     minutes: world.minutes,
     weather: world.weather,
     weatherIn: world.weatherIn,
@@ -76,6 +77,8 @@ export function applySnapshot(world, directors, snap) {
       a.thinkIn = 0;
     }
   }
+
+  if (world.gov) world.gov.restore(snap.gov, world.day);
 
   for (const s of snap.directors || []) {
     const d = directors.find(x => x.actor.id === s.actor);

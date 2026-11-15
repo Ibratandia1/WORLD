@@ -4,6 +4,7 @@ import { rel, nearby, managerOf, roleOf } from './social.js';
 const bossName = (w, a) => { const m = managerOf(w, a); return m ? `${m.name}, ton responsable,` : 'Ton responsable'; };
 const landlordName = w => { const l = roleOf(w, 'landlord'); return l ? l.name : 'Ton propriétaire'; };
 import { nextShiftText } from './actions.js';
+import { MAYOR_PAY } from './gov.js';
 
 // Les décisions arrivent par événements, et chaque événement naît d'une situation réelle :
 // l'heure, le lieu, la météo, les besoins, le travail, le loyer, les gens autour.
@@ -191,6 +192,21 @@ export const EVENTS = [
 
   // ---------- La vie du quartier ----------
   {
+    // Bureaux de vote ouverts et tu n'as pas encore voté (dans la rue, en journée)
+    id: 'elections', icon: '🗳️', title: 'Élections municipales', once: 'day', cooldown: 600,
+    when: (a, w) => {
+      const g = w.gov;
+      if (!g || !g.votingOpen || g.votes[a.id] || a.doing || !a.outdoors || w.hour < 9 || w.hour > 16) return null;
+      const list = g.candidates.map(id => w.actorById(id)).filter(Boolean);
+      return list.length ? list : null;
+    },
+    text: (a, w, list) => `Les bureaux de vote sont ouverts à la mairie jusqu’au ${w.gov.election === w.day ? 'soir' : `jour ${w.gov.election}`}. Candidats : ${list.map(c => c.id === w.gov.mayor ? `${c.name} (maire sortant)` : c.name).join(', ')}.`,
+    choices: (a, w, list) => [
+      ...list.map(c => ({ icon: '🗳️', label: `Voter ${c.name}`, action: 'vote', params: { for: c.id } })),
+      { icon: '⏳', label: 'Plus tard' },
+    ],
+  },
+  {
     // Le matin, au calme : les nouvelles des jours passés (arrivées, départs, faillites, prix)
     id: 'journal', icon: '📰', title: 'Le journal du quartier', once: 'day', cooldown: 600,
     when: (a, w, d) => {
@@ -252,6 +268,14 @@ const PUSHED = {
     icon: '✉️', title: `Relance de ${landlordName(w)}`,
     text: `Tu dois ${a.rentDue} €. Sans paiement sous 4 jours, c’est l’expulsion.`,
     choices: [{ icon: '🧾', label: 'Payer maintenant', action: 'pay_rent' }, { icon: '⏳', label: 'Plus tard' }],
+  }),
+  electionResult: (a, w, e) => ({
+    icon: e.won ? '🎉' : '🏛️',
+    title: e.won ? 'Tu es élu·e maire !' : e.reelected ? `${e.winner.name} réélu·e` : `${e.winner.name}, nouveau maire`,
+    text: e.won
+      ? `Résultats : ${e.result}. Tu touches ${MAYOR_PAY} €/semaine et tu décides des impôts et des aides, à la mairie.`
+      : `Résultats : ${e.result} (${e.total} votants).`,
+    choices: OK,
   }),
   bizClosed: (a, w, e) => ({
     icon: '🔒', title: 'Ton lieu de travail ferme',

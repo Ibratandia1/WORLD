@@ -6,6 +6,7 @@ import { fmtShift, DAY_SHORT, MAX_WARNINGS, RAISE_EVERY, JOB_TITLES, openings, i
 import { rel, level, near } from './sim/social.js';
 import { weeklyRent, occupants, LATE_EVICT } from './sim/housing.js';
 import { freeUnits } from './sim/city.js';
+import { TAX_POLICIES, AID_POLICIES, CAMPAIGN_FEE } from './sim/gov.js';
 import { CATALOG } from './sim/catalog.js';
 import { canReach } from './sim/actions.js';
 import { ROLE_TITLES } from './sim/social.js';
@@ -269,7 +270,7 @@ export class UI {
     const buttons = [];
     if (!inside) buttons.push(this.actBtn('enter', { building: b.id }));
     // Ici même (pas dans le commerce du même type le plus proche)
-    for (const id of Object.keys(ACTIONS)) if (w.canDoAt(p, id, b)) buttons.push(this.actBtn(id, ACTIONS[id].place.type ? { at: b.id } : {}));
+    for (const id of Object.keys(ACTIONS)) if (!ACTIONS[id].custom && w.canDoAt(p, id, b)) buttons.push(this.actBtn(id, ACTIONS[id].place.type ? { at: b.id } : {}));
 
     // Emploi
     let note = '';
@@ -300,7 +301,7 @@ export class UI {
     }
 
     // Commerce : ouvert seulement s'il y a quelqu'un au comptoir
-    if (['cafe', 'bakery', 'shop', 'fashion', 'garage'].includes(b.type)) {
+    if (['cafe', 'bakery', 'shop', 'fashion', 'garage', 'cityhall'].includes(b.type)) {
       const s = sellerAt(w, b, p);
       let status;
       if (s) status = `🟢 Ouvert · ${esc(s.name)} au comptoir`;
@@ -328,7 +329,36 @@ export class UI {
       buttons.push(this.choiceHTML('data-leave', '🚶', 'Sortir dans la rue', '', true));
     }
     const icon = b.type === 'home' && b.id === p.home ? (p.housing === 'own' ? '🔑' : '🏠') : TYPES[b.type].icon;
-    return `${this.head(icon, b.name, !inside)}${note}<div class="choices">${buttons.join('')}</div>${this.shopHTML(b, inside)}`;
+    return `${this.head(icon, b.name, !inside)}${note}<div class="choices">${buttons.join('')}</div>${this.shopHTML(b, inside)}${b.type === 'cityhall' ? this.govHTML(b, inside) : ''}`;
+  }
+
+  // Mairie : le maire, la politique, les caisses, les élections (vote, candidature), les décisions du maire
+  govHTML(b, inside) {
+    const w = this.world, g = w.gov, p = this.player;
+    if (!g) return '';
+    const m = g.mayorActor;
+    const lines = [
+      `👤 Maire : <b>${m ? esc(m.isPlayer ? `${m.name} (toi)` : m.name) : 'vacant'}</b>`,
+      `${TAX_POLICIES[g.tax].icon} ${TAX_POLICIES[g.tax].label} · ${AID_POLICIES[g.aid].icon} ${AID_POLICIES[g.aid].label} (${g.aidAmount} €/semaine)`,
+      `🏦 Trésor public : ${money(Math.round(w.treasury || 0))} € · aides versées : ${money(g.aidPaid)} €`,
+    ];
+    const rows = [];
+    if (g.campaignOpen && g.candidates.length) {
+      lines.push(g.votingOpen ? `🗳️ <b>Vote en cours</b> jusqu’au jour ${g.election}` : `🗳️ Campagne : vote du jour ${g.election - 2} au jour ${g.election}`);
+      for (const id of g.candidates) {
+        const c = w.actorById(id);
+        if (!c) continue;
+        rows.push(this.actBtn('vote', { for: id }, `Voter ${c.isPlayer ? 'pour toi' : c.name}${id === g.mayor ? ' (sortant)' : ''}`));
+      }
+    } else {
+      lines.push(`🗳️ Prochaines élections : jour ${g.election} (candidatures 5 jours avant)`);
+    }
+    rows.push(this.actBtn('run_mayor', {}, `Se présenter (caution ${CAMPAIGN_FEE} €)`));
+    if (g.mayor === p.id) {
+      for (const k of Object.keys(TAX_POLICIES)) rows.push(this.actBtn('set_policy', { tax: k }, TAX_POLICIES[k].label, TAX_POLICIES[k].icon));
+      for (const k of Object.keys(AID_POLICIES)) rows.push(this.actBtn('set_policy', { aid: k }, AID_POLICIES[k].label, AID_POLICIES[k].icon));
+    }
+    return `<div class="sec"><b>🏛️ La mairie</b><p>${lines.join('<br>')}</p><div class="choices">${rows.join('')}</div></div>`;
   }
 
   // « Ma vie » : contrat, logement, routine

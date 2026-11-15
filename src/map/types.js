@@ -10,5 +10,6 @@ export const TYPES = {
   shop:   { icon: '🛒', height: 56, ...CREAM, awning: 0x3fae73, firstFloor: 30 },
   metro:  { icon: '🚇', height: 22, left: 0x3c8c64, right: 0x2f7352, roof: 0x4fae7f },
   fashion: { icon: '👗', height: 60, ...CREAM, awning: 0xd94f9c, firstFloor: 30 },
+  cityhall: { icon: '🏛️', height: 88, left: 0xf3ead8, right: 0xdccfb4, roof: 0x4f5b75, firstFloor: 34 },
   garage: { icon: '🚲', height: 46, left: 0xc9ced8, right: 0xaab0bc, roof: 0x5f6c86, awning: 0x2f7d5b, firstFloor: 30 },
 };

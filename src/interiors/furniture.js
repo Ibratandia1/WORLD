@@ -60,6 +60,25 @@ export const FLOOR_ITEMS = {
     block(g, x, y - 0.25, 0.2, 0.12, 1, 0xffffff, 13);
   },
   counter(g, x, y) { block(g, x, y, 1, 0.6, 18, WOOD); },
+  // Mairie : urne transparente, drapeau sur pied, buste de Marianne
+  urne(g, x, y) {
+    block(g, x, y, 0.7, 0.5, 14, { top: 0xb98458, left: 0x8a5a3c, right: 0x734a32 });
+    block(g, x, y, 0.36, 0.3, 14, { top: 0xdff1ff, left: 0xc4e3f7, right: 0xaed4ee }, 14, 0.75);
+    block(g, x + 0.02, y, 0.18, 0.12, 2, 0xffffff, 18);
+    block(g, x, y - 0.02, 0.2, 0.03, 1, 0x34323d, 28);
+  },
+  flagstand(g, x, y) {
+    block(g, x, y, 0.2, 0.2, 3, 0x8a8f99);
+    block(g, x, y, 0.04, 0.04, 44, 0xb8963c, 3);
+    const s = toScreen(x, y);
+    [0x2b4ea2, 0xffffff, 0xd8504d].forEach((c, i) => { g.fillStyle(c); g.fillRect(s.x + 1 + i * 5, s.y - 46, 5, 12); });
+  },
+  bust(g, x, y) {
+    block(g, x, y, 0.32, 0.32, 20, { top: 0xf3ecdc, left: 0xddd2bb, right: 0xc4b89f });
+    const s = toScreen(x, y);
+    g.fillStyle(0xe9e4da); g.fillRect(s.x - 5, s.y - 30, 10, 8); g.fillCircle(s.x, s.y - 34, 4);
+    g.fillStyle(0xd8504d); g.fillTriangle(s.x - 5, s.y - 35, s.x + 4, s.y - 35, s.x + 5, s.y - 41);
+  },
   coffee(g, x, y) {
     block(g, x, y, 0.32, 0.28, 13, { top: 0x4a4a55, left: 0x3a3a44, right: 0x2e2e36 }, 18);
     block(g, x, y + 0.1, 0.1, 0.06, 3, 0xe8504d, 26);

@@ -17,6 +17,7 @@ export const SHIFTS = {
   shop: { start: 9, alt: 14, hours: 8, days: [0, 1, 2, 3, 4, 5] },
   fashion: { start: 10, alt: 11, hours: 8, days: [1, 2, 3, 4, 5, 6] },
   garage: { start: 8, hours: 8, days: [0, 1, 2, 3, 4] },
+  cityhall: { start: 9, hours: 8, days: [0, 1, 2, 3, 4, 5] }, // mairie : ouverte du lundi au samedi
 };
 
 // ---------- Impôts ----------
@@ -26,7 +27,8 @@ export const PROPERTY_TAX = 0.002; // taxe foncière : 0,2 % du prix du logement
 
 // Verse un salaire brut : l'impôt part au Trésor public, le reste sur le compte. Renvoie le net.
 export function incomeTax(w, a, gross) {
-  const tax = gross * taxRate(a.job ? a.job.wage : 0);
+  // le taux dépend aussi de la politique votée par le maire (impôts bas / normaux / hauts)
+  const tax = gross * taxRate(a.job ? a.job.wage : 0) * (w.gov ? w.gov.taxMul : 1);
   a.money += gross - tax;
   a.taxWeek = (a.taxWeek || 0) + tax;
   w.treasury = (w.treasury || 0) + tax;
@@ -51,7 +53,7 @@ export function nextOpening(w, b) {
 
 export const JOB_TITLES = {
   office: 'Employé·e de bureau', cafe: 'Serveur·se', bakery: 'Boulanger·ère', shop: 'Caissier·ère',
-  fashion: 'Vendeur·se', garage: 'Mécanicien·ne',
+  fashion: 'Vendeur·se', garage: 'Mécanicien·ne', cityhall: 'Agent·e de la mairie',
 };
 
 // Intitulé d'un poste (les métiers de rue ont leur propre titre)

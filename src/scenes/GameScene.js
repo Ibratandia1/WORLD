@@ -371,6 +371,8 @@ export class GameScene extends Phaser.Scene {
     const nearScreen = (x, y, r) => { const s = toScreen(x, y); return Math.hypot(wp.x - s.x, wp.y - (s.y - 6)) < r; };
     const pigeon = this.birds.pigeons.find(pg => pg.flying <= 0 && nearScreen(pg.x, pg.y, 14));
     if (pigeon) return state.ui.showObject({ name: 'Pigeons', icon: '🐦', actions: ['feed_pigeons'], at: { x: pigeon.x, y: pigeon.y } });
+    const st = this.spots.statues.find(s => Math.abs(wp.x - toScreen(s.x, s.y).x) < 16 && wp.y > toScreen(s.x, s.y).y - 70 && wp.y < toScreen(s.x, s.y).y + 8);
+    if (st) return state.ui.showObject({ name: 'Statue de Marianne', icon: '🗽', actions: ['admire_statue'], at: st });
     const f = this.spots.fountains.find(s => nearScreen(s.x, s.y, 26));
     if (f) return state.ui.showObject({ name: 'Fontaine', icon: '⛲', actions: ['wish_fountain'], at: f });
     const bench = this.spots.benches.find(s => nearScreen(s.x, s.y, 16));
