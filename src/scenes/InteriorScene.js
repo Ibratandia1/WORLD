@@ -3,7 +3,7 @@ import { LAYOUTS, floorsOf } from '../interiors/layouts.js';
 import { FLOOR_ITEMS, WALL_ITEMS, P, planeX, planeY, quad, block } from '../interiors/furniture.js';
 import { ACTIONS } from '../sim/actions.js';
 import { TYPES } from '../map/types.js';
-import { ensureCharTexture } from '../look.js';
+import { ensureCharTexture, ensurePose } from '../look.js';
 import { attachControls } from '../camera.js';
 import { shade } from '../color.js';
 import { state } from '../state.js';
@@ -14,6 +14,22 @@ const hash = s => [...s].reduce((h, c) => h + c.charCodeAt(0), 0);
 const TOP = 1e6;
 const PIXELATE = 0;     // filtre pixel art : désactivé (il rendait l'image floue)
 const LEVEL_H = 26;     // hauteur d'un étage dans le socle sous la pièce
+
+// Poses animées (2 images qui alternent)
+const ANIM = { eat: ['eat1', 'eat2'], drink: ['drink1', 'drink2'], cook: ['cook1', 'cook2'], type: ['type1', 'type2'] };
+
+// Quelle pose pour quelle action, à quelle place (façon Sims)
+function poseFor(act, st) {
+  if ((st && st.lie) || act === 'nap') return 'lie';
+  if (act === 'watch_tv') return 'back_sit';      // de dos, face à la télé
+  if (act === 'read_book') return 'read';
+  if (act === 'cook') return 'cook';               // aux fourneaux
+  if (act === 'eat_home' || act === 'eat_cafe') return 'eat';
+  if (act === 'coffee' || act === 'treat') return 'drink';
+  if ((act === 'work' || act === 'overtime') && st && st.pose) return st.pose;
+  if (st && st.seat) return 'sit';
+  return 'stand';
+}
 
 // Vue de l'intérieur du lieu où se trouve le joueur, étage par étage.
 // Deux caméras : la pièce (avec filtre pixel art) et les étiquettes (toujours nettes).
@@ -96,6 +112,8 @@ export class InteriorScene extends Phaser.Scene {
   clearAll() {
     this.clearFloor();
     this.views.forEach(v => { v.spr.destroy(); v.tag.c.destroy(); if (v.ring) v.ring.destroy(); });
+    this.clearProps();
+    this.tvScreen(false);
     this.views.clear();
     this.sig = '';
     if (this.marker) { this.marker.destroy(); this.marker = null; }
@@ -130,6 +148,8 @@ export class InteriorScene extends Phaser.Scene {
   setFloor(i) {
     if (!this.building || i === this.floorIdx || i < 0 || i >= this.floors.length) return;
     this.floorIdx = i;
+    this.tvScreen(false);
+    this.sig = ''; // on replace tout le monde (accessoires de l'étage)
     this.buildFloor();
     this.fit();
     this.applyVisibility();
@@ -148,7 +168,7 @@ export class InteriorScene extends Phaser.Scene {
   }
 
   // ---------- Boucle ----------
-  update() {
+  update(time, delta) {
     if (!this.building) return;
     this.placeActors();
     const k = this.uiScale();
@@ -159,6 +179,7 @@ export class InteriorScene extends Phaser.Scene {
     } else if (this.marker) this.marker.setVisible(false);
     for (const p of this.pills) p.c.setScale(k);
     for (const vv of this.views.values()) vv.tag.c.setScale(k);
+    this.updateFx(time, delta);
     this.clampCamera();
     // la caméra des étiquettes suit exactement celle de la pièce
     const cam = this.cameras.main;
@@ -394,9 +415,12 @@ export class InteriorScene extends Phaser.Scene {
   placeActors() {
     const b = this.building;
     const inside = state.world.actors.filter(a => a.inside === b.id);
-    const sig = inside.map(a => `${a.id}:${a.current ? a.current.id : ''}:${a.texKey}:${a.name}`).join('|');
+    // « Cuisiner » se fait en deux temps : aux fourneaux, puis à table
+    const cooking = a => a.current && a.current.id === 'eat_home' && a.current.remaining > a.current.total * 0.45;
+    const sig = inside.map(a => `${a.id}:${a.current ? a.current.id : ''}:${cooking(a) ? 'c' : ''}:${a.texKey}:${a.name}`).join('|');
     if (sig === this.sig) return;
     this.sig = sig;
+    this.clearProps();
 
     for (const [id, v] of this.views) {
       if (!inside.some(a => a.id === id)) { v.spr.destroy(); v.tag.c.destroy(); if (v.ring) v.ring.destroy(); this.views.delete(id); }
@@ -407,7 +431,8 @@ export class InteriorScene extends Phaser.Scene {
     this.assigned = [];
     let k = 0;
     for (const a of inside) {
-      const act = a.current ? a.current.id : 'stay';
+      let act = a.current ? a.current.id : 'stay';
+      if (cooking(a)) act = 'cook';
       const slot = act === 'overtime' ? 'work' : act;
       const st = this.stations.find(s => !used.has(s) && s.a.includes(slot))
         || this.stations.find(s => !used.has(s) && s.a.includes('any'));
@@ -419,15 +444,31 @@ export class InteriorScene extends Phaser.Scene {
       }
 
       const v = this.viewFor(a);
-      const lie = !!(st && st.lie);
+      const pose = poseFor(act, st);
+      const lie = pose === 'lie';
       v.lie = lie;
       v.floor = pos.floor;
-      v.spr.setTexture(ensureCharTexture(this, a))
-        .setOrigin(0.5, lie ? 0.5 : 0.93).setScale(lie ? 1.5 : 1.8).setAngle(lie ? 63 : 0)
+      v.act = act;
+      v.pos = pos;
+      // Animation : deux images qui alternent (fourchette, tasse, poêle, clavier)
+      v.anim = ANIM[pose] ? ANIM[pose].map(n => ensurePose(this, a, n)) : null;
+      const tex = v.anim ? v.anim[0] : ensurePose(this, a, lie ? 'stand' : pose);
+      const angle = lie ? (st && st.lieAngle != null ? st.lieAngle : 63) : 0;
+      v.spr.setTexture(tex)
+        .setOrigin(0.5, lie ? 0.5 : 0.93).setScale(lie ? 1.5 : 1.8).setAngle(angle)
         .setPosition(pos.sx, pos.sy - (lie ? 14 : 0))
         .setDepth(pos.depth)
         .setFlipX(!!(st && st.face < 0));
-      const def = ACTIONS[act];
+
+      // Accessoires de scène : assiette sur la table, Zzz, vapeur, télé
+      if (pos.floor === this.floorIdx) {
+        if ((pose === 'eat' || pose === 'drink') && st && st.table) this.addPlate(st.table[0], st.table[1], pose === 'drink');
+        if (lie && (act === 'sleep' || act === 'nap' || act === 'sleep_rough')) this.fx.zzz.push(v);
+        if (pose === 'cook' && act === 'cook') this.fx.steam.push({ x: pos.x - 1, y: pos.y });
+        if (act === 'watch_tv') this.fx.tv = true;
+      }
+      // (« cook » n'est qu'une phase de « Cuisiner » : on prend l'action réelle pour l'étiquette)
+      const def = ACTIONS[act] || ACTIONS[a.current ? a.current.id : 'stay'] || ACTIONS.stay;
       const label = lie ? '💤 dort' : act === 'stay' ? '🙂 flâne' : `${def.icon} ${def.label.toLowerCase()}`;
       this.setTag(v.tag, a.name, label);
       v.tag.c.setPosition(pos.sx, pos.sy - (lie ? 30 : 56));
@@ -442,6 +483,70 @@ export class InteriorScene extends Phaser.Scene {
     }
     this.applyVisibility();
     this.updateZoneCounts();
+  }
+
+  // ---------- Accessoires et effets façon Sims ----------
+  clearProps() {
+    (this.props || []).forEach(o => o.destroy());
+    this.props = [];
+    this.fx = { zzz: [], steam: [], tv: false };
+  }
+
+  addPlate(x, y, cup) {
+    const s = toScreen(x, y);
+    const g = this.add.graphics().setDepth(depthAt(x, y) + 3.6);
+    this.worldLayer.add(g);
+    const top = s.y - 12; // sur le plateau de la table
+    if (cup) {
+      g.fillStyle(0xffffff); g.fillRect(s.x - 3, top - 5, 6, 5);
+      g.fillStyle(0x6b4226); g.fillRect(s.x - 2, top - 5, 4, 1);
+    } else {
+      g.fillStyle(0xffffff); g.fillEllipse(s.x, top, 14, 6);
+      g.fillStyle(0xf08a3c); g.fillCircle(s.x - 2, top - 1, 2);
+      g.fillStyle(0x4caf50); g.fillCircle(s.x + 2, top - 1, 1.8);
+    }
+    this.props.push(g);
+  }
+
+  // Écran de télé allumé (les couleurs changent comme un film)
+  tvScreen(on) {
+    const tvItem = on && this.L ? this.L.items.find(it => it.k === 'tv') : null;
+    if (!tvItem) { if (this.tvGlow) { this.tvGlow.destroy(); this.tvGlow = null; } return; }
+    if (!this.tvGlow) { this.tvGlow = this.add.graphics().setDepth(1.2); this.worldLayer.add(this.tvGlow); }
+    const at = tvItem.at;
+    const cols = [0x6fc3ff, 0xbfe7ff, 0x5b8def, 0xf2c94c, 0x9fe3c2, 0xe86a8c];
+    const g = this.tvGlow;
+    g.clear();
+    quad(g, planeY(-0.47, at - 0.4, at + 0.4, 26, 48), cols[Math.floor(Math.random() * cols.length)]);
+    quad(g, planeY(-0.465, at - 0.25, at + 0.1, 32, 42), cols[Math.floor(Math.random() * cols.length)], 0.8);
+    g.fillStyle(0xbfe7ff, 0.12); g.fillPoints(planeY(-0.4, at - 0.9, at + 0.9, 0, 4), true); // reflet au sol
+  }
+
+  updateFx(time, delta) {
+    if (!this.fx) return;
+    this.fxClock = (this.fxClock || 0) + delta;
+    // Animations des personnages (2 images)
+    const frame = Math.floor(time / 380) % 2;
+    for (const v of this.views.values()) if (v.anim && v.spr.texture.key !== v.anim[frame]) v.spr.setTexture(v.anim[frame]);
+    if (this.fxClock < 260) return;
+    this.fxClock = 0;
+    this.tvScreen(this.fx.tv);
+    // Vapeur au-dessus de la poêle
+    for (const s of this.fx.steam) {
+      const p = toScreen(s.x, s.y);
+      const puff = this.add.circle(p.x + (Math.random() - 0.5) * 10, p.y - 22, 3 + Math.random() * 2, 0xffffff, 0.7).setDepth(TOP - 10);
+      this.worldLayer.add(puff);
+      this.tweens.add({ targets: puff, y: puff.y - 26, alpha: 0, scale: 2.2, duration: 1300, onComplete: () => puff.destroy() });
+    }
+    // Zzz au-dessus des dormeurs
+    if (Math.random() < 0.45) {
+      for (const v of this.fx.zzz) {
+        if (v.floor !== this.floorIdx) continue;
+        const z = this.add.text(v.spr.x + 6, v.spr.y - 18, 'z', { fontFamily: 'system-ui,sans-serif', fontSize: '12px', fontStyle: 'bold', color: '#7b5cf0', stroke: '#ffffff', strokeThickness: 3 }).setResolution(4).setDepth(TOP - 5);
+        this.uiLayer.add(z);
+        this.tweens.add({ targets: z, x: z.x + 12, y: z.y - 22, alpha: 0, scale: 1.6, duration: 1800, onComplete: () => z.destroy() });
+      }
+    }
   }
 
   applyVisibility() {

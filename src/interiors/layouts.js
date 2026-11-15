@@ -41,8 +41,8 @@ export const LAYOUTS = {
           { k: 'stool', x: 11, y: 2 }, { k: 'stool', x: 10, y: 4 }, { k: 'stool', x: 12, y: 4 }, { k: 'plant', x: 13, y: 5 },
         ],
         stations: [
-          S(11, 2, ['any'], { face: -1 }), S(10, 4, ['any']), S(12, 4, ['any'], { face: -1 }), S(1, 7, ['any']),
-          S(3, 4, ['work'], { prio: -1 }), // l'accueil : pris en dernier
+          S(11, 2, ['any'], { face: -1, seat: true }), S(10, 4, ['any'], { seat: true }), S(12, 4, ['any'], { face: -1, seat: true }), S(1, 7, ['any'], { seat: true }),
+          S(3, 4, ['work'], { prio: -1, pose: 'sit' }), // l'accueil : pris en dernier
         ],
       },
       {
@@ -58,7 +58,8 @@ export const LAYOUTS = {
           { k: 'sofa', x: 11, y: 8, c: 0xe07a55 }, { k: 'rug', x: 11, y: 7, flat: true, c: 0xf2c94c, w: 1.6, d: 1 },
           { k: 'bigplant', x: 13, y: 9 }, { k: 'plant', x: 9, y: 9 }, { k: 'frame', wall: 'L', at: 8, c: 0x5b8def },
         ],
-        stations: OPEN_DESKS.map(([x, y]) => S(x, y + 1, ['work'])).concat([S(11, 8, ['any'])]),
+        // au bureau : assis devant l'écran, vu de dos, en train de taper
+        stations: OPEN_DESKS.map(([x, y]) => S(x, y + 1, ['work'], { pose: 'type' })).concat([S(11, 8, ['any'], { seat: true })]),
       },
       {
         ...OFFICE_BASE, name: '2e étage', short: '2',
@@ -75,8 +76,9 @@ export const LAYOUTS = {
           { k: 'tablec', x: 6, y: 7 }, { k: 'bigplant', x: 0, y: 9 }, { k: 'plant', x: 13, y: 9 }, { k: 'printer', x: 10, y: 9 },
         ],
         stations: [
-          S(2, 1, ['work', 'any']), S(4, 1, ['work', 'any'], { face: -1 }), S(2, 3, ['work', 'any']), S(4, 3, ['work', 'any'], { face: -1 }),
-          S(11, 1, ['work']), S(4, 8, ['any']),
+          S(2, 1, ['work', 'any'], { pose: 'sit', seat: true }), S(4, 1, ['work', 'any'], { face: -1, pose: 'sit', seat: true }),
+          S(2, 3, ['work', 'any'], { pose: 'sit', seat: true }), S(4, 3, ['work', 'any'], { face: -1, pose: 'sit', seat: true }),
+          S(11, 1, ['work'], { pose: 'sit' }), S(4, 8, ['any'], { seat: true }),
         ],
       },
     ],
@@ -100,7 +102,7 @@ export const LAYOUTS = {
     ],
     stations: [
       S(1, 0, ['work']), S(3, 0, ['work']), S(5, 0, ['work']),
-      ...[[2, 4], [5, 4], [8, 3], [2, 6], [5, 6], [9, 5]].map(([x, y]) => S(x, y, ['coffee', 'eat_cafe', 'any'], { face: -1 })),
+      ...[[2, 4], [5, 4], [8, 3], [2, 6], [5, 6], [9, 5]].map(([x, y]) => S(x, y, ['coffee', 'eat_cafe', 'any'], { face: -1, seat: true, table: [x - 1, y] })),
     ],
   },
 
@@ -118,7 +120,7 @@ export const LAYOUTS = {
       { k: 'bench', x: 0, y: 4 }, { k: 'plant', x: 0, y: 6 }, { k: 'plant', x: 8, y: 6 }, { k: 'frame', wall: 'L', at: 2, c: 0xe8b04a },
     ],
     stations: [
-      S(2, 1, ['work']), S(7, 1, ['work'], { face: -1 }), S(6, 2, ['work']),
+      S(2, 1, ['work']), S(7, 1, ['work'], { face: -1, pose: 'cook' }), S(6, 2, ['work'], { pose: 'cook' }),
       S(1, 3, ['eat_bakery', 'any']), S(2, 3, ['eat_bakery', 'any']), S(3, 3, ['eat_bakery', 'any']), S(4, 3, ['eat_bakery', 'any']),
       S(0, 4, ['any']),
     ],
@@ -176,7 +178,11 @@ export const LAYOUTS = {
           { k: 'frame', wall: 'L', at: 3, c: 0x5b8def }, { k: 'plant', x: 8, y: 6 }, { k: 'stairs_up', x: 6, y: 6 },
         ],
         stations: [
-          S(1, 0, ['sleep'], { lie: true }), S(7, 2, ['nap', 'any']), S(3, 5, ['eat_home'], { face: -1 }),
+          S(1, 0, ['sleep'], { lie: true }),
+          // canapé face à la télé : on s'y assoit (de dos pour la télé), on y lit, on y fait la sieste
+          S(7, 2, ['watch_tv', 'read_book', 'nap', 'any'], { seat: true, lieAngle: -60 }),
+          S(1, 6, ['cook'], { face: -1 }),                       // devant la cuisinière
+          S(3, 5, ['eat_home'], { face: -1, seat: true, table: [2, 5] }), // à table
           S(6, 2, ['any']), S(4, 3, ['any']), S(5, 5, ['any']),
         ],
       },
@@ -218,7 +224,7 @@ export const LAYOUTS = {
       { k: 'plant', x: 9, y: 6 }, { k: 'plant', x: 0, y: 6 },
     ],
     stations: [
-      S(2, 3, ['work']), S(2, 4, ['work'], { face: -1 }), S(6, 3, ['work']),
+      S(2, 3, ['work'], { pose: 'cook' }), S(2, 4, ['work'], { face: -1, pose: 'cook' }), S(6, 3, ['work']),
       S(6, 2, ['any']), S(5, 4, ['any']), S(4, 5, ['any']),
     ],
   },

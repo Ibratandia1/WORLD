@@ -30,12 +30,25 @@ export function randomLook() {
   };
 }
 
+// Poses (façon Sims) : textures créées à la demande, clé = `${texKey}_${nom}`.
+//   sit = assis · back = vu de dos · arms = position des bras / objet tenu
+export const POSES = {
+  sit: { sit: true },
+  read: { sit: true, arms: 'book' },
+  eat1: { sit: true, arms: 'eat' }, eat2: { sit: true, arms: 'fork' },
+  drink1: { sit: true, arms: 'cup_up' }, drink2: { sit: true, arms: 'cup' },
+  cook1: { arms: 'pan' }, cook2: { arms: 'pan2' },
+  back_sit: { back: true, sit: true },
+  type1: { back: true, sit: true, arms: 'type' }, type2: { back: true, sit: true, arms: 'type2' },
+};
+
 // Dessine un personnage via rect(x, y, w, h, couleur). Sert à Phaser ET à l'aperçu HTML.
-// frame : 0 = debout, 1 et 2 = pas de marche. Un contour sombre entoure la silhouette.
-export function drawCharacter(look, rect, frame = 0) {
+// pose : 0 = debout, 1 et 2 = pas de marche, ou une pose de POSES. Un contour sombre entoure la silhouette.
+export function drawCharacter(look, rect, pose = 0) {
+  const opts = typeof pose === 'number' ? { frame: pose } : pose;
   const grid = new Map();
   const put = (x, y, w, h, c) => { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) grid.set(`${x + i + 1},${y + j + 1}`, c); };
-  drawBody(look, put, frame);
+  drawBody(look, put, opts);
   const cells = [...grid.keys()].map(k => k.split(',').map(Number));
   for (const [x, y] of cells) {
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
@@ -76,29 +89,93 @@ function outfitColors(look) {
   }
 }
 
-function drawBody(look, rect, frame) {
+// Bras dans une pose (dessinés devant le buste, avec l'objet tenu)
+function drawArms(rect, kind, o, skin) {
+  const sideL = () => { rect(1, 12, 2, 6, o.arms); rect(1, 18, 2, 2, skin); };
+  switch (kind) {
+    case 'type': case 'type2': { // vu de dos, les mains sur le clavier
+      const d = kind === 'type2' ? 1 : 0;
+      rect(1, 12, 2, 3, o.arms); rect(13, 12, 2, 3, o.arms); rect(2, 14, 2, 2, o.arms); rect(12, 14, 2, 2, o.arms);
+      rect(3, 15 + d, 2, 1, skin); rect(11, 16 - d, 2, 1, skin);
+      break;
+    }
+    case 'book':
+      rect(1, 12, 2, 4, o.arms); rect(13, 12, 2, 4, o.arms);
+      rect(4, 13, 8, 5, 0xb8403e); rect(5, 14, 6, 3, 0xf6f1e4); rect(8, 13, 1, 5, 0x7a2a28);
+      rect(3, 15, 2, 2, skin); rect(11, 15, 2, 2, skin);
+      break;
+    case 'eat': // la fourchette à la bouche
+      sideL(); rect(12, 11, 2, 4, o.arms); rect(10, 9, 2, 2, skin); rect(9, 8, 1, 2, 0xc9ced8);
+      break;
+    case 'fork':
+      sideL(); rect(12, 12, 2, 4, o.arms); rect(11, 15, 2, 2, skin); rect(10, 13, 1, 3, 0xc9ced8);
+      break;
+    case 'cup_up': // on boit
+      sideL(); rect(12, 11, 2, 4, o.arms); rect(10, 9, 2, 2, skin); rect(8, 8, 2, 3, 0xffffff); rect(8, 8, 2, 1, 0x6b4226);
+      break;
+    case 'cup':
+      sideL(); rect(12, 12, 2, 4, o.arms); rect(11, 15, 2, 2, skin); rect(10, 13, 2, 2, 0xffffff);
+      break;
+    case 'pan': case 'pan2': { // poêle sur le feu, ça saute !
+      const d = kind === 'pan2' ? -1 : 0;
+      rect(1, 12, 2, 3, o.arms); rect(13, 12, 2, 3, o.arms); rect(2, 14, 2, 2, o.arms); rect(12, 14, 2, 2, o.arms);
+      rect(3, 16 + d, 2, 1, skin); rect(11, 16, 2, 1, skin);
+      rect(4, 16 + d, 7, 2, 0x34323d); rect(11, 16, 3, 1, 0x5a3a28);
+      if (kind === 'pan2') { rect(6, 14, 2, 1, 0xf2a33a); rect(8, 13, 1, 1, 0x4caf50); }
+      break;
+    }
+    default: break;
+  }
+}
+
+function drawBody(look, rect, opts = {}) {
   const { skin, hairColor: hair } = look;
   const o = outfitColors(look);
+  const frame = opts.frame || 0;
   // Marche : une jambe se lève, les bras se balancent en opposition
   const liftL = frame === 1 ? 1 : 0, liftR = frame === 2 ? 1 : 0;
   const swing = frame === 1 ? 1 : frame === 2 ? -1 : 0;
 
-  rect(4, 19, 3, 6 - liftL, o.legs); rect(9, 19, 3, 6 - liftR, o.legs);
-  rect(4, 19, 1, 6 - liftL, shade(o.legs, 0.82)); rect(9, 19, 1, 6 - liftR, shade(o.legs, 0.82));
-  rect(3, 25 - liftL, 4, 2, o.shoes); rect(9, 25 - liftR, 4, 2, o.shoes);
-  rect(3, 25 - liftL, 4, 1, shade(o.shoes, 1.6)); rect(9, 25 - liftR, 4, 1, shade(o.shoes, 1.6));
+  if (opts.sit) { // assis : genoux devant, pieds posés
+    rect(4, 19, 3, 3, o.legs); rect(9, 19, 3, 3, o.legs);
+    rect(4, 19, 3, 1, shade(o.legs, 1.12)); rect(9, 19, 3, 1, shade(o.legs, 1.12));
+    rect(3, 22, 4, 2, o.shoes); rect(9, 22, 4, 2, o.shoes);
+  } else {
+    rect(4, 19, 3, 6 - liftL, o.legs); rect(9, 19, 3, 6 - liftR, o.legs);
+    rect(4, 19, 1, 6 - liftL, shade(o.legs, 0.82)); rect(9, 19, 1, 6 - liftR, shade(o.legs, 0.82));
+    rect(3, 25 - liftL, 4, 2, o.shoes); rect(9, 25 - liftR, 4, 2, o.shoes);
+    rect(3, 25 - liftL, 4, 1, shade(o.shoes, 1.6)); rect(9, 25 - liftR, 4, 1, shade(o.shoes, 1.6));
+  }
 
-  rect(1, 12 + swing, 2, 6, o.arms); rect(13, 12 - swing, 2, 6, o.arms);
-  rect(1, 18 + swing, 2, 2, skin); rect(13, 18 - swing, 2, 2, skin);
+  if (!opts.arms) {
+    rect(1, 12 + swing, 2, 6, o.arms); rect(13, 12 - swing, 2, 6, o.arms);
+    rect(1, 18 + swing, 2, 2, skin); rect(13, 18 - swing, 2, 2, skin);
+  }
 
   rect(3, 11, 10, 8, o.top);
   rect(3, 11, 1, 8, shade(o.top, 0.8)); rect(12, 11, 1, 8, shade(o.top, 0.8));
   rect(4, 11, 8, 1, shade(o.top, 1.12));
   rect(3, 18, 10, 1, shade(o.legs, 0.7)); // ceinture
-  if (o.details) o.details(rect);
+  if (o.details && !opts.back) o.details(rect);
+  if (opts.arms) drawArms(rect, opts.arms, o, skin);
 
   // Tête
   rect(6, 10, 4, 1, shade(skin, 0.8));
+  if (opts.back) {
+    // Vu de dos : la nuque, les oreilles et les cheveux
+    rect(4, 3, 8, 8, look.hairStyle === 'chauve' ? shade(skin, 0.95) : hair);
+    rect(3, 6, 1, 2, skin); rect(12, 6, 1, 2, skin);
+    if (look.hairStyle === 'long') rect(4, 10, 8, 3, hair);
+    if (look.hairStyle === 'boucles') { rect(3, 1, 10, 3, hair); rect(2, 2, 1, 6, hair); rect(13, 2, 1, 6, hair); }
+    if (look.hairStyle === 'chignon') rect(6, 0, 4, 3, shade(hair, 0.9));
+    if (look.hairStyle === 'crete') rect(7, 0, 2, 4, hair);
+    if (look.hairStyle === 'casquette') { rect(4, 1, 8, 3, hair); rect(4, 4, 8, 4, shade(hair, 0.7)); }
+    if (look.hairStyle !== 'chauve') rect(5, 3, 3, 1, shade(hair, 1.3));
+    if (look.accessory === 'echarpe') rect(4, 10, 8, 2, 0xd94f4f);
+    if (look.hat === 'beret') { rect(4, 1, 9, 2, 0x2b2b33); }
+    if (look.hat === 'chapeau') { rect(5, 0, 6, 2, 0x222228); rect(5, 1, 6, 1, 0xb8403e); rect(3, 2, 10, 1, 0x222228); }
+    return;
+  }
   rect(4, 3, 8, 8, skin);
   rect(11, 4, 1, 6, shade(skin, 0.9)); rect(5, 10, 6, 1, shade(skin, 0.92));
   rect(5, 6, 2, 2, 0xffffff); rect(6, 6, 1, 2, 0x1d1b2b);
@@ -157,6 +234,21 @@ export function ensureCharTexture(scene, actor) {
     scene.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
   });
   return actor.texKey;
+}
+
+// Texture d'une pose (assis, vu de dos, cuisine…), créée la première fois qu'on en a besoin
+export function ensurePose(scene, actor, name) {
+  ensureCharTexture(scene, actor);
+  if (!name || name === 'stand') return actor.texKey;
+  const key = `${actor.texKey}_${name}`;
+  if (scene.textures.exists(key)) return key;
+  const g = scene.make.graphics({ add: false });
+  g.fillStyle(0x000000, 0.25); g.fillEllipse(9, POSES[name].sit ? 25 : 28, 13, 3.5);
+  drawCharacter(actor.look, (x, y, w, h, c) => { g.fillStyle(c); g.fillRect(x, y, w, h); }, POSES[name]);
+  g.generateTexture(key, CHAR_W, CHAR_H);
+  g.destroy();
+  scene.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
+  return key;
 }
 
 // Profil du joueur gardé sur l'appareil.
