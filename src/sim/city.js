@@ -164,7 +164,8 @@ export class CityLife {
     const a = new Actor({
       id: `n${++this.born}`, name, controller: 'ai', look: randomLook(), home: null, job: null,
       money: Math.round(250 + Math.random() * 450), energy: 70 + Math.random() * 25, hunger: 20 + Math.random() * 30,
-      food: 0, x: e.x, y: e.y,
+      food: 0, x: e.x, y: e.y, education: Math.floor(Math.random() * 3) + (Math.random() < 0.3 ? 1 : 0),
+      karma: Math.random() < 0.12 ? -3 : 0, // de temps en temps, quelqu'un de peu recommandable
     });
     a.housing = null;
     a.newcomer = w.day;

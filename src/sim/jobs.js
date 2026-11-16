@@ -18,6 +18,12 @@ export const SHIFTS = {
   fashion: { start: 10, alt: 11, hours: 8, days: [1, 2, 3, 4, 5, 6] },
   garage: { start: 8, hours: 8, days: [0, 1, 2, 3, 4] },
   cityhall: { start: 9, hours: 8, days: [0, 1, 2, 3, 4, 5] }, // mairie : ouverte du lundi au samedi
+  // Services publics ouverts tous les jours : chacun travaille 5 jours (rotate), en équipes du matin et du soir
+  police: { start: 6, alt: 14, hours: 8, days: [0, 1, 2, 3, 4], rotate: true },
+  hospital: { start: 7, alt: 15, hours: 8, days: [0, 1, 2, 3, 4], rotate: true },
+  firestation: { start: 8, alt: 16, hours: 8, days: [0, 1, 2, 3, 4], rotate: true },
+  prison: { start: 7, alt: 15, hours: 8, days: [0, 1, 2, 3, 4], rotate: true },
+  school: { start: 8, hours: 8, days: [0, 1, 2, 3, 4] },
 };
 
 // ---------- Impôts ----------
@@ -56,6 +62,7 @@ export function nextOpening(w, b) {
 export const JOB_TITLES = {
   office: 'Employé·e de bureau', cafe: 'Serveur·se', bakery: 'Boulanger·ère', shop: 'Caissier·ère',
   fashion: 'Vendeur·se', garage: 'Mécanicien·ne', cityhall: 'Agent·e de la mairie',
+  police: 'Agent·e de police', hospital: 'Soignant·e', firestation: 'Pompier·ère', prison: 'Surveillant·e', school: 'Enseignant·e',
 };
 
 // Intitulé d'un poste (les métiers de rue ont leur propre titre)
@@ -71,12 +78,16 @@ export function makeStreetJob({ title, icon, start, hours, days, wage, base }, d
 
 export const weekdayOf = day => (day - 1) % 7;
 
-export function makeJob(b, wage, day, evening = false) {
+export function makeJob(b, wage, day, evening = false, offset = 0) {
   const s = SHIFTS[b.type];
-  return {
-    building: b.id, wage, baseWage: wage, start: evening && s.alt ? s.alt : s.start, hours: s.hours, days: [...s.days],
+  const job = {
+    building: b.id, wage, baseWage: wage, start: evening && s.alt ? s.alt : s.start, hours: s.hours,
+    days: s.rotate ? s.days.map(d => (d + offset) % 7).sort((x, y) => x - y) : [...s.days], // services 7 j/7 : jours décalés entre collègues
     warnings: 0, streak: 0, sick: 0, since: day, evaluated: day, log: null,
   };
+  // La police patrouille dans le quartier (payée dehors pendant le service), rattachée au commissariat
+  if (b.type === 'police') Object.assign(job, { street: true, title: 'Agent·e de police', icon: '👮' });
+  return job;
 }
 
 export const isWorkday = (job, day) => job.days.includes(weekdayOf(day));

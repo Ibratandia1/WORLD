@@ -111,6 +111,7 @@ export class World extends Emitter {
     if (this.day !== prevDay) this.newDay();
     if (this.city) this.city.update();
     if (this.festivals) this.festivals.update();
+    if (this.safety) this.safety.tick();
     for (const d of this.directors) d.update(dt);
   }
 
@@ -191,6 +192,15 @@ export class World extends Emitter {
     if (a.mood < 20) a.energy -= 0.01 * dt;
     if (this.weather === 'rain' && a.outdoors && a.path.length && !a.items.umbrella) a.energy -= 0.04 * dt;
     if (this.weather === 'snow' && a.outdoors) a.energy -= 0.02 * dt; // le froid fatigue
+    // Maladie : on attrape froid sous la pluie ou la neige ; ça fatigue et ça mine le moral, ça passe en 3 jours (ou chez le médecin)
+    if (!a.sick && a.outdoors && (this.weather === 'snow' || (this.weather === 'rain' && !a.items.umbrella)) && Math.random() < 0.00025 * dt) {
+      a.sick = true; a.sickSince = this.day;
+      this.emit('fellSick', { actor: a });
+    }
+    if (a.sick) {
+      a.energy -= 0.015 * dt; a.mood = clamp(a.mood - 0.006 * dt, 0, 100);
+      if (this.day - (a.sickSince || this.day) >= 3) a.sick = false;
+    }
 
     // Métiers de rue (facteur, police) : on travaille en tournée dans le quartier
     if (a.job && a.job.street && a.outdoors && shiftNow(a.job, this) && this.minutes >= shiftOf(a.job, this.day).start) {
@@ -268,6 +278,8 @@ export class World extends Emitter {
   check(a, id, params = {}) {
     const def = ACTIONS[id];
     if (!def) return 'Action inconnue';
+    // En prison, on attend sa sortie
+    if (a.jailUntil && this.minutes < a.jailUntil && id !== 'jail') return 'Tu es en prison';
     if (def.can) {
       const c = def.can(a, this, params);
       if (c !== true) return c;
@@ -338,7 +350,7 @@ export class World extends Emitter {
     if (place.param) return new Set(params[place.param] != null ? [params[place.param]] : []);
     if (place.own === 'home') return new Set(a.home != null ? [a.home] : []);
     if (place.own === 'job') return new Set(a.job ? [a.job.building] : []);
-    const all = this.map.buildings.filter(b => b.type === place.type && !isClosed(this, b.id)).map(b => b.id);
+    const all = this.map.buildings.filter(b => b.type === place.type && !isClosed(this, b.id) && !(this.safety && this.safety.burning(b.id))).map(b => b.id);
     // `at` : une adresse précise choisie (son café préféré, la boulangerie la moins chère…)
     if (params.at != null) return new Set(all.includes(params.at) ? [params.at] : []);
     return new Set(all);
@@ -388,6 +400,7 @@ export class World extends Emitter {
 
   // Arrête ce que fait l'acteur. Sans `leave`, il reste dans le lieu où il se trouve.
   cancel(a, leave = false) {
+    if (a.jailUntil && this.minutes < a.jailUntil) return; // on ne sort pas de prison avant la fin de la peine
     const had = a.doing || a.plan || a.path.length || (leave && a.inside != null);
     const where = a.inside;
     a.current = null; a.inside = null; a.plan = null; a.path = [];

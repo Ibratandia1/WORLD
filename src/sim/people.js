@@ -67,6 +67,29 @@ export const PEOPLE = [
     look: { body: 0x2b3245, hairColor: 0xdddddd, hairStyle: 'court', skin: 0xf0c8a8, legs: 0x1e2742, accessory: 'lunettes', outfit: 'costume' } },
   { name: 'Agnès', home: 'H', job: { at: 'Z', wage: 15 }, money: 400,
     look: { body: 0x3cb5c9, hairColor: 0x4a3020, hairStyle: 'chignon', skin: 0xd9a77e, legs: 0x2a2f3d, accessory: 'lunettes', outfit: 'veste' } },
+
+  // --- Services publics : une première équipe dans chaque lieu ---
+  { name: 'Cdt Moreau', home: 'D', job: { at: '1', wage: 18 }, money: 900, education: 2, role: 'police',
+    look: { body: 0x2b3a6b, hairColor: 0x7a4a2a, hairStyle: 'court', skin: 0xf1c7a3, legs: 0x1e2742, accessory: 'moustache', build: 'fort' } },
+  { name: 'Ophélie', home: 'B', job: { at: '1', wage: 16 }, money: 450, education: 1,
+    look: { body: 0x2b3a6b, hairColor: 0x1c1410, hairStyle: 'queue', skin: 0xb57a52, legs: 0x1e2742, accessory: 'aucun' } },
+  { name: 'Dr Benali', home: 'F', job: { at: '2', wage: 22 }, money: 2400, education: 3,
+    look: { body: 0xffffff, hairColor: 0x1c1410, hairStyle: 'court', skin: 0xb57a52, legs: 0x3a4766, accessory: 'lunettes' } },
+  { name: 'Lucie', home: 'E', job: { at: '2', wage: 18 }, money: 600, education: 2,
+    look: { body: 0x7fd3c3, hairColor: 0xd9a441, hairStyle: 'chignon', skin: 0xf6d3b8, legs: 0x7fd3c3, accessory: 'aucun' } },
+  { name: 'Sgt Diallo', home: 'D', job: { at: '3', wage: 17 }, money: 700, education: 1,
+    look: { body: 0xd8504d, hairColor: 0x111111, hairStyle: 'chauve', skin: 0x5e3a24, legs: 0x2a2f3d, accessory: 'aucun', build: 'fort' } },
+  { name: 'Mathis', home: 'Q', job: { at: '3', wage: 16 }, money: 380, education: 1,
+    look: { body: 0xd8504d, hairColor: 0xb5651d, hairStyle: 'crete', skin: 0xf1c7a3, legs: 0x2a2f3d, accessory: 'aucun' } },
+  { name: 'Kevin', home: 'Q', job: { at: '4', wage: 15 }, money: 300, education: 0,
+    look: { body: 0x5f6066, hairColor: 0x4a3020, hairStyle: 'casquette', skin: 0xd9a77e, legs: 0x2a2f3d, accessory: 'aucun', build: 'fort' } },
+  { name: 'Mme Lefèvre', home: 'H', job: { at: '5', wage: 16 }, money: 800, education: 3,
+    look: { body: 0x9b6ee8, hairColor: 0xdddddd, hairStyle: 'carre', skin: 0xf6d7c3, legs: 0x3b3b4f, accessory: 'lunettes' } },
+  { name: 'Romain', home: 'I', job: { at: '5', wage: 15 }, money: 350, education: 2,
+    look: { body: 0x4bbf8b, hairColor: 0x7a4a2a, hairStyle: 'boucles', skin: 0xf0c4a0, legs: 0x3a4766, accessory: 'aucun' } },
+  // --- Un peu de délinquance, comme partout ---
+  { name: 'Dédé', home: 'Q', job: null, money: 15, karma: -4,
+    look: { body: 0x333a4a, hairColor: 0x1c1410, hairStyle: 'casquette', skin: 0xd9a77e, legs: 0x2a2f3d, accessory: 'solaires', outfit: 'sweat', build: 'mince' } },
 ];
 
 export function spawnPeople(world, profile = null) {
@@ -93,6 +116,8 @@ export function spawnPeople(world, profile = null) {
       owned: p.owned ? [...p.owned] : [],
       vehicle: p.vehicle,
       money: p.money,
+      education: p.education ?? (p.job ? (p.job.wage >= 18 ? 3 : p.job.wage >= 15 ? 2 : 1) : 1),
+      karma: p.karma,
       energy: isPlayer ? 85 : 60 + Math.random() * 35,
       hunger: isPlayer ? 25 : 10 + Math.random() * 40,
       food: isPlayer ? 1 : Math.floor(Math.random() * 3),

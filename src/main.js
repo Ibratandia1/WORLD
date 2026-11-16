@@ -7,6 +7,7 @@ import { CityLife } from './sim/city.js';
 import { Government } from './sim/gov.js';
 import { ensureGoals, trackGoals } from './sim/goals.js';
 import { Festivals } from './sim/festivals.js';
+import { Safety } from './sim/safety.js';
 import { UI } from './ui.js';
 import { GameScene } from './scenes/GameScene.js';
 import { InteriorScene } from './scenes/InteriorScene.js';
@@ -24,6 +25,7 @@ const player = spawnPeople(world, profile);
 const director = new EventDirector(world, player);
 new CityLife(world); // la ville vivante : commerces, arrivées, départs (world.city)
 new Government(world); // la mairie : maire, impôts, aides, élections (world.gov)
+new Safety(world); // délits, police, prison, incendies (world.safety)
 // Mode test (?test dans l'adresse) : partie neuve, jamais sauvegardée — la vraie partie n'est pas touchée
 const TEST = new URLSearchParams(location.search).has('test');
 const resumed = TEST ? false : loadGame(world, [director]); // reprend la dernière partie s'il y en a une

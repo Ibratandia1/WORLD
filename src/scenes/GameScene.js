@@ -53,6 +53,11 @@ export class GameScene extends Phaser.Scene {
     this.world.on('festivalStart', e => this.fest.show(e.fest));
     this.world.on('festivalEnd', e => this.fest.hide(e.fest));
     if (this.world.festivals) for (const id of this.world.festivals.active) this.fest.show(festById(id));
+    // Incendies : flammes et fumée sur le bâtiment tant que les pompiers ne sont pas passés
+    this.fireFx = {};
+    this.world.on('fire', e => this.showFire(e.building));
+    this.world.on('fireOut', e => this.hideFire(e.building));
+    if (this.world.safety) for (const id of Object.keys(this.world.safety.fires)) this.showFire(this.world.building(+id));
     this.traffic = new Traffic(this, this.map);
     this.crowd = new Crowd(this, this.map, randomLook, ensureCharTexture);
     makeBirdTextures(this);
@@ -211,6 +216,37 @@ export class GameScene extends Phaser.Scene {
         this.add.image(s.x, s.y, `g_${tiles[y][x].ground}_${(x + y) % 2}`).setDepth(0);
       }
     }
+  }
+
+  // ---------- Incendies ----------
+  showFire(b) {
+    if (this.fireFx[b.id]) return;
+    if (!this.textures.exists('flame')) {
+      const g = this.make.graphics({ add: false });
+      g.fillStyle(0xffd23f); g.fillCircle(6, 6, 6); g.fillStyle(0xff7a29, 0.9); g.fillCircle(6, 7, 4); g.generateTexture('flame', 12, 12);
+      g.clear(); g.fillStyle(0x5a5560, 0.7); g.fillCircle(10, 10, 10); g.generateTexture('smoke', 20, 20);
+      g.destroy();
+    }
+    const tops = b.tiles.slice(0, 4).map(t => { const c = toScreen(t.x, t.y); return { x: c.x, y: c.y - b.height, d: depthAt(t.x, t.y) + 8 }; });
+    const ems = [];
+    for (const t of tops) {
+      ems.push(this.add.particles(t.x, t.y, 'flame', {
+        x: { min: -14, max: 14 }, y: { min: -4, max: 6 }, lifespan: 700, speedY: { min: -60, max: -30 }, scale: { start: 1.2, end: 0.2 },
+        alpha: { start: 1, end: 0 }, blendMode: 'ADD', frequency: 60, quantity: 2,
+      }).setDepth(t.d));
+      ems.push(this.add.particles(t.x, t.y - 10, 'smoke', {
+        x: { min: -10, max: 10 }, lifespan: 2600, speedY: { min: -40, max: -20 }, speedX: { min: -8, max: 14 }, scale: { start: 0.6, end: 2.2 },
+        alpha: { start: 0.55, end: 0 }, frequency: 180, quantity: 1,
+      }).setDepth(t.d + 0.5));
+    }
+    this.fireFx[b.id] = ems;
+  }
+
+  hideFire(b) {
+    const ems = this.fireFx[b.id];
+    if (!ems) return;
+    ems.forEach(e => { e.stop(); this.time.delayedCall(2800, () => e.destroy()); });
+    delete this.fireFx[b.id];
   }
 
   // ---------- Façades transparentes ----------

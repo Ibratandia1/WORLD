@@ -7,6 +7,7 @@ import { rel, level, near } from './sim/social.js';
 import { weeklyRent, occupants, LATE_EVICT } from './sim/housing.js';
 import { freeUnits, isClosed } from './sim/city.js';
 import { Sound } from './audio.js';
+import { isPolice, jailed } from './sim/safety.js';
 import { SEASON_INFO } from './sim/world.js';
 import { cityPulse } from './city/render.js';
 import { TUTORIAL, TUT_REWARD, TUT_FINAL, DREAMS, tutStep, tutReady, dreamClaimable, nextDream } from './sim/goals.js';
@@ -341,10 +342,22 @@ export class UI {
       } else if (!inside) {
         note = `<p>Complet : ${b.units} appartement${b.units > 1 ? 's' : ''}, tous occupés.</p>`;
       }
+      // La nuit, on peut tenter un cambriolage (très risqué)
+      if (b.id !== p.home && occupants(w, b).length && (w.hour >= 23 || w.hour < 5)) buttons.push(this.actBtn('burgle', { building: b.id }));
     }
 
+    // Services publics : un mot sur ce qu'on y fait
+    const SERVICE = {
+      police: () => { const s = w.safety ? w.safety.stats : { week: 0, arrests: 0 }; return `🚨 ${s.week} délit${s.week > 1 ? 's' : ''} cette semaine · ${s.arrests} arrestation${s.arrests > 1 ? 's' : ''} au total${p.wanted > 0 ? ' · <span class="bad">tu es recherché·e !</span>' : ''}`; },
+      hospital: () => (p.sick ? '🤧 Tu es malade : un médecin peut te soigner.' : '🩺 Consultations quand un soignant est de service.'),
+      firestation: () => { const n = w.safety ? Object.keys(w.safety.fires).length : 0; return n ? `🔥 ${n} incendie${n > 1 ? 's' : ''} en cours !` : '🚒 Aucun incendie. Les pompiers veillent.'; },
+      prison: () => { const n = w.actors.filter(o => jailed(w, o)).length; return `⛓️ ${n} détenu${n > 1 ? 's' : ''}`; },
+      school: () => `🎓 Ton niveau d’études : ${p.education ?? 1}/3 · cours du soir : 3 cours = 1 diplôme`,
+    };
+    if (SERVICE[b.type]) note = `${note}<p>${SERVICE[b.type]()}</p>`;
+    if (w.safety && w.safety.burning(b.id)) note = `<p class="status bad">🔥 En feu ! Personne ne peut entrer.</p>${note}`;
     // Commerce : ouvert seulement s'il y a quelqu'un au comptoir
-    if (['cafe', 'bakery', 'shop', 'fashion', 'garage', 'cityhall'].includes(b.type)) {
+    if (['cafe', 'bakery', 'shop', 'fashion', 'garage', 'cityhall', 'hospital', 'school'].includes(b.type)) {
       const s = sellerAt(w, b, p);
       let status;
       if (s) status = `🟢 Ouvert · ${esc(s.name)} au comptoir`;
@@ -419,6 +432,7 @@ export class UI {
         ${fmtShift(p.job)} · ${p.job.days.map(d => DAY_SHORT[d]).join(' ')}<br>
         Prochain service : ${nextShiftText(p, w) || '—'}<br>
         Avertissements : ${warn} (${p.job.warnings}/${MAX_WARNINGS})<br>
+        🎓 Niveau d’études : ${p.education ?? 1}/3<br>
         Augmentation dans ${RAISE_EVERY - (p.job.streak % RAISE_EVERY)} jour(s) sans faute<br>
         🏛️ Impôt prélevé à la source : ${Math.round(taxRate(p.job.wage) * 100)} % · ${Math.round(p.taxWeek || 0)} € cette semaine</p>
         <div class="choices">${isWorkday(p.job, w.day) ? this.actBtn('call_sick') : ''}${this.actBtn('quit_job')}</div></div>`;
@@ -586,6 +600,9 @@ export class UI {
   // ---------- Prochain rendez-vous (HUD) ----------
   nextAppointment() {
     const p = this.player, w = this.world;
+    if (jailed(w, p)) return ['⛓️', `sortie ${Math.ceil((p.jailUntil - w.minutes) / 1440)} j`];
+    if (p.wanted > 0) return ['🚨', 'recherché·e'];
+    if (p.sick) return ['🤧', 'malade'];
     if (p.housing === 'rent' && p.rentDue > 0) return ['🧾', `${p.rentDue} €`];
     const g = w.gov;
     if (g && g.votingOpen && !g.votes[p.id]) return ['🗳️', 'vote'];
@@ -666,6 +683,9 @@ export class UI {
     extra.push(this.actBtn('gift', { who: t.id }, nGifts ? `Offrir un cadeau (${nGifts})` : null));
     if (p.inside != null && w.building(p.inside).type === 'cafe') extra.push(this.actBtn('treat', { who: t.id }));
     if (p.outdoors) extra.push(this.actBtn('stroll', { who: t.id }));
+    // Police : arrêter une personne recherchée · tout le monde : le vol (risqué, la police veille)
+    if (isPolice(p) && t.wanted > 0) extra.push(this.actBtn('arrest', { who: t.id }, `Arrêter ${t.name} (recherché·e)`));
+    if (near(p, t) && !isPolice(t)) extra.push(this.actBtn('steal', { who: t.id }));
 
     // Fil de la conversation
     const log = chatLog(t).slice(-8).map(m => m.from === 'player'

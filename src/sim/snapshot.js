@@ -9,6 +9,7 @@ const ACTOR_FIELDS = [
   'home', 'housing', 'rentDue', 'rentLate', 'firedDay', 'lastApply', 'relations', 'routine',
   'owned', 'vehicle', 'referrals', 'taxWeek', 'mood', 'gifts', // ajoutés sans changer de version : les anciennes sauvegardes restent valides
   'hardDays', 'newcomer', 'fav', 'aidDay', 'role', 'lastRepair', 'goals', 'tips',
+  'education', 'studies', 'studyDay', 'wanted', 'victimOf', 'sick', 'sickSince', 'jailUntil',
 ];
 // Pour les nouveaux arrivants (absents de la liste de départ), on garde aussi qui ils sont
 const NEWCOMER_FIELDS = ['name', 'look', 'role', 'controller'];
@@ -21,6 +22,7 @@ export function takeSnapshot(world, directors = []) {
     savedAt: Date.now(),
     city: world.city ? world.city.snapshot() : null,
     gov: world.gov ? world.gov.snapshot() : null,
+    safety: world.safety ? world.safety.snapshot() : null,
     minutes: world.minutes,
     weather: world.weather,
     weatherIn: world.weatherIn,
@@ -79,6 +81,7 @@ export function applySnapshot(world, directors, snap) {
   }
 
   if (world.gov) world.gov.restore(snap.gov, world.day);
+  if (world.safety) world.safety.restore(snap.safety);
 
   for (const s of snap.directors || []) {
     const d = directors.find(x => x.actor.id === s.actor);

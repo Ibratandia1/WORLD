@@ -3,6 +3,7 @@ import { nearby, canPause } from './social.js';
 import { ACTIONS } from './actions.js';
 import { priceMul } from './city.js';
 import { festById } from './festivals.js';
+import { isPolice, onDuty, jailed } from './safety.js';
 
 // Heure du coucher : assez tôt pour 8 h de sommeil avant le service du lendemain
 const bedtimeOf = a => (a.job ? (a.job.start + 24 - 8.75) % 24 : 23);
@@ -48,6 +49,43 @@ export function decide(a, w, opts = {}) {
     if (b) return { id: 'rent_home', params: { building: b.id } };
   }
 
+  // 1c. Pompiers de service : un incendie passe avant tout
+  const sf = w.safety;
+  if (sf && Object.keys(sf.fires).length && onDuty(w, a, 'firestation')) {
+    const fire = +Object.keys(sf.fires)[0];
+    if (w.check(a, 'extinguish', { building: fire }) === true) return { id: 'extinguish', params: { building: fire } };
+  }
+
+  // 1d. Police en patrouille : on va arrêter les personnes recherchées (jamais le joueur sans raison : seulement s'il est recherché)
+  if (sf && isPolice(a) && shiftNow(a.job, w)) {
+    const t = w.actors.filter(o => o !== a && o.wanted > 0 && o.outdoors && !jailed(w, o))
+      .sort((x, y) => Math.hypot(x.px - a.px, x.py - a.py) - Math.hypot(y.px - a.px, y.py - a.py))[0];
+    if (t && Math.hypot(t.px - a.px, t.py - a.py) < 14) {
+      if (w.check(a, 'arrest', { who: t.id }) === true) return { id: 'arrest', params: { who: t.id } };
+      return { id: 'goto', params: { x: Math.round(t.px), y: Math.round(t.py) } };
+    }
+  }
+
+  // 1e. Malade : chez le médecin (si on peut payer)
+  if (a.sick && a.money > 30 && !player) { const c = shop(a, w, 'consult'); if (c) return c; }
+
+  // 1f. La misère pousse parfois au vol (jamais le joueur : c'est à lui de choisir)
+  const poor = a.money < 25 && (!a.job || (a.hardDays || 0) >= 1) && (a.karma || 0) < 2;
+  const thug = (a.karma || 0) <= -3 && Math.random() < 0.25; // un tempérament de voyou : ça le démange même sans besoin
+  if (!player && sf && (poor || thug)) {
+    const night = w.hour >= 23 || w.hour < 5;
+    if (night && Math.random() < 0.04) {
+      const homes = w.map.buildings.filter(b => b.type === 'home' && b.id !== a.home);
+      const b = homes[Math.floor(Math.random() * homes.length)];
+      if (b && w.check(a, 'burgle', { building: b.id }) === true) return { id: 'burgle', params: { building: b.id } };
+    }
+    if (Math.random() < 0.06) {
+      const v = nearby(w, a).find(o => !isPolice(o) && o.money > 20 && o.controller !== 'player');
+      if (v && w.check(a, 'steal', { who: v.id }) === true) return { id: 'steal', params: { who: v.id } };
+      if (w.check(a, 'shoplift') === true && Math.random() < 0.5) return { id: 'shoplift' };
+    }
+  }
+
   // 2a. Métiers de rue (facteur, police) : tournée dans le quartier pendant le service
   if (a.job && a.job.street && shiftNow(a.job, w)) {
     if (a.hunger > 80 && a.money >= 4) { const c = shop(a, w, 'eat_bakery'); if (c) return c; }
@@ -88,9 +126,10 @@ export function decide(a, w, opts = {}) {
   }
   if (!player && (!a.job || a.job.street) && a.money < 120 && w.check(a, 'allocation') === true) return { id: 'allocation' };
 
-  // 5. Chercher du travail (on postule un peu partout, pas toujours au même endroit)
+  // 5. Chercher du travail (on postule un peu partout, pas toujours au même endroit), ou reprendre ses études
   if (!a.job && a.role !== 'landlord' && h >= 8 && h < 18) {
-    const list = w.map.buildings.filter(b => openings(w, b) > 0 && a.lastApply[b.id] !== w.day);
+    if ((a.education ?? 1) < 2 && a.money > 60 && Math.random() < 0.25) { const c = shop(a, w, 'study'); if (c) return c; }
+    const list = w.map.buildings.filter(b => openings(w, b) > 0 && a.lastApply[b.id] !== w.day && (b.jobs.edu || 0) <= (a.education ?? 1));
     if (list.length) return { id: 'apply', params: { building: list[Math.floor(Math.random() * list.length)].id } };
   }
 

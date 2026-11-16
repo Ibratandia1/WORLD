@@ -136,6 +136,54 @@ export function drawBuildingTile(g, lg, cx, cy, h, T, info) {
     }
   }
 
+  // Services publics : chacun reconnaissable de loin
+  if (type === 'police') {
+    for (const side of sides) {
+      q(g, face(side, 18, 23), shade(0x2b4ea2, dim(side)));                    // bandeau bleu
+      q(g, face(side, 19, 22, 0.08, 0.92), shade(0x3f66c4, dim(side)));
+      q(g, face(side, 0, 16, 0.3, 0.7), shade(0x34405a, dim(side)));            // portes vitrées
+      q(lg, face(side, 1, 15, 0.32, 0.68), 0xd8e6ff);
+    }
+    if (info.door) { q(g, face('L', 25, 30, 0.45, 0.55), 0x2b4ea2); q(lg, face('L', 26, 29, 0.46, 0.54), 0x6ea8ff); } // gyrophare / lanterne
+  }
+  if (type === 'hospital') {
+    for (const side of sides) {
+      q(g, face(side, 0, 14, 0.25, 0.75), shade(0x9fc6e0, dim(side)));         // grande entrée vitrée
+      q(lg, face(side, 1, 13, 0.27, 0.73), 0xe8f4ff);
+    }
+    if (info.door) {                                                              // croix rouge sur la façade
+      q(g, face('L', h - 30, h - 10, 0.44, 0.56), 0xffffff); q(g, face('L', h - 26, h - 14, 0.38, 0.62), 0xffffff);
+      q(g, face('L', h - 28, h - 12, 0.46, 0.54), 0xd8504d); q(g, face('L', h - 24, h - 16, 0.4, 0.6), 0xd8504d);
+      q(lg, face('L', h - 28, h - 12, 0.46, 0.54), 0xff6b6b);
+    }
+  }
+  if (type === 'firestation') {
+    for (const side of sides) {
+      q(g, face(side, 0, 28, 0.08, 0.92), shade(0xf2efe8, dim(side)));         // encadrement blanc
+      q(g, face(side, 0, 26, 0.12, 0.88), shade(0x8c2a22, dim(side)));         // grande porte rouge du garage
+      for (let z = 4; z < 26; z += 5) q(g, face(side, z, z + 1, 0.12, 0.88), shade(0x6e1f19, dim(side)));
+      q(lg, face(side, 0, 3, 0.1, 0.9), 0xffb84d, 0.6);
+    }
+  }
+  if (type === 'prison') {
+    for (const side of sides) {
+      for (let z = 14; z < h - 10; z += 16) for (const u of [0.2, 0.5, 0.8]) {
+        q(g, face(side, z, z + 7, u - 0.05, u + 0.05), 0x2b2b33);               // petites fenêtres
+        for (const k of [-0.02, 0.02]) q(g, face(side, z, z + 7, u + k - 0.006, u + k + 0.006), 0x8a8f99); // barreaux
+        q(lg, face(side, z + 1, z + 6, u - 0.04, u + 0.04), 0xffe3a0, 0.5);
+      }
+      q(g, face(side, h - 4, h, 0, 1), shade(0x7d7a72, dim(side)));            // chemin de ronde
+      if (side === 'L' && info.door) q(g, face('L', 0, 16, 0.4, 0.6), 0x3a3a42); // porte blindée
+    }
+  }
+  if (type === 'school') {
+    for (const side of sides) {
+      q(g, face(side, h - 14, h - 9, 0, 1), shade(0xe5a33a, dim(side)));        // frise colorée
+      for (let i = 0; i < 8; i++) q(g, face(side, h - 13, h - 10, i / 8 + 0.02, i / 8 + 0.08), [0xd8504d, 0x3fae73, 0x2b4ea2, 0xf2c94c][i % 4]);
+      if (side === 'L' && info.door) { q(g, face('L', 0, 18, 0.38, 0.62), 0x2f7d5b); q(g, face('L', h - 24, h - 16, 0.44, 0.56), 0xfaf5ea); }
+    }
+  }
+
   // Ombre de contact au pied des façades (le bâtiment « pèse » sur le sol)
   for (const side of sides) q(g, face(side, 0, 4), 0x000000, 0.16);
 

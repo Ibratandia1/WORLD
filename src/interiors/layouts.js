@@ -256,6 +256,93 @@ export const LAYOUTS = {
     ],
   },
 
+  // ---------- Services publics ----------
+  police: {
+    w: 11, h: 8, wallH: 88, wall: 0xe8edf5, floor: [0xd5dbe6, 0xcbd2df], entrance: { x: 5, y: 7 },
+    winL: [2, 5], winR: [2, 8],
+    zones: [
+      { x: 0, y: 0, w: 5, h: 3, floor: [0xdfe6f2, 0xd3dcec], walls: false, wall: 0x2b4ea2, label: 'Accueil', icon: '👮', sub: 'au guichet' },
+      { x: 7, y: 0, w: 4, h: 4, floor: [0xbfc4cc, 0xb3b9c2], wall: 0x5f6066, label: 'Cellule', icon: '🔒', sub: '', doors: [[7, 3]] },
+    ],
+    items: [
+      ...[0, 1, 2, 3, 4].map(x => ({ k: 'counter', x, y: 1, action: 'report', name: 'Guichet' })), { k: 'register', x: 2, y: 1, on: true },
+      { k: 'frame', wall: 'R', at: 2, c: 0x2b4ea2 }, { k: 'clock', wall: 'R', at: 4.5 }, { k: 'flagstand', x: 5, y: 0 },
+      { k: 'desk', x: 2, y: 4 }, { k: 'chair', x: 2, y: 5 }, { k: 'desk', x: 4, y: 4 }, { k: 'chair', x: 4, y: 5 },
+      { k: 'bench', x: 9, y: 2 }, { k: 'bench', x: 0, y: 6 }, { k: 'bench', x: 9, y: 6 }, { k: 'plant', x: 10, y: 7 }, { k: 'cooler', x: 6, y: 0 },
+    ],
+    stations: [S(1, 0, ['work']), S(3, 0, ['work']), S(2, 5, ['work'], { pose: 'type' }), S(4, 5, ['work'], { pose: 'type' }),
+      S(2, 2, ['report', 'any']), S(9, 2, ['any'], { seat: true }), S(0, 6, ['any'], { seat: true })],
+  },
+
+  hospital: {
+    w: 13, h: 9, wallH: 96, wall: 0xf3f6fa, floor: [0xe6edf3, 0xdde6ee], entrance: { x: 6, y: 8 },
+    winL: [2, 6], winR: [2, 10],
+    zones: [
+      { x: 0, y: 0, w: 5, h: 2, floor: [0xe9f4ef, 0xddefe6], walls: false, wall: 0x3fae73, label: 'Accueil', icon: '🏥', sub: 'à l’accueil' },
+      { x: 7, y: 0, w: 6, h: 5, floor: [0xdbe8f7, 0xcfe0f3], wall: 0x5b8def, label: 'Chambres', icon: '🛏️', sub: 'patients', doors: [[7, 4]] },
+      { x: 0, y: 5, w: 4, h: 4, floor: [0xf7e6e6, 0xf2dada], wall: 0xd8504d, label: 'Consultation', icon: '🩺', sub: '', doors: [[3, 5]] },
+    ],
+    items: [
+      ...[0, 1, 2, 3].map(x => ({ k: 'counter', x, y: 1, action: 'consult', name: 'Accueil' })), { k: 'register', x: 1, y: 1, on: true },
+      { k: 'bed', x: 8, y: 1, c: 0xffffff, action: 'consult' }, { k: 'bed', x: 10, y: 1, c: 0xffffff, action: 'consult' }, { k: 'bed', x: 12, y: 1, c: 0xffffff, action: 'consult' },
+      { k: 'nightstand', x: 9, y: 0 }, { k: 'nightstand', x: 11, y: 0 },
+      { k: 'desk', x: 1, y: 7, action: 'consult' }, { k: 'chair', x: 1, y: 6 }, { k: 'bench', x: 5, y: 3 }, { k: 'bench', x: 5, y: 5 },
+      { k: 'cooler', x: 4, y: 0 }, { k: 'bigplant', x: 12, y: 8 }, { k: 'plant', x: 4, y: 8 }, { k: 'clock', wall: 'R', at: 3 },
+    ],
+    stations: [S(1, 0, ['work']), S(3, 0, ['work']), S(9, 2, ['work']), S(11, 2, ['work']), S(1, 6, ['work'], { pose: 'sit' }),
+      S(8, 1, ['consult'], { lie: true }), S(10, 1, ['consult'], { lie: true }), S(5, 3, ['any', 'consult'], { seat: true }), S(5, 5, ['any'], { seat: true })],
+  },
+
+  firestation: {
+    w: 11, h: 8, wallH: 90, wall: 0xf1e2dc, floor: [0xc9ced8, 0xbfc5d0], entrance: { x: 4, y: 7 },
+    winL: [], winR: [2, 8],
+    zones: [
+      { x: 0, y: 0, w: 7, h: 5, floor: [0xb0b6c2, 0xa6adba], walls: false, wall: 0xd8504d, label: 'Garage', icon: '🚒', sub: 'prêts à partir' },
+      { x: 8, y: 0, w: 3, h: 5, floor: [0xf2e3c9, 0xe8d6b5], wall: 0xe5a33a, label: 'Repos', icon: '☕', sub: '', doors: [[8, 3]] },
+    ],
+    items: [
+      { k: 'carshow', x: 2, y: 2, c: 0xd8504d }, { k: 'carshow', x: 5, y: 2, c: 0xd8504d }, { k: 'toolwall', wall: 'L', at: 2 },
+      { k: 'tires', x: 0, y: 0 }, { k: 'workbench', x: 6, y: 0 },
+      { k: 'sofa', x: 9, y: 2, c: 0xd8504d }, { k: 'tablec', x: 9, y: 4 }, { k: 'coffee', x: 10, y: 0 }, { k: 'counter', x: 10, y: 0 },
+      { k: 'plant', x: 10, y: 7 }, { k: 'plant', x: 0, y: 7 },
+    ],
+    stations: [S(1, 3, ['work'], { pose: 'cook' }), S(4, 3, ['work']), S(9, 2, ['work', 'any'], { seat: true }), S(7, 5, ['work']), S(5, 6, ['any'])],
+  },
+
+  prison: {
+    w: 11, h: 8, wallH: 92, wall: 0xd8d6d0, floor: [0xbab8b2, 0xb0aea8], entrance: { x: 5, y: 7 },
+    winL: [], winR: [],
+    zones: [
+      { x: 0, y: 0, w: 3, h: 4, floor: [0xa9a7a1, 0x9f9d97], wall: 0x5f6066, label: 'Cellule', icon: '🔒', sub: '', doors: [[2, 3]] },
+      { x: 4, y: 0, w: 3, h: 4, floor: [0xa9a7a1, 0x9f9d97], wall: 0x5f6066, label: 'Cellule', icon: '🔒', sub: '', doors: [[4, 3]] },
+      { x: 8, y: 0, w: 3, h: 4, floor: [0xa9a7a1, 0x9f9d97], wall: 0x5f6066, label: 'Cellule', icon: '🔒', sub: '', doors: [[8, 3]] },
+    ],
+    items: [
+      { k: 'bed', x: 0, y: 1, c: 0x8a8f99 }, { k: 'bed', x: 5, y: 1, c: 0x8a8f99 }, { k: 'bed', x: 9, y: 1, c: 0x8a8f99 },
+      { k: 'desk', x: 2, y: 6 }, { k: 'chair', x: 2, y: 5 }, { k: 'tablec', x: 7, y: 6 }, { k: 'bench', x: 8, y: 6 }, { k: 'bench', x: 6, y: 6 },
+    ],
+    stations: [S(2, 5, ['work'], { pose: 'sit' }), S(4, 5, ['work']), S(8, 5, ['work']),
+      S(0, 1, ['jail'], { lie: true }), S(5, 1, ['jail'], { lie: true }), S(9, 1, ['jail'], { lie: true }), S(6, 6, ['jail', 'any'], { seat: true })],
+  },
+
+  school: {
+    w: 12, h: 8, wallH: 88, wall: 0xfdf3df, floor: [0xe9d9b8, 0xdfcca6], entrance: { x: 6, y: 7 },
+    winL: [2, 5], winR: [2, 6, 9],
+    zones: [
+      { x: 0, y: 0, w: 7, h: 5, floor: [0xf6e2c4, 0xefd6b2], wall: 0xe5a33a, label: 'Salle de classe', icon: '🎓', sub: 'en cours', doors: [[3, 4]] },
+      { x: 8, y: 0, w: 4, h: 4, floor: [0xdbe8f7, 0xcfe0f3], wall: 0x5b8def, label: 'Bibliothèque', icon: '📚', sub: '', doors: [[8, 3]] },
+    ],
+    items: [
+      { k: 'whiteboard', wall: 'R', at: 3 }, { k: 'desk', x: 3, y: 0 },
+      ...[[1, 2], [3, 2], [5, 2], [1, 4], [3, 4], [5, 4]].map(([x, y]) => ({ k: 'desk', x, y, action: 'study' })),
+      ...[[1, 3], [3, 3], [5, 3]].map(([x, y]) => ({ k: 'chair', x, y })),
+      { k: 'bookshelf', x: 9, y: 0 }, { k: 'bookshelf', x: 11, y: 0 }, { k: 'tablec', x: 10, y: 2, action: 'study' }, { k: 'armchair', x: 10, y: 3 },
+      { k: 'plant', x: 11, y: 7 }, { k: 'plant', x: 0, y: 7 }, { k: 'clock', wall: 'L', at: 6 },
+    ],
+    stations: [S(3, 1, ['work']), S(9, 2, ['work']), S(6, 6, ['work']),
+      ...[[1, 3], [3, 3], [5, 3]].map(([x, y]) => S(x, y, ['study', 'any'], { pose: 'type', seat: true })), S(10, 3, ['study', 'any'], { pose: 'read', seat: true })],
+  },
+
   metro: {
     w: 8, h: 6, wallH: 76, wall: 0xeef3ef, floor: [0xd5d8de, 0xcbced6], entrance: { x: 2, y: 5 },
     winL: [], winR: [],

@@ -5,6 +5,7 @@ import { itemById, hasPhone } from './catalog.js';
 import { isClosed, freeUnits } from './city.js';
 import { AID_EVERY, CAMPAIGN_FEE, TAX_POLICIES, AID_POLICIES, PROJECTS } from './gov.js';
 import { TUTORIAL, TUT_REWARD, TUT_FINAL, DREAMS, tutReady, dreamDone } from './goals.js';
+import { isPolice } from './safety.js';
 
 // RÈGLE D'OR : toutes les actions du jeu sont ici, et le joueur comme les PNJ
 // passent par world.perform(acteur, id, params). Un futur joueur en ligne
@@ -44,6 +45,7 @@ export const ACTIONS = {
       if (!b) return 'Lieu inconnu';
       if (b.type === 'home' && b.id !== a.home) return 'Ce n’est pas chez toi';
       if (isClosed(w, b.id)) return 'Fermé (le local cherche un repreneur)';
+      if (w.safety && w.safety.burning(b.id)) return '🔥 Le bâtiment est en feu !';
       if (a.inside === b.id) return 'Tu es déjà ici';
       return true;
     },
@@ -115,6 +117,9 @@ export const ACTIONS = {
       const b = w.building(p.building);
       if (!b || !b.jobs) return 'On ne recrute pas ici';
       if (isClosed(w, b.id)) return 'Local fermé';
+      const edu = (b.jobs.edu || 0);
+      if (edu > (a.education ?? 1)) return `Diplôme requis : niveau ${edu} (cours du soir à l’école)`;
+      if (a.jailUntil && w.minutes < a.jailUntil) return 'Impossible depuis la prison';
       if (a.job && a.job.building === b.id) return 'Tu y travailles déjà';
       if (openings(w, b) === 0) return 'Aucun poste libre';
       if (a.lastApply[b.id] === w.day) return 'Déjà postulé aujourd’hui';
@@ -137,7 +142,7 @@ export const ACTIONS = {
       const who = manager ? `Entretien avec ${manager.name} : ` : '';
       if (Math.random() > Math.max(0.05, Math.min(0.95, chance))) return `${who}refusé… Réessaie un autre jour.`;
       const colleagues = w.actors.filter(o => o.job && o.job.building === b.id).length;
-      a.job = makeJob(b, b.jobs.wage, w.day, colleagues % 2 === 1); // équipe du matin ou du soir
+      a.job = makeJob(b, b.jobs.wage, w.day, colleagues % 2 === 1, (colleagues * 2) % 7); // équipe du matin ou du soir, jours décalés
       w.emit('hired', { actor: a, building: b, wage: b.jobs.wage });
       return `${who}embauché·e !`;
     },
@@ -591,6 +596,117 @@ export const ACTIONS = {
       }
       a.money += r.money; a.mood += r.mood;
       return `${label}${r.money ? ` · +${r.money} €` : ''}`;
+    },
+  },
+
+  // ---------- Délits, police, prison ----------
+  jail: {
+    icon: '⛓️', label: 'En prison', skip: 16,
+    tick: (a, w, dt) => { a.hunger = Math.max(0, a.hunger - 0.05 * dt); a.mood -= 0.01 * dt; }, // repas servis, moral en berne
+    effect: a => { a.jailUntil = null; return 'Libéré·e. On repart de zéro ?'; },
+  },
+  steal: {
+    icon: '🤏', label: 'Voler son portefeuille (risqué)', here: true, duration: 2, custom: true,
+    can: (a, w, p) => {
+      const t = target(w, p);
+      if (!t || t === a) return 'Personne ici';
+      if (!near(a, t)) return 'Trop loin';
+      if (isPolice(t)) return 'Voler un policier ? Mauvaise idée.';
+      if (t.money < 5) return 'Rien à voler';
+      return true;
+    },
+    effect: (a, w, p) => {
+      const t = target(w, p);
+      if (Math.random() < 0.3) { // raté : la victime s'en rend compte
+        t.victimOf = a.id; addRel(a, t, -30); a.wanted = (a.wanted || 0) + 1; a.karma -= 1;
+        w.emit('crime', { actor: a, kind: 'steal', victim: t, outcome: 'seen' });
+        return `${t.name} t’a vu·e ! « Au voleur ! »`;
+      }
+      const loot = Math.min(Math.round(t.money), 15 + Math.round(Math.random() * 45));
+      t.money -= loot; a.money += loot;
+      const out = w.safety.report('steal', a, t, loot);
+      return out === 'arrested' ? `Pris·e la main dans le sac !` : `+${loot} €${out === 'seen' ? ' · quelqu’un t’a vu·e…' : ''}`;
+    },
+  },
+  shoplift: {
+    icon: '🫣', label: 'Voler à l’étalage (risqué)', place: { type: 'shop' }, duration: 5,
+    effect: (a, w) => {
+      const seller = sellerAt(w, w.building(a.inside), a);
+      if (seller && Math.random() < 0.4) { a.wanted = (a.wanted || 0) + 1; a.karma -= 2; w.emit('crime', { actor: a, kind: 'shoplift', victim: null, outcome: 'seen' }); return `${seller.name} t’a vu·e : la police est prévenue !`; }
+      a.food += 2;
+      const out = w.safety.report('shoplift', a, null, 0);
+      return out === 'arrested' ? 'Pris·e sur le fait !' : '2 repas glissés dans ton sac…';
+    },
+  },
+  burgle: {
+    icon: '🕵️', label: 'Cambrioler (la nuit, très risqué)', place: { param: 'building' }, duration: 40, custom: true, skip: 6,
+    can: (a, w, p) => {
+      const b = w.building(p.building);
+      if (!b || b.type !== 'home') return 'Pas un logement';
+      if (b.id === a.home) return 'C’est chez toi !';
+      if (!(w.hour >= 23 || w.hour < 5)) return 'Seulement en pleine nuit';
+      if (w.actors.some(o => o.inside === b.id && o !== a)) return 'Il y a quelqu’un…';
+      if (!occupants(w, b).length) return 'Personne n’habite ici';
+      return true;
+    },
+    effect: (a, w, p) => {
+      const b = w.building(p.building);
+      const victims = occupants(w, b).filter(o => o.money > 20);
+      if (!victims.length) return 'Rien de valeur…';
+      const v = victims[Math.floor(Math.random() * victims.length)];
+      const loot = Math.min(Math.round(v.money * 0.3), 40 + Math.round(Math.random() * 110));
+      v.money -= loot; a.money += loot;
+      if (w.city) w.city.post('🕵️', `Cambriolage à ${b.name} cette nuit : ${v.name} s’est fait voler ${loot} €.`);
+      const out = w.safety.report('burgle', a, v, loot);
+      if (out !== 'arrested') w.cancel(a, true);
+      return out === 'arrested' ? 'La police t’attendait…' : `+${loot} € volés chez ${v.name}`;
+    },
+  },
+  arrest: {
+    icon: '🚔', label: 'Arrêter', here: true, duration: 5, custom: true,
+    can: (a, w, p) => {
+      const t = target(w, p);
+      if (!isPolice(a)) return 'Seule la police arrête';
+      if (!t || !near(a, t)) return 'Trop loin';
+      if (!(t.wanted > 0)) return 'Rien à lui reprocher';
+      return true;
+    },
+    effect: (a, w, p) => { const t = target(w, p); w.safety.arrest(a, t); return `${t.name} est conduit·e en prison`; },
+  },
+  report: {
+    icon: '📝', label: 'Porter plainte', place: { type: 'police' }, duration: 20,
+    can: (a, w) => (!a.victimOf ? 'Tu n’as pas été volé·e (ou tu ne sais pas par qui)' : !w.actorById(a.victimOf) ? 'Le voleur a quitté le quartier' : true),
+    effect: (a, w) => {
+      const t = w.actorById(a.victimOf);
+      t.wanted = (t.wanted || 0) + 1; a.victimOf = null;
+      return `Plainte enregistrée contre ${t.name}. La police va le/la chercher.`;
+    },
+  },
+
+  // ---------- Pompiers ----------
+  extinguish: {
+    icon: '🚒', label: 'Éteindre l’incendie', place: { param: 'building' }, duration: 40, skip: 6, custom: true,
+    can: (a, w, p) => {
+      if (!w.safety || !w.safety.burning(p.building)) return 'Pas d’incendie ici';
+      if (!a.job || w.building(a.job.building).type !== 'firestation') return 'Laisse faire les pompiers !';
+      return true;
+    },
+    effect: (a, w, p) => { w.safety.putOut(w.building(p.building), a); a.mood += 8; a.karma += 2; w.cancel(a, true); return 'Incendie maîtrisé. Bravo !'; },
+  },
+
+  // ---------- Hôpital et école ----------
+  consult: {
+    icon: '🩺', label: 'Consulter un médecin', place: { type: 'hospital' }, duration: 30, cost: 25, seller: true, skip: 4,
+    can: a => (!a.sick && a.energy >= 35 ? 'Tu es en pleine forme' : true),
+    effect: a => { const was = a.sick; a.sick = false; a.energy += 25; a.mood += 4; return was ? 'Guéri·e ! Repose-toi bien.' : 'Un bon bilan de santé.'; },
+  },
+  study: {
+    icon: '🎓', label: 'Suivre un cours (2 h)', place: { type: 'school' }, duration: 120, cost: 20, seller: true, skip: 8,
+    can: (a, w) => ((a.education ?? 1) >= 3 ? 'Tu as déjà le plus haut diplôme' : a.studyDay === w.day ? 'Un cours par jour, ça suffit' : true),
+    effect: (a, w) => {
+      a.studyDay = w.day; a.studies = (a.studies || 0) + 1; a.mood += 2;
+      if (a.studies >= 3) { a.studies = 0; a.education = (a.education ?? 1) + 1; return `🎓 Diplôme obtenu : niveau ${a.education} ! De nouveaux métiers s’ouvrent.`; }
+      return `Cours suivi (${a.studies}/3 avant le prochain diplôme)`;
     },
   },
 

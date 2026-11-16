@@ -193,6 +193,20 @@ export const EVENTS = [
 
   // ---------- La vie du quartier ----------
   {
+    // Un incendie chez toi ou à ton travail
+    id: 'incendie', icon: '🔥', urgent: true, cooldown: 300,
+    when: (a, w) => {
+      if (!w.safety) return null;
+      const id = Object.keys(w.safety.fires).map(Number).find(i => i === a.home || (a.job && a.job.building === i));
+      return id != null ? w.building(id) : null;
+    },
+    title: (a, w, b) => `Incendie : ${b.name}`,
+    text: (a, w, b) => (a.job && w.building(a.job.building).type === 'firestation'
+      ? 'C’est ton métier : fonce éteindre le feu !' : 'Les pompiers sont prévenus. Personne ne peut entrer tant que le feu n’est pas éteint.'),
+    choices: (a, w, b) => (a.job && w.building(a.job.building).type === 'firestation'
+      ? [{ icon: '🚒', label: 'J’y vais !', action: 'extinguish', params: { building: b.id } }] : OK),
+  },
+  {
     // Une fête commence (marché, brocante, concert…) : une invitation, une fois par fête et par jour
     id: 'fete', icon: '🎪', cooldown: 180,
     when: (a, w, d) => {
@@ -285,6 +299,22 @@ const PUSHED = {
     icon: '✉️', title: `Relance de ${landlordName(w)}`,
     text: `Tu dois ${a.rentDue} €. Sans paiement sous 4 jours, c’est l’expulsion.`,
     choices: [{ icon: '🧾', label: 'Payer maintenant', action: 'pay_rent' }, { icon: '⏳', label: 'Plus tard' }],
+  }),
+  robbed: (a, w, e) => ({
+    icon: '👛', title: e.kind === 'burgle' ? 'Cambriolé·e !' : 'On t’a volé !',
+    text: `${e.amount} € ont disparu${e.kind === 'burgle' ? ' de chez toi pendant la nuit' : ' de ton portefeuille'}.${e.thief ? ` Tu as vu qui c’était : ${e.thief.name}.` : ' Tu n’as pas vu le voleur.'}`,
+    choices: e.thief ? [{ icon: '📝', label: 'Porter plainte au commissariat', action: 'report' }, { icon: '🤷', label: 'Laisser tomber' }] : OK,
+  }),
+  arrested: (a, w, e) => ({
+    icon: '⛓️', title: 'Arrêté·e !',
+    text: `${e.cop ? `${e.cop.name} t’a passé les menottes. ` : ''}${e.days} jour${e.days > 1 ? 's' : ''} à la Maison d’arrêt et ${e.fine} € d’amende. Ton travail risque d’en souffrir…`,
+    choices: OK,
+  }),
+  released: () => ({ icon: '🔓', title: 'Libéré·e', text: 'Tu as purgé ta peine. Tu peux sortir de la Maison d’arrêt.', choices: OK }),
+  fellSick: (a, w) => ({
+    icon: '🤧', title: 'Tu as attrapé froid',
+    text: 'Fatigue, nez qui coule… Ça passera en 3 jours, ou plus vite avec un médecin à l’hôpital.',
+    choices: [{ icon: '🩺', label: 'Aller chez le médecin', action: 'consult' }, a.home != null ? { icon: '😴', label: 'Rentrer me reposer', action: 'sleep' } : { icon: '🤷', label: 'Tant pis' }],
   }),
   electionResult: (a, w, e) => ({
     icon: e.won ? '🎉' : '🏛️',

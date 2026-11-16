@@ -24,12 +24,15 @@ export class Actor {
     this.food = o.food ?? 1;        // repas au frigo
     this.mood = o.mood ?? 70;       // moral 0..100 (amis et loisirs le font monter, travail / dettes / solitude baisser)
     this.gifts = {};                // cadeaux en poche (fleurs, chocolats…) : id -> quantité
-    this.karma = 0;
+    this.karma = o.karma ?? 0;
     this.items = {};
     this.owned = o.owned || [];      // achats en boutique (ids du catalogue)
     this.vehicle = o.vehicle || null; // véhicule utilisé dans la rue
     this.role = o.role || null;       // fonction dans le quartier : manager, landlord, police…
     this.referrals = {};              // id bâtiment -> id de la personne qui te recommande
+    this.education = o.education ?? 1; // niveau d'études (0–3) : certains métiers en demandent (cours du soir à l'école)
+    this.wanted = 0;                  // délits connus de la police (recherché·e si > 0)
+    this.sick = false;                // malade (fatigue, moral) : ça passe en 3 jours ou chez le médecin
 
     this.px = o.x;                  // position sur la grille (décimale pendant la marche)
     this.py = o.y;
