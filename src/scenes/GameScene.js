@@ -85,6 +85,7 @@ export class GameScene extends Phaser.Scene {
     if ((this.lightTick = (this.lightTick || 0) + delta) > 400) { this.lightTick = 0; this.syncLights(); }
     this.syncViews(time);
     if ((this.occTick = (this.occTick || 0) + delta) > 90) { this.occTick = 0; this.updateOcclusion(); }
+    if ((this.bubTick = (this.bubTick || 0) + delta) > 250) { this.bubTick = 0; this.declutter(); this.cull(); }
     if ((this.homeTick = (this.homeTick || 0) + delta) > 1000) { this.homeTick = 0; this.syncHomeBubbles(); }
     this.clampCamera();
     this.syncInterior();
@@ -215,6 +216,46 @@ export class GameScene extends Phaser.Scene {
         const s = toScreen(x, y);
         this.add.image(s.x, s.y, `g_${tiles[y][x].ground}_${(x + y) % 2}`).setDepth(0);
       }
+    }
+  }
+
+  // ---------- Performances : on ne dessine que ce qui est à l'écran ----------
+  // (immeubles, décor, lampadaires, morceaux de sol ; les Graphics de Phaser ne sont pas éliminés tout seuls)
+  cull() {
+    const v = this.cameras.main.worldView, m = 120;
+    const x0 = v.x - m, y0 = v.y - m, x1 = v.right + m, y1 = v.bottom + m;
+    const sig = `${Math.round(x0 / 40)},${Math.round(y0 / 40)},${Math.round(x1 / 40)},${Math.round(y1 / 40)}`;
+    if (sig === this.cullSig) return; // la caméra n'a pas bougé
+    this.cullSig = sig;
+    for (const hl of this.hulls) {
+      if (!hl.box) { const pts = hl.poly.points; hl.box = [Math.min(...pts.map(p => p.x)), Math.min(...pts.map(p => p.y)), Math.max(...pts.map(p => p.x)), Math.max(...pts.map(p => p.y))]; }
+      const on = hl.box[2] > x0 && hl.box[0] < x1 && hl.box[3] > y0 && hl.box[1] < y1;
+      if (hl.g) { hl.g.setVisible(on); if (hl.d) hl.d.setVisible(on); if (hl.lg) hl.lg.setVisible(on); }
+    }
+    for (const c of this.cullables || []) {
+      const b = c.box || [c.x - 70, c.y - 100, c.x + 70, c.y + 30];
+      const on = b[2] > x0 && b[0] < x1 && b[3] > y0 && b[1] < y1;
+      for (const o of c.objs) if (o && o.active !== false) o.setVisible(on);
+    }
+  }
+
+  // ---------- Bulles des lieux : jamais l'une sur l'autre ----------
+  // Priorité : chez toi / ton travail > services et commerces > logements libres. Une bulle qui en chevauche
+  // une plus importante est masquée ; quand on dézoome beaucoup, seules les tiennes restent.
+  declutter() {
+    const cam = this.cameras.main, p = state.player, z = cam.zoom;
+    const far = z < this.minZoom * 1.35;
+    const prio = b => (b.id === p.home || (p.job && p.job.building === b.id) ? 3 : b.type === 'home' ? 1 : 2);
+    const list = this.bubbles.filter(x => x.c.base !== false).sort((a, b) => prio(b.b) - prio(a.b) || a.c.y - b.c.y);
+    const placed = [];
+    const W = 34 * z, H = 30 * z;
+    for (const x of this.bubbles) if (x.c.base === false) x.c.setVisible(false);
+    for (const x of list) {
+      const sx = x.c.x * z, sy = x.c.y * z;
+      let show = !(far && prio(x.b) < 3);
+      if (show) show = !placed.some(o => Math.abs(o.x - sx) < W && Math.abs(o.y - sy) < H);
+      x.c.setVisible(show);
+      if (show) placed.push({ x: sx, y: sy });
     }
   }
 
@@ -428,7 +469,7 @@ export class GameScene extends Phaser.Scene {
       if (b.type !== 'home') continue;
       const mine = b.id === p.home;
       const vacant = freeUnits(this.world, b) > 0;
-      c.setVisible(mine || vacant);
+      c.base = mine || vacant; // visibilité « de base » ; declutter() masque ensuite les bulles qui se chevauchent
       const icon = mine ? (p.housing === 'own' ? '🔑' : '🏠') : '🔑';
       if (t.text !== icon) t.setText(icon);
     }

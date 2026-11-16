@@ -52,7 +52,8 @@ state.ui = new UI(world, player, director);
 
 // 2. L'affichage Phaser (carte, intérieurs, effets)
 // Rendu à la résolution réelle de l'écran (sinon l'image est étirée et floue sur téléphone / écran haute définition)
-const DPR = Math.min(window.devicePixelRatio || 1, 3);
+// (plafonné à 2 : au-delà, un téléphone dessine 2,25× plus de pixels pour une différence à peine visible)
+const DPR = Math.min(window.devicePixelRatio || 1, 2);
 state.dpr = DPR;
 const game = new Phaser.Game({
   type: Phaser.AUTO,

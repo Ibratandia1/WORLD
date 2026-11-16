@@ -95,7 +95,8 @@ export class UI {
     $('b-people').onclick = () => this.showPanel('people');
     $('quest').addEventListener('click', e => this.onQuestClick(e));
     $('tip').onclick = () => { $('tip').classList.remove('show'); this.tipOn = false; };
-    try { this.questMin = !!localStorage.getItem('world.questMin'); } catch { this.questMin = false; }
+    // carte d'objectif réduite par défaut sur téléphone (on la touche pour l'ouvrir)
+    try { const v = localStorage.getItem('world.questMin'); this.questMin = v == null ? window.innerHeight < 500 : !!v; } catch { this.questMin = window.innerHeight < 500; }
     this.syncControls();
     this.render();
   }
@@ -305,7 +306,9 @@ export class UI {
       const def = c.action ? ACTIONS[c.action] : null;
       return this.choiceHTML(`data-choice="${i}"`, c.icon, c.label, def ? this.meta(def, c.params) : '', this.director.check(c));
     }).join('');
-    return `${this.head(ev.icon, ev.title, false)}<p>${esc(ev.text).replace(/\n/g, '<br>')}</p><div class="choices">${buttons}</div><div class="evtimer"><i style="width:100%"></i></div>`;
+    // ✕ en haut : fermer l'événement sans choisir
+    const head = `<div class="box-head"><span class="ico">${ev.icon}</span><b>${esc(ev.title)}</b><button class="box-close ev-close" data-evclose title="Fermer">✕</button></div>`;
+    return `${head}<p>${esc(ev.text).replace(/\n/g, '<br>')}</p><div class="choices">${buttons}</div><div class="evtimer"><i style="width:100%"></i></div>`;
   }
 
   // Panneau d'un lieu : vu de la rue (inside = false) ou depuis l'intérieur.
@@ -768,6 +771,7 @@ export class UI {
     if (!btn || btn.disabled) return;
     const w = this.world, p = this.player;
     if (btn.hasAttribute('data-close')) { this.closePanels(); return this.render(); }
+    if (btn.hasAttribute('data-evclose')) { this.director.close(); this.evShown = null; return this.render(); }
     if (btn.hasAttribute('data-cancel')) { w.cancel(p); return this.render(); }
     if (btn.hasAttribute('data-leave')) { w.perform(p, 'leave'); return this.render(); }
     if (btn.hasAttribute('data-routine')) { $('b-routine').click(); return; }

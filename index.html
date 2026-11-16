@@ -37,17 +37,21 @@
     <button id="b-full">⛶</button>
   </div>
 
-  <!-- En bas à gauche : ma vie et raccourcis -->
+  <!-- Colonne de gauche : ma vie (frigo, travail, logement) + sortir / recentrer -->
   <div id="dock">
-    <div class="pill"><span>🥫</span><b id="v-food">0</b></div>
-    <div class="pill tap" id="p-job"><span>💼</span><b id="v-job">—</b><small id="v-warn" class="warn"></small></div>
-    <div class="pill tap" id="p-home"><span id="v-homeic">🏠</span><b id="v-home">✓</b></div>
+    <div class="pill" title="Repas au frigo"><span>🥫</span><b id="v-food">0</b></div>
+    <div class="pill tap" id="p-job" title="Mon travail"><span>💼</span><b id="v-job">—</b><small id="v-warn" class="warn"></small></div>
+    <div class="pill tap" id="p-home" title="Mon logement"><span id="v-homeic">🏠</span><b id="v-home">✓</b></div>
     <button id="b-exit" title="Sortir dans la rue">🚪</button>
+    <button id="b-center" title="Recentrer sur moi">🎯</button>
+  </div>
+
+  <!-- Colonne de droite : outils (plan, habitants, routine, tenue, son) -->
+  <div id="side">
     <button id="b-map" title="Plan des lieux">🗺️</button>
     <button id="b-people" title="Habitants">👥</button>
-    <button id="b-routine">🔁</button>
-    <button id="b-look">👕</button>
-    <button id="b-center">🎯</button>
+    <button id="b-routine" title="Routine automatique">🔁</button>
+    <button id="b-look" title="Mon style">👕</button>
   </div>
 
   <!-- Étages (dans un immeuble) -->

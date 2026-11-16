@@ -281,7 +281,20 @@ export function drawShadow(sg, cx, cy, h) {
 // ---------- Sol : bordures de trottoir, passages piétons, fleurs, quai ----------
 export function drawGroundDetails(scene, map) {
   const { w, h, tiles } = map;
-  const g = scene.add.graphics().setDepth(0.3);
+  // Découpé en morceaux de 8×8 cases : seuls ceux à l'écran sont dessinés (gros gain sur téléphone)
+  const chunks = new Map();
+  scene.cullables = scene.cullables || [];
+  const G = (x, y) => {
+    const k = `${x >> 3},${y >> 3}`;
+    if (!chunks.has(k)) {
+      const cg = scene.add.graphics().setDepth(0.3);
+      const x0 = (x >> 3) * 8, y0 = (y >> 3) * 8;
+      const a = toScreen(x0, y0 + 8), b = toScreen(x0 + 8, y0), c = toScreen(x0, y0), d = toScreen(x0 + 8, y0 + 8);
+      scene.cullables.push({ objs: [cg], box: [a.x - 40, c.y - 40, b.x + 40, d.y + 40] });
+      chunks.set(k, cg);
+    }
+    return chunks.get(k);
+  };
   const ground = (x, y) => (tiles[y] && tiles[y][x] ? tiles[y][x].ground : null);
   const P = (x, y) => toScreen(x, y);
   const r = rng(1234);
@@ -294,6 +307,7 @@ export function drawGroundDetails(scene, map) {
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
+      const g = G(x, y);
       const gr = ground(x, y);
       // Bordure entre trottoir (ou ruelle) et rue, dans les 4 directions
       if ((gr === 'pave' || gr === 'cobble' || gr === 'grass') && !tiles[y][x].building) {
@@ -360,7 +374,14 @@ export function drawStreetDecor(scene, map, lights, darks, season = 'printemps')
   const { w, h, tiles } = map;
   const ground = (x, y) => (tiles[y] && tiles[y][x] ? tiles[y][x].ground : null);
   const r = rng(98765);
-  const add = (x, y, extra = 2) => twin(scene, depthAt(x, y) + extra, darks);
+  // chaque objet du décor est enregistré pour n'être dessiné que s'il est à l'écran (scene.cull)
+  scene.cullables = scene.cullables || [];
+  const add = (x, y, extra = 2) => {
+    const g = twin(scene, depthAt(x, y) + extra, darks);
+    const s = toScreen(x, y);
+    scene.cullables.push({ objs: [g, darks[darks.length - 1]], x: s.x, y: s.y });
+    return g;
+  };
   const spots = { benches: [], fountains: [], statues: [], trees: [] }; // objets de la rue avec lesquels on peut interagir
 
   for (let y = 0; y < h; y++) {
@@ -416,6 +437,7 @@ export function drawStreetDecor(scene, map, lights, darks, season = 'printemps')
         const pool = scene.add.graphics().setDepth(0.6).setBlendMode(Phaser.BlendModes.ADD);
         for (const [w, h, a] of [[110, 46, 0.08], [76, 32, 0.12], [44, 18, 0.16]]) { pool.fillStyle(0xffc766, a); pool.fillEllipse(b.x, b.y + 2, w, h); }
         lights.push(halo, pool);
+        scene.cullables.push({ objs: [halo, pool], x: b.x, y: b.y });
       } else if (side && t.ground === 'pave' && along % 4 === 0 && r() < 0.7) {
         // Bacs à fleurs
         const px = x + (side[0] ? side[0] * 0.3 : 0.1), py = y + (side[1] ? side[1] * 0.3 : 0.1);
