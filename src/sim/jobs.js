@@ -4,8 +4,8 @@
 export const DAY_NAMES = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 export const DAY_SHORT = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 export const MAX_WARNINGS = 3;
-export const RAISE_EVERY = 10; // jours sans faute avant une augmentation
-export const RAISE_CAP = 1.5;  // salaire max = 150 % du salaire d'embauche
+export const RAISE_EVERY = 15; // jours sans faute avant une augmentation
+export const RAISE_CAP = 1.3;  // salaire max = 130 % du salaire d'embauche
 export const EARLY = 60;       // on peut arriver jusqu'à 1 h avant son service
 
 // Horaires par type de lieu (service de 8 h). days : 0 = lundi … 6 = dimanche
@@ -32,6 +32,8 @@ export function incomeTax(w, a, gross) {
   a.money += gross - tax;
   a.taxWeek = (a.taxWeek || 0) + tax;
   w.treasury = (w.treasury || 0) + tax;
+  // Les agents de la mairie sont payés par le Trésor de la ville (police et facteur : par l'État)
+  if (a.job && !a.job.street && w.building(a.job.building) && w.building(a.job.building).type === 'cityhall') w.treasury -= gross;
   return gross - tax;
 }
 

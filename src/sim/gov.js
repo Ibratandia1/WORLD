@@ -14,7 +14,14 @@ export const AID_POLICIES = {
   normale: { label: 'Aides normales', amount: 150, icon: '🤝' },
   genereuse: { label: 'Aides généreuses', amount: 250, icon: '💝' },
 };
-export const MAYOR_PAY = 350;      // indemnité hebdomadaire du maire (payée par le Trésor le lundi)
+// Projets que la mairie peut financer avec le Trésor (une fois par semaine au plus)
+export const PROJECTS = {
+  fete: { label: 'Fête de quartier', icon: '🎉', cost: 1200, mood: 12, news: 'grande fête de quartier sur la place du Marché' },
+  fleurs: { label: 'Fleurir les rues', icon: '🌷', cost: 600, mood: 5, news: 'les rues du quartier sont fleuries' },
+  prime: { label: 'Prime aux habitants (30 €)', icon: '🎁', cost: 0, each: 30, mood: 4, news: 'une prime de 30 € est versée à chaque habitant' },
+};
+export const UPKEEP = 6;           // entretien des rues : € par habitant et par semaine
+export const MAYOR_PAY = 350;     // indemnité hebdomadaire du maire (payée par le Trésor le lundi)
 export const AID_EVERY = 7;        // une aide par semaine au plus
 export const CAMPAIGN_FEE = 200;   // caution pour se présenter
 const TERM = 14;                   // élections tous les 14 jours
@@ -64,6 +71,8 @@ export class Government {
     if (w.day === this.election - VOTE_DAYS + 1) this.post('🗳️', 'Les bureaux de vote sont ouverts à la mairie (3 jours).');
 
     if (w.weekday === 0) {
+      // Entretien des rues et de l'éclairage, payé par la ville
+      w.treasury = (w.treasury || 0) - UPKEEP * w.actors.length;
       // Indemnité du maire
       const m = this.mayorActor;
       if (m && (w.treasury || 0) >= MAYOR_PAY) { w.treasury -= MAYOR_PAY; m.money += MAYOR_PAY; }
@@ -140,8 +149,31 @@ export class Government {
     this.election = w.day - 1 + TERM;
   }
 
+  // Un projet financé par le Trésor (fête, fleurs, prime) : tout le quartier en profite
+  project(id) {
+    const w = this.w, pr = PROJECTS[id];
+    const cost = pr.cost + (pr.each || 0) * w.actors.length;
+    if ((w.treasury || 0) < cost) return 'Pas assez dans les caisses';
+    w.treasury -= cost;
+    for (const a of w.actors) {
+      a.mood = Math.min(100, a.mood + pr.mood);
+      if (pr.each) a.money += pr.each;
+    }
+    this.lastProject = w.day;
+    const m = this.mayorActor;
+    this.post(pr.icon, `${m ? m.name : 'La mairie'} : ${pr.news} (${cost} € du Trésor).`);
+    return `${pr.label} : c’est lancé !`;
+  }
+
   npcPolicy() {
     const t = this.w.treasury || 0;
+    // Caisses pleines : le maire fait profiter le quartier
+    if (this.lastProject == null || this.w.day - this.lastProject >= 7) {
+      const n = this.w.actors.length;
+      if (t > 6000) this.project('fete');
+      else if (t > 3500 + 30 * n) this.project('prime');
+      else if (t > 3000) this.project('fleurs');
+    }
     const before = `${this.tax}/${this.aid}`;
     if (t > 4000) { this.tax = 'bas'; this.aid = 'genereuse'; }
     else if (t > 1500) { this.tax = 'normal'; this.aid = t > 2500 ? 'genereuse' : 'normale'; }
@@ -154,14 +186,14 @@ export class Government {
 
   // ---------- Sauvegarde ----------
   snapshot() {
-    return { mayor: this.mayor, tax: this.tax, aid: this.aid, election: this.election, candidates: this.candidates, votes: this.votes, aidPaid: this.aidPaid };
+    return { mayor: this.mayor, tax: this.tax, aid: this.aid, election: this.election, candidates: this.candidates, votes: this.votes, aidPaid: this.aidPaid, lastProject: this.lastProject ?? null };
   }
   restore(s, day) {
     if (!s) { // vieille sauvegarde : premières élections dans quelques jours
       this.election = Math.ceil((day + 6) / TERM) * TERM;
       return;
     }
-    Object.assign(this, { mayor: s.mayor ?? this.mayor, tax: s.tax || 'normal', aid: s.aid || 'normale', election: s.election, candidates: s.candidates || [], votes: s.votes || {}, aidPaid: s.aidPaid || 0 });
+    Object.assign(this, { mayor: s.mayor ?? this.mayor, tax: s.tax || 'normal', aid: s.aid || 'normale', election: s.election, candidates: s.candidates || [], votes: s.votes || {}, aidPaid: s.aidPaid || 0, lastProject: s.lastProject ?? null });
     const m = this.mayorActor;
     if (m && !m.role) m.role = 'mayor';
   }

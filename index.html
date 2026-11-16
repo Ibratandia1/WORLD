@@ -15,12 +15,18 @@
   <!-- En haut à gauche : l'essentiel (icônes sans texte) -->
   <div id="hud">
     <div class="pill"><span>⏰</span><b id="v-time">07:00</b><small id="v-day">J1</small></div>
+    <div class="pill tap hidden" id="p-next" title="Prochain rendez-vous"><span id="v-nexti">📅</span><b id="v-next"></b></div>
     <div class="pill"><span id="v-weather">☀️</span></div>
     <div class="pill" id="p-money"><span>💶</span><b id="v-money">0</b></div>
     <div class="pill"><span>⚡</span><i class="bar"><i id="v-energy"></i></i></div>
     <div class="pill"><span>🍔</span><i class="bar"><i id="v-hunger"></i></i></div>
     <div class="pill"><span>😊</span><i class="bar"><i id="v-mood"></i></i></div>
   </div>
+
+  <!-- Objectif en cours (premiers pas, puis rêves) -->
+  <div id="quest" class="hidden"></div>
+  <!-- Astuce du moment -->
+  <div id="tip"></div>
 
   <!-- En haut à droite : le temps -->
   <div id="controls">
@@ -35,6 +41,8 @@
     <div class="pill"><span>🥫</span><b id="v-food">0</b></div>
     <div class="pill tap" id="p-job"><span>💼</span><b id="v-job">—</b><small id="v-warn" class="warn"></small></div>
     <div class="pill tap" id="p-home"><span id="v-homeic">🏠</span><b id="v-home">✓</b></div>
+    <button id="b-map" title="Plan des lieux">🗺️</button>
+    <button id="b-people" title="Habitants">👥</button>
     <button id="b-routine">🔁</button>
     <button id="b-look">👕</button>
     <button id="b-center">🎯</button>

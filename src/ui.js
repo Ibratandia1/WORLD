@@ -5,12 +5,13 @@ import { openCustomizer } from './customize.js';
 import { fmtShift, DAY_SHORT, MAX_WARNINGS, RAISE_EVERY, JOB_TITLES, openings, isWorkday } from './sim/jobs.js';
 import { rel, level, near } from './sim/social.js';
 import { weeklyRent, occupants, LATE_EVICT } from './sim/housing.js';
-import { freeUnits } from './sim/city.js';
-import { TAX_POLICIES, AID_POLICIES, CAMPAIGN_FEE } from './sim/gov.js';
+import { freeUnits, isClosed } from './sim/city.js';
+import { TUTORIAL, TUT_REWARD, TUT_FINAL, DREAMS, tutStep, tutReady, dreamClaimable, nextDream } from './sim/goals.js';
+import { TAX_POLICIES, AID_POLICIES, CAMPAIGN_FEE, PROJECTS } from './sim/gov.js';
 import { CATALOG } from './sim/catalog.js';
 import { canReach } from './sim/actions.js';
 import { ROLE_TITLES } from './sim/social.js';
-import { jobTitle, sellerAt, nextOpening, weekdayOf, taxRate, PROPERTY_TAX } from './sim/jobs.js';
+import { jobTitle, sellerAt, nextOpening, weekdayOf, taxRate, PROPERTY_TAX, nextShift } from './sim/jobs.js';
 import { sendChat, sendTopic, sendChoice, topicsFor, chatLog, chatMode, engage } from './chat.js';
 
 const $ = id => document.getElementById(id);
@@ -71,6 +72,12 @@ export class UI {
     };
     $('p-job').onclick = () => this.showLife();
     $('p-home').onclick = () => this.showLife();
+    $('p-next').onclick = () => this.showLife();
+    $('b-map').onclick = () => this.showPanel('map');
+    $('b-people').onclick = () => this.showPanel('people');
+    $('quest').addEventListener('click', e => this.onQuestClick(e));
+    $('tip').onclick = () => { $('tip').classList.remove('show'); this.tipOn = false; };
+    try { this.questMin = !!localStorage.getItem('world.questMin'); } catch { this.questMin = false; }
     this.syncControls();
     this.render();
   }
@@ -115,6 +122,13 @@ export class UI {
 
     document.body.classList.toggle('skipping', w.fast && !w.paused);
 
+    // Prochain rendez-vous, objectif en cours, astuces
+    const next = this.nextAppointment();
+    $('p-next').classList.toggle('hidden', !next);
+    if (next) { $('v-nexti').textContent = next[0]; $('v-next').textContent = next[1]; }
+    this.syncQuest();
+    this.checkTips(performance.now());
+
     const h = w.hour;
     let night = 0;
     if (h >= 20 && h < 23) night = (h - 20) / 3;
@@ -130,7 +144,7 @@ export class UI {
       engage(this.person); // tant que la fenêtre est ouverte, la personne reste avec toi
       const k = this.personSig(this.person);
       if (k !== this.personKey) this.render();
-    } else if (!this.place && !this.life && !this.director.active) {
+    } else if (!this.place && !this.life && !this.panel && !this.director.active) {
       const info = this.statusInfo();
       if (info.key !== this.statusKey) this.render();
       else if (info.progress != null) {
@@ -146,11 +160,12 @@ export class UI {
     const el = $(id);
     el.style.width = `${Math.max(0, Math.min(100, v))}%`;
     el.className = v < 25 ? 'low' : v < 50 ? 'mid' : '';
+    el.closest('.pill').classList.toggle('crit', v < 15); // jauge critique : la pastille clignote
   }
 
-  closePanels() { this.place = null; this.person = null; this.life = false; this.object = null; }
+  closePanels() { this.place = null; this.person = null; this.life = false; this.object = null; this.panel = null; }
   refresh(force = false) {
-    if (force || (!this.place && !this.life && !this.person && !this.director.active)) this.render();
+    if (force || (!this.place && !this.life && !this.person && !this.panel && !this.director.active)) this.render();
   }
 
   showPlace(b) { this.closePanels(); this.place = b; this.render(true); }
@@ -191,6 +206,8 @@ export class UI {
     const box = $('box');
     if (this.place) box.innerHTML = this.placeHTML(this.place);
     else if (this.life) box.innerHTML = this.lifeHTML();
+    else if (this.panel === 'map') box.innerHTML = this.mapHTML();
+    else if (this.panel === 'people') box.innerHTML = this.peopleHTML();
     else if (this.person) {
       // on garde ce qui est en train d'être tapé
       const inp = $('chat-in');
@@ -357,6 +374,10 @@ export class UI {
     if (g.mayor === p.id) {
       for (const k of Object.keys(TAX_POLICIES)) rows.push(this.actBtn('set_policy', { tax: k }, TAX_POLICIES[k].label, TAX_POLICIES[k].icon));
       for (const k of Object.keys(AID_POLICIES)) rows.push(this.actBtn('set_policy', { aid: k }, AID_POLICIES[k].label, AID_POLICIES[k].icon));
+      for (const [k, pr] of Object.entries(PROJECTS)) {
+        const cost = pr.cost + (pr.each || 0) * w.actors.length;
+        rows.push(this.actBtn('city_project', { project: k }, `${pr.label} · ${money(cost)} €`, pr.icon));
+      }
     }
     return `<div class="sec"><b>🏛️ La mairie</b><p>${lines.join('<br>')}</p><div class="choices">${rows.join('')}</div></div>`;
   }
@@ -403,7 +424,181 @@ export class UI {
 
     const routine = `<div class="sec"><b>🔁 Routine automatique</b><p>Ton personnage mange, dort et va travailler tout seul. Tu peux toujours reprendre la main.</p>
       <div class="choices">${this.choiceHTML('data-routine', p.routine ? '⏹️' : '▶️', p.routine ? 'Désactiver la routine' : 'Activer la routine', '', true)}</div></div>`;
-    return `${this.head('📋', 'Ma vie')}${job}${home}${ride}${routine}`;
+    return `${this.head('📋', 'Ma vie')}${this.dreamsHTML()}${job}${home}${ride}${routine}`;
+  }
+
+  // ---------- Objectifs : rêves (dans « Ma vie ») et carte d'objectif ----------
+  dreamsHTML() {
+    const p = this.player, w = this.world;
+    if (tutStep(p)) return `<div class="sec"><b>🌟 Mes rêves</b><p>Termine d’abord tes premiers pas (en haut à gauche) : tes rêves se débloquent ensuite.</p></div>`;
+    const rows = DREAMS.map(d => {
+      const [c, m] = d.progress(p, w);
+      const got = p.goals.claimed[d.id];
+      const pct = Math.min(100, (c / m) * 100);
+      const val = m > 1 ? ` · ${money(Math.min(c, m))}/${money(m)}` : '';
+      if (!got && c >= m) return this.actBtn('claim_goal', { goal: d.id }, `${d.label} : récupérer ${d.reward.money ? `+${d.reward.money} €` : 'ta récompense'}`, d.icon);
+      return `<div class="dream ${got ? 'ok' : ''}"><span class="ic">${d.icon}</span><div class="nm">${esc(d.label)}${got ? ' ✓' : val}
+        ${got ? '' : `<div class="qbar"><i style="width:${pct.toFixed(0)}%"></i></div>`}</div></div>`;
+    });
+    const n = DREAMS.filter(d => p.goals.claimed[d.id]).length;
+    return `<div class="sec"><b>🌟 Mes rêves · ${n}/${DREAMS.length}</b><div class="choices">${rows.join('')}</div></div>`;
+  }
+
+  syncQuest() {
+    const p = this.player, w = this.world, el = $('quest');
+    if (!p.goals) return;
+    const step = tutStep(p);
+    let key = '', html = '';
+    if (step) {
+      const ready = tutReady(p);
+      const last = p.goals.tut === TUTORIAL.length - 1;
+      const gain = TUT_REWARD.money + (last ? TUT_FINAL.money : 0);
+      key = `t${p.goals.tut}:${ready}`;
+      html = `<div class="qh"><span>🎯</span>Premiers pas<em>${p.goals.tut + 1}/${TUTORIAL.length}</em></div>
+        <div class="qt"><span>${step.icon}</span>${esc(step.text)}${ready ? ' ✓' : ''}</div>
+        ${ready ? '' : `<div class="qhint">${esc(step.hint)}</div>`}
+        <div class="qbtns ${ready ? 'keep' : ''}">${ready ? `<button class="go" data-claim="tut">🎁 Récupérer +${gain} €</button>` : `<button data-show="${step.target}">👀 Montrer</button>`}</div>`;
+    } else {
+      const done = DREAMS.find(d => dreamClaimable(p, w, d));
+      const d = done || nextDream(p, w);
+      if (d) {
+        const [c, m] = d.progress(p, w);
+        key = `d${d.id}:${!!done}:${Math.floor((c / m) * 50)}`;
+        html = `<div class="qh"><span>🌟</span>${done ? 'Rêve réalisé !' : 'Prochain rêve'}<em>${m > 1 ? `${money(Math.min(c, m))}/${money(m)}` : ''}</em></div>
+          <div class="qt"><span>${d.icon}</span>${esc(d.label)}</div>
+          ${done ? `<div class="qbtns keep"><button class="go" data-claim="${d.id}">🎁 Récupérer${d.reward.money ? ` +${d.reward.money} €` : ''}</button></div>`
+            : `<div class="qbar"><i style="width:${Math.min(100, (c / m) * 100).toFixed(0)}%"></i></div>`}`;
+      }
+    }
+    if (key !== this.questKey) { el.innerHTML = html; this.questKey = key; }
+    el.classList.toggle('hidden', !html);
+    el.classList.toggle('min', !!this.questMin);
+  }
+
+  onQuestClick(e) {
+    const btn = e.target.closest('button');
+    if (btn && btn.dataset.claim) {
+      const r = this.world.perform(this.player, 'claim_goal', { goal: btn.dataset.claim });
+      if (r.ok) { this.questKey = ''; this.syncQuest(); this.buzz(); }
+      return;
+    }
+    if (btn && btn.dataset.show) return this.showTarget(btn.dataset.show);
+    // toucher la carte : réduire / agrandir
+    this.questMin = !this.questMin;
+    try { localStorage.setItem('world.questMin', this.questMin ? '1' : ''); } catch { /* sans stockage */ }
+    this.syncQuest();
+  }
+
+  // « Montrer » : la caméra va vers le lieu (ou la personne) de l'étape, et sa fiche s'ouvre
+  showTarget(kind) {
+    const p = this.player, w = this.world, sc = state.scene;
+    const dist = b => Math.min(...b.entrances.map(e => Math.abs(e.x - p.px) + Math.abs(e.y - p.py)));
+    let b = null;
+    if (kind === 'job' && p.job) b = w.building(p.job.building);
+    else if (kind === 'home' && p.home != null) b = w.building(p.home);
+    else if (kind === 'people') {
+      const t = w.actors.filter(o => o !== p && o.outdoors && o.doing !== 'work').sort((x, y) => Math.hypot(x.px - p.px, x.py - p.py) - Math.hypot(y.px - p.px, y.py - p.py))[0];
+      if (t) { if (p.inside != null) w.perform(p, 'leave'); if (sc) sc.focusActor(t); return this.showPerson(t); }
+      return;
+    } else {
+      const types = kind === 'breakfast' ? ['bakery', 'cafe'] : [kind];
+      const list = w.map.buildings.filter(x => types.includes(x.type) && !isClosed(w, x.id)).sort((x, y) => dist(x) - dist(y));
+      b = list.find(x => sellerAt(w, x)) || list[0];
+    }
+    if (!b) return;
+    if (sc && p.inside == null) sc.focusBuilding(b);
+    this.showPlace(b);
+  }
+
+  // ---------- Plan des lieux et répertoire des habitants ----------
+  showPanel(kind) { const same = this.panel === kind; this.closePanels(); this.panel = same ? null : kind; this.render(true); }
+
+  mapHTML() {
+    const p = this.player, w = this.world;
+    const walk = b => Math.max(1, Math.round(Math.min(...b.entrances.map(e => Math.abs(e.x - p.px) + Math.abs(e.y - p.py))) / 1.6));
+    const GROUPS = [['☕ Manger et boire', ['cafe', 'bakery']], ['🛍️ Boutiques', ['shop', 'fashion', 'garage']],
+      ['💼 Travail', ['office']], ['🏛️ Services', ['cityhall', 'metro']], ['🏠 Logements', ['home']]];
+    const status = b => {
+      if (b.type === 'home') {
+        if (b.id === p.home) return '🏠 chez toi';
+        const f = freeUnits(w, b);
+        return f ? `🔑 ${f} libre${f > 1 ? 's' : ''} · ${weeklyRent(b)} €/sem.` : 'complet';
+      }
+      if (b.type === 'metro') return 'bientôt : voyager';
+      if (isClosed(w, b.id)) return '🔒 fermé (repreneur à venir)';
+      const mine = p.job && p.job.building === b.id ? ' · ton travail' : '';
+      const jobs = b.jobs && openings(w, b) ? ` · ${openings(w, b)} poste${openings(w, b) > 1 ? 's' : ''}` : '';
+      if (b.type === 'office') return `${mine ? 'ton travail' : 'bureaux'}${jobs}`;
+      return `${sellerAt(w, b) ? '🟢 ouvert' : '🔴 fermé'}${mine}${jobs}`;
+    };
+    const sections = GROUPS.map(([title, types]) => {
+      const list = w.map.buildings.filter(b => types.includes(b.type)).sort((a, b) => walk(a) - walk(b));
+      if (!list.length) return '';
+      return `<div class="sec"><b>${title}</b><div class="list">${list.map(b => `<button data-goto-b="${b.id}">
+        <span class="ic">${b.type === 'home' && b.id === p.home ? '🏠' : isClosed(w, b.id) ? '🔒' : TYPES[b.type].icon}</span>
+        <span class="nm">${esc(b.name)}<small>${status(b)}</small></span><span class="rt">🚶 ${walk(b)} min</span></button>`).join('')}</div></div>`;
+    });
+    return `${this.head('🗺️', `Plan · ${w.map.name}`)}${sections.join('')}`;
+  }
+
+  peopleHTML() {
+    const p = this.player, w = this.world;
+    const where = a => (a.inside != null ? (a.inside === a.home ? 'à la maison' : w.building(a.inside).name) : 'dans la rue');
+    const list = w.actors.filter(a => a !== p).sort((a, b) => rel(p, b) - rel(p, a) || a.name.localeCompare(b.name, 'fr'));
+    const known = list.filter(a => rel(p, a) >= 10).length;
+    const rows = list.map(a => {
+      const r = rel(p, a);
+      const [, lname, licon] = level(r);
+      const job = a.role && ROLE_TITLES[a.role] ? ROLE_TITLES[a.role] : a.job ? jobTitle(w, a.job) : 'Sans emploi';
+      const now = a.doing && ACTIONS[a.doing] ? ACTIONS[a.doing].icon : '';
+      return `<button data-person="${a.id}"><span class="ic">${licon}</span><span class="nm">${esc(a.name)}<small>${esc(job)} · ${lname}</small></span>
+        <span class="rt">${now} ${esc(where(a))}</span></button>`;
+    });
+    return `${this.head('👥', `Habitants · ${list.length}`)}<p>Tu connais ${known} personne${known > 1 ? 's' : ''}. Touche quelqu’un pour le retrouver.</p><div class="list">${rows.join('')}</div>`;
+  }
+
+  // ---------- Prochain rendez-vous (HUD) ----------
+  nextAppointment() {
+    const p = this.player, w = this.world;
+    if (p.housing === 'rent' && p.rentDue > 0) return ['🧾', `${p.rentDue} €`];
+    const g = w.gov;
+    if (g && g.votingOpen && !g.votes[p.id]) return ['🗳️', 'vote'];
+    // (l'heure du service est déjà en bas à gauche : ici, seulement quand il faut y aller maintenant)
+    if (p.job && !p.job.street && p.doing !== 'work' && !(p.plan && p.plan.id === 'work')) {
+      const n = nextShift(p.job, w);
+      if (n && n.start - w.minutes <= 30 && w.minutes < n.end - 60) return ['💼', w.minutes > n.start ? 'en retard !' : 'c’est l’heure'];
+    }
+    if (w.hour >= 22 || w.hour < 5) return ['😴', 'au lit'];
+    return null;
+  }
+
+  // ---------- Astuces : une à la fois, chacune une seule fois ----------
+  checkTips(now) {
+    const p = this.player, w = this.world;
+    if (now - (this.tipAt || -1e9) < 45000 || this.tipOn) return;
+    p.tips = p.tips || [];
+    const TIPS = [
+      ['hungry', () => p.hunger > 65, '🍔 Ton ventre gargouille : cuisine chez toi (🥫 = repas au frigo) ou va à la boulangerie.'],
+      ['tired', () => p.energy < 25, '⚡ Tu fatigues : rentre dormir, ou bois un café pour tenir jusqu’au soir.'],
+      ['mood', () => p.mood < 40, '😊 Ton moral baisse : discute avec quelqu’un, regarde la télé, lis ou assieds-toi sur un banc.'],
+      ['broke', () => p.money < 60, '💶 Ton argent fond : travaille, ou demande l’aide sociale à la mairie si tu es sans emploi.'],
+      ['rent', () => p.rentDue > 0, '🧾 Ton loyer est à payer (le lundi) : touche 🏠 en bas à gauche. Après 8 jours de retard, c’est l’expulsion.'],
+      ['inside', () => p.inside != null, '🪑 À l’intérieur, touche un meuble pour l’utiliser : lit, canapé, télé, comptoir…'],
+      ['night', () => (w.hour >= 22 || w.hour < 4) && p.outdoors, '🌙 Il se fait tard : rentre dormir pour être en forme demain.'],
+      ['vote', () => w.gov && w.gov.votingOpen && !w.gov.votes[p.id], '🗳️ Élections municipales : va voter à la mairie 🏛️ (et tu peux même te présenter !).'],
+      ['map', () => !tutStep(p), '🗺️ Le bouton 🗺️ en bas liste tous les lieux du quartier, 👥 tous les habitants.'],
+      ['routine', () => !tutStep(p) && w.day >= 2, '🔁 Le bouton 🔁 lance la routine : ton personnage mange, dort et travaille tout seul.'],
+      ['dreams', () => !tutStep(p), '🌟 Tes rêves sont dans « Ma vie » (💼 en bas à gauche) : chacun rapporte une récompense.'],
+    ];
+    const t = TIPS.find(([id, cond]) => !p.tips.includes(id) && cond());
+    if (!t) return;
+    p.tips.push(t[0]);
+    this.tipAt = now; this.tipOn = true;
+    const el = $('tip');
+    el.textContent = t[2];
+    el.classList.add('show');
+    clearTimeout(this.tipTimer);
+    this.tipTimer = setTimeout(() => { el.classList.remove('show'); this.tipOn = false; }, 8000);
   }
 
   personSig(t) {
@@ -516,6 +711,17 @@ export class UI {
     if (btn.hasAttribute('data-look')) { openCustomizer(); return; }
     if (btn.hasAttribute('data-join')) { this.join(this.person); return; }
     if (btn.hasAttribute('data-goobj')) { this.goToObject(this.object); return; }
+    if (btn.dataset.gotoB != null) {
+      const b = w.building(Number(btn.dataset.gotoB));
+      if (state.scene && p.inside == null) state.scene.focusBuilding(b);
+      return this.showPlace(b);
+    }
+    if (btn.dataset.person) {
+      const t = w.actorById(btn.dataset.person);
+      if (!t) return this.render();
+      if (state.scene && t.outdoors && p.inside == null) state.scene.focusActor(t);
+      return this.showPerson(t);
+    }
     if (btn.dataset.topic) { this.converse(t => sendTopic(t, btn.dataset.topic)); return; }
     if (btn.dataset.pick != null) {
       const c = (this.chatChoices || [])[Number(btn.dataset.pick)];

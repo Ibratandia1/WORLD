@@ -3,7 +3,8 @@ import { weeklyRent, occupants } from './housing.js';
 import { addRel, near, rel, reply, tip as jobTip, canPause } from './social.js';
 import { itemById, hasPhone } from './catalog.js';
 import { isClosed, freeUnits } from './city.js';
-import { AID_EVERY, CAMPAIGN_FEE, TAX_POLICIES, AID_POLICIES } from './gov.js';
+import { AID_EVERY, CAMPAIGN_FEE, TAX_POLICIES, AID_POLICIES, PROJECTS } from './gov.js';
+import { TUTORIAL, TUT_REWARD, TUT_FINAL, DREAMS, tutReady, dreamDone } from './goals.js';
 
 // RÈGLE D'OR : toutes les actions du jeu sont ici, et le joueur comme les PNJ
 // passent par world.perform(acteur, id, params). Un futur joueur en ligne
@@ -534,6 +535,62 @@ export const ACTIONS = {
       const label = p.tax ? TAX_POLICIES[p.tax].label : AID_POLICIES[p.aid].label;
       g.post('📜', `Décision du maire ${a.name} : ${label.toLowerCase()}.`);
       return `${label} : c’est voté.`;
+    },
+  },
+
+  city_project: {
+    icon: '🎉', label: 'Lancer un projet pour le quartier', instant: true, custom: true,
+    can: (a, w, p) => {
+      const g = w.gov;
+      if (!g || g.mayor !== a.id) return 'Seul le maire décide';
+      if (a.inside == null || w.building(a.inside).type !== 'cityhall') return 'Cela se décide à la mairie';
+      const pr = p && PROJECTS[p.project];
+      if (!pr) return 'Projet inconnu';
+      if ((w.treasury || 0) < pr.cost) return `Pas assez dans les caisses (${pr.cost} €)`;
+      if (g.lastProject != null && w.day - g.lastProject < 7) return 'Un projet par semaine au plus';
+      return true;
+    },
+    effect: (a, w, p) => w.gov.project(p.project),
+  },
+
+  // ---------- Boutiques : se faire plaisir, entretenir son véhicule ----------
+  shopping: {
+    icon: '🛍️', label: 'Faire du shopping', place: { type: 'fashion' }, duration: 30, cost: 35, seller: true, skip: 4,
+    effect: a => { a.mood += 8; return 'Un petit plaisir qui fait du bien.'; },
+  },
+  repair: {
+    icon: '🔧', label: 'Réviser mon véhicule', place: { type: 'garage' }, duration: 30, cost: 30, seller: true, skip: 4,
+    can: (a, w) => (!a.vehicle ? 'Pas de véhicule' : a.lastRepair != null && w.day - a.lastRepair < 7 ? 'Déjà révisé cette semaine' : true),
+    effect: (a, w) => { a.lastRepair = w.day; a.mood += 3; return 'Comme neuf ! Assurance réduite de moitié lundi prochain.'; },
+  },
+
+  // ---------- Objectifs : récupérer la récompense d'une étape ou d'un rêve ----------
+  claim_goal: {
+    icon: '🎁', label: 'Récupérer la récompense', instant: true, custom: true,
+    can: (a, w, p) => {
+      if (!a.goals || !p) return 'Rien à récupérer';
+      if (p.goal === 'tut') return tutReady(a) ? true : 'Étape pas encore faite';
+      const d = DREAMS.find(x => x.id === p.goal);
+      if (!d) return 'Objectif inconnu';
+      if (a.goals.claimed[d.id]) return 'Déjà récupéré';
+      return dreamDone(a, w, d) ? true : 'Rêve pas encore atteint';
+    },
+    effect: (a, w, p) => {
+      let r, label;
+      if (p.goal === 'tut') {
+        const step = TUTORIAL[a.goals.tut];
+        a.goals.tut++;
+        const last = a.goals.tut >= TUTORIAL.length;
+        r = { money: TUT_REWARD.money + (last ? TUT_FINAL.money : 0), mood: TUT_REWARD.mood + (last ? TUT_FINAL.mood : 0) };
+        label = last ? 'Premiers pas terminés ! Place à tes rêves 🌟' : `${step.icon} Étape réussie`;
+      } else {
+        const d = DREAMS.find(x => x.id === p.goal);
+        a.goals.claimed[d.id] = true;
+        r = d.reward;
+        label = `🌟 Rêve réalisé : ${d.label}`;
+      }
+      a.money += r.money; a.mood += r.mood;
+      return `${label}${r.money ? ` · +${r.money} €` : ''}`;
     },
   },
 

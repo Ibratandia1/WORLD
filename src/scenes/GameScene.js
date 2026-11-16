@@ -350,6 +350,41 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.centerOn(s.x, s.y - 20);
   }
 
+  // Montrer un lieu ou une personne : la caméra glisse jusqu'à lui et une flèche le désigne
+  focusBuilding(b) {
+    let sx = 0, sy = 0, top = Infinity;
+    for (const t of b.tiles) { const c = toScreen(t.x, t.y); sx += c.x; sy += c.y; top = Math.min(top, c.y - HH - b.height); }
+    sx /= b.tiles.length; sy /= b.tiles.length;
+    this.panTo(sx, sy - b.height / 2);
+    this.pointAt(sx, top - 36);
+  }
+
+  focusActor(a) {
+    const s = toScreen(a.px, a.py);
+    this.panTo(s.x, s.y - 20);
+    this.pointAt(s.x, s.y - 62, a);
+  }
+
+  panTo(x, y) {
+    const cam = this.cameras.main;
+    if (this.cameras.main.zoom < this.minZoom * 1.6) this.setZoom(this.minZoom * 1.8);
+    cam.pan(x, y, 700, 'Sine.easeInOut');
+  }
+
+  pointAt(x, y, follow = null) {
+    if (this.pointer) this.pointer.destroy();
+    const arrow = this.add.image(x, y, 'marker').setScale(2.2).setDepth(200001).setTint(0xff7a59);
+    this.pointer = arrow;
+    const bob = { o: 0 };
+    this.tweens.add({ targets: bob, o: -10, duration: 380, yoyo: true, repeat: 9, ease: 'Sine.inOut',
+      onUpdate: () => {
+        if (!arrow.active) return;
+        if (follow) { const s = toScreen(follow.px, follow.py); arrow.setPosition(s.x, s.y - 62 + bob.o); }
+        else arrow.setY(y + bob.o);
+      },
+      onComplete: () => { if (arrow.active) this.tweens.add({ targets: arrow, alpha: 0, duration: 400, onComplete: () => arrow.destroy() }); } });
+  }
+
   clampCamera() {
     const cam = this.cameras.main, b = this.bounds;
     const cx = Phaser.Math.Clamp(cam.scrollX + cam.width / 2, b.minX, b.maxX);
@@ -365,7 +400,8 @@ export class GameScene extends Phaser.Scene {
     for (const v of this.views.values()) {
       const a = v.a;
       if (a.isPlayer || !a.outdoors) continue;
-      if (Math.abs(wp.x - v.spr.x) < 13 && wp.y > v.spr.y - 46 && wp.y < v.spr.y + 4) return state.ui.showPerson(a);
+      // zone de toucher généreuse (doigts sur téléphone)
+      if (Math.abs(wp.x - v.spr.x) < 18 && wp.y > v.spr.y - 52 && wp.y < v.spr.y + 8) return state.ui.showPerson(a);
     }
     // Objets de la rue : pigeons, fontaine, bancs
     const nearScreen = (x, y, r) => { const s = toScreen(x, y); return Math.hypot(wp.x - s.x, wp.y - (s.y - 6)) < r; };

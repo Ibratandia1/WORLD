@@ -8,7 +8,7 @@ const ACTOR_FIELDS = [
   'money', 'energy', 'hunger', 'food', 'karma', 'items', 'job', 'px', 'py', 'facing', 'thinkIn',
   'home', 'housing', 'rentDue', 'rentLate', 'firedDay', 'lastApply', 'relations', 'routine',
   'owned', 'vehicle', 'referrals', 'taxWeek', 'mood', 'gifts', // ajoutés sans changer de version : les anciennes sauvegardes restent valides
-  'hardDays', 'newcomer', 'fav', 'aidDay', 'role',
+  'hardDays', 'newcomer', 'fav', 'aidDay', 'role', 'lastRepair', 'goals', 'tips',
 ];
 // Pour les nouveaux arrivants (absents de la liste de départ), on garde aussi qui ils sont
 const NEWCOMER_FIELDS = ['name', 'look', 'role', 'controller'];

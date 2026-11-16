@@ -106,6 +106,9 @@ export function decide(a, w, opts = {}) {
   const others = nearby(w, a).filter(o => o.controller !== 'player' && !o.doing && canPause(o, w));
   if (others.length && Math.random() < 0.2) return { id: 'talk', params: { who: others[Math.floor(Math.random() * others.length)].id } };
   const r = Math.random();
+  // Un véhicule s'entretient ; quand on a de l'argent de côté, on se fait plaisir
+  if (a.vehicle && a.money > 80 && (a.lastRepair == null || w.day - a.lastRepair >= 7) && Math.random() < 0.3) { const c = shop(a, w, 'repair'); if (c) return c; }
+  if (a.money > 500 && Math.random() < Math.min(0.25, a.money / 8000)) { const c = shop(a, w, 'shopping'); if (c) return c; }
   if (r < 0.15 && a.money > 10) { const c = shop(a, w, 'coffee'); if (c) return c; }
   if (r < 0.2 && a.money > 20) { const c = shop(a, w, 'scratch'); if (c) return c; }
   return { id: 'goto', params: w.map.randomFootpath() };

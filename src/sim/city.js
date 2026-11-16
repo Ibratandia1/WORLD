@@ -10,7 +10,8 @@ const RISKY = new Set(['cafe', 'bakery', 'shop']);   // commerces qui peuvent fa
 const WEEK = 7;
 const FAIL_AVG = 1.5;        // clients par jour en dessous desquels le commerce coule (moyenne sur 7 jours)
 const REOPEN_DAYS = [3, 5];  // jours avant qu'un repreneur rouvre le local
-const HARD_DAYS = 4;         // jours difficiles d'affilée avant de quitter le quartier
+export const VAT = 0.15;     // TVA prélevée sur les ventes des commerces (pour la ville)
+const HARD_DAYS = 4;        // jours difficiles d'affilée avant de quitter le quartier
 const STAY_ROLES = new Set(['police', 'postman', 'landlord', 'mayor']);
 
 // Noms de remplacement quand un local est repris (inventés)
@@ -67,6 +68,10 @@ export class CityLife {
     if (!s) return;
     s.today.n++;
     s.today.sales += e.cost;
+    // TVA : une part de chaque vente revient au Trésor de la ville
+    const vat = e.cost * VAT;
+    this.w.treasury = (this.w.treasury || 0) + vat;
+    this.vatWeek = (this.vatWeek || 0) + vat;
   }
 
   newDay() {

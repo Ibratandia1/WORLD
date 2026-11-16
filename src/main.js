@@ -5,6 +5,7 @@ import { spawnPeople } from './sim/people.js';
 import { EventDirector } from './sim/events.js';
 import { CityLife } from './sim/city.js';
 import { Government } from './sim/gov.js';
+import { ensureGoals, trackGoals } from './sim/goals.js';
 import { UI } from './ui.js';
 import { GameScene } from './scenes/GameScene.js';
 import { InteriorScene } from './scenes/InteriorScene.js';
@@ -31,6 +32,13 @@ if (!TEST) {
     el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
   });
 }
+
+// Nouvelle partie : le quartier s'éveille un peu avant que tu prennes la main (les commerçants ont ouvert)
+if (!resumed) for (let i = 0; i < 25; i++) world.step(1);
+
+// Objectifs : une partie reprise après le 3e jour n'a pas besoin du tutoriel
+ensureGoals(player, resumed && world.day > 3);
+trackGoals(world, player);
 
 Object.assign(state, { world, player, director });
 // Une tenue achetée change l'apparence : on la garde dans le profil

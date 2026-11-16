@@ -133,8 +133,10 @@ export class World extends Emitter {
         for (const id of a.owned) {
           const it = itemById(id);
           if (!it || !it.vehicle || !it.vehicle.weekly) continue;
-          a.money -= it.vehicle.weekly;
-          this.emit('vehicleBill', { actor: a, amount: it.vehicle.weekly, name: it.name });
+          // véhicule révisé au garage dans la semaine : assurance moitié prix
+          const amount = a.lastRepair != null && this.day - a.lastRepair <= 7 ? Math.round(it.vehicle.weekly / 2) : it.vehicle.weekly;
+          a.money -= amount;
+          this.emit('vehicleBill', { actor: a, amount, name: it.name });
         }
       }
     }
@@ -154,7 +156,8 @@ export class World extends Emitter {
     if (a.rentLate > 0) moodDrift -= 0.01;
     if (a.hunger > 80 || a.energy < 15) moodDrift -= 0.015;
     if (a.home == null) moodDrift -= 0.02;
-    if (a.doing === 'talk' || a.doing === 'listen') moodDrift += 0.12; // parler avec quelqu'un fait du bien
+    if (a.doing === 'talk' || a.doing === 'listen') moodDrift += 0.06; // parler avec quelqu'un fait du bien
+    if ((a.mood ?? 70) > 75) moodDrift -= 0.012; // l'euphorie ne dure pas : le moral redescend doucement
     if (sleeping) moodDrift = 0.004;
     a.mood = clamp((a.mood ?? 70) + moodDrift * dt, 0, 100);
     // Le moral au plus bas fatigue
