@@ -93,7 +93,8 @@ export class GameScene extends Phaser.Scene {
     if ((this.lightTick = (this.lightTick || 0) + delta) > 400) { this.lightTick = 0; this.syncLights(); }
     this.syncViews(time);
     if ((this.occTick = (this.occTick || 0) + delta) > 90) { this.occTick = 0; this.updateOcclusion(); }
-    if ((this.bubTick = (this.bubTick || 0) + delta) > 250) { this.bubTick = 0; this.declutter(); this.cull(); }
+    if ((this.bubTick = (this.bubTick || 0) + delta) > 250) { this.bubTick = 0; this.declutter(); }
+    this.cull(); // très léger : ne recalcule que si la caméra a bougé
     if ((this.homeTick = (this.homeTick || 0) + delta) > 1000) { this.homeTick = 0; this.syncHomeBubbles(); }
     this.clampCamera();
     this.syncInterior();
@@ -334,7 +335,7 @@ export class GameScene extends Phaser.Scene {
   setSeason(s) {
     if (s === this.season) return;
     this.season = s;
-    for (const t of this.spots.trees) { t.g.clear(); drawTree(t.g, t.x, t.y, t.blossom, s); }
+    for (const t of this.spots.trees) t.redraw(s);
   }
 
   // Neige au sol : elle s'accumule quand il neige et fond ensuite (plus vite au soleil)

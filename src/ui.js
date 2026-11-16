@@ -8,11 +8,12 @@ import { weeklyRent, occupants, LATE_EVICT } from './sim/housing.js';
 import { freeUnits, isClosed } from './sim/city.js';
 import { Sound } from './audio.js';
 import { t, LANGS } from './i18n.js';
+import { GUIDE } from './guide.js';
 import { settings, setSetting, onSettings } from './settings.js';
 import { isPolice, jailed } from './sim/safety.js';
 import { SEASON_INFO } from './sim/world.js';
 import { cityPulse } from './city/render.js';
-import { TUTORIAL, TUT_REWARD, TUT_FINAL, DREAMS, tutStep, tutReady, dreamClaimable, nextDream } from './sim/goals.js';
+import { TUTORIAL, TUT_REWARD, TUT_FINAL, DREAMS, tutStep, tutReady, dreamClaimable, nextDream, DAILY, DAILY_REWARD, DAILY_BONUS, dailyFor, levelOf, LEVELS, LEVEL_TITLES } from './sim/goals.js';
 import { TAX_POLICIES, AID_POLICIES, CAMPAIGN_FEE, PROJECTS } from './sim/gov.js';
 import { CATALOG } from './sim/catalog.js';
 import { canReach } from './sim/actions.js';
@@ -162,8 +163,10 @@ export class UI {
     const s = settings();
     const sw = (key, label, icon) => this.choiceHTML(`data-set="${key}"`, icon, label, s[key] ? `✅ ${t('Activé')}` : `⬜ ${t('Coupé')}`, true);
     const chips = (key, opts) => `<div class="chips">${opts.map(([v, l]) => `<button class="chip ${String(s[key]) === String(v) ? 'on' : ''}" data-setk="${key}" data-setv="${v}">${esc(t(l))}</button>`).join('')}</div>`;
-    const TABS = [['general', '🌍', 'Langue et affichage'], ['sound', '🔊', 'Son'], ['comfort', '📱', 'Confort'], ['battery', '🔋', 'Batterie']];
+    const TABS = [['guide', '📖', 'Guide'], ['general', '🌍', 'Langue et affichage'], ['sound', '🔊', 'Son'], ['comfort', '📱', 'Confort'], ['battery', '🔋', 'Batterie']];
+    const guide = (GUIDE[s.lang] || GUIDE.fr).map(([ic, title, text], i) => `<details ${i === 0 ? 'open' : ''}><summary><span>${ic}</span>${esc(title)}</summary><p>${esc(text).replace(/\n/g, '<br>')}</p></details>`).join('');
     const PAGES = {
+      guide: `<h3>📖 ${t('Guide du jeu')}</h3><div class="guide">${guide}</div>`,
       general: `<h3>🌍 ${t('Langue')}</h3>${chips('lang', LANGS)}
         ${s.lang !== 'fr' ? '<p class="note">Events, news and conversations are still in French for now.</p>' : ''}
         <h3>🔠 ${t('Taille du texte')}</h3>${chips('textSize', [['small', 'Petit'], ['normal', 'Normal'], ['large', 'Grand']])}`,
@@ -562,7 +565,9 @@ export class UI {
         ${got ? '' : `<div class="qbar"><i style="width:${pct.toFixed(0)}%"></i></div>`}</div></div>`;
     });
     const n = DREAMS.filter(d => p.goals.claimed[d.id]).length;
-    return `<div class="sec"><b>🌟 ${t('Mes rêves')} · ${n}/${DREAMS.length}</b><div class="choices">${rows.join('')}</div></div>`;
+    const xp = p.goals.xp || 0, lv = levelOf(xp), nx = LEVELS[lv + 1];
+    const level = `<div class="sec"><b>⭐ ${t('Niveau')} ${lv + 1} · ${esc(t(LEVEL_TITLES[lv]))}</b><p>${xp} XP${nx ? ` · ${t('prochain niveau à')} ${nx} XP` : ''} — ${t('les objectifs du jour, les rêves et les premiers pas font gagner de l’expérience.')}</p></div>`;
+    return `${level}<div class="sec"><b>🌟 ${t('Mes rêves')} · ${n}/${DREAMS.length}</b><div class="choices">${rows.join('')}</div></div>`;
   }
 
   syncQuest() {
@@ -580,16 +585,26 @@ export class UI {
         ${ready ? '' : `<div class="qhint">${esc(t(step.hint))}</div>`}
         <div class="qbtns ${ready ? 'keep' : ''}">${ready ? `<button class="go" data-claim="tut">${t('🎁 Récupérer')} +${gain} €</button>` : `<button data-show="${step.target}">${t('👀 Montrer')}</button>`}</div>`;
     } else {
-      const done = DREAMS.find(d => dreamClaimable(p, w, d));
-      const d = done || nextDream(p, w);
-      if (d) {
-        const [c, m] = d.progress(p, w);
-        key = `d${d.id}:${!!done}:${Math.floor((c / m) * 50)}`;
-        html = `<div class="qh"><span>🌟</span>${t(done ? 'Rêve réalisé !' : 'Prochain rêve')}<em>${m > 1 ? `${money(Math.min(c, m))}/${money(m)}` : ''}</em></div>
-          <div class="qt"><span>${d.icon}</span>${esc(t(d.label))}</div>
-          ${done ? `<div class="qbtns keep"><button class="go" data-claim="${d.id}">${t('🎁 Récupérer')}${d.reward.money ? ` +${d.reward.money} €` : ''}</button></div>`
-            : `<div class="qbar"><i style="width:${Math.min(100, (c / m) * 100).toFixed(0)}%"></i></div>`}`;
-      }
+      // Après les premiers pas : les 3 objectifs du jour + le niveau de vie ; un rêve atteint passe devant
+      const dream = DREAMS.find(d => dreamClaimable(p, w, d));
+      const d = dailyFor(p, w);
+      const xp = p.goals.xp || 0, lv = levelOf(xp);
+      const next = LEVELS[lv + 1], prev = LEVELS[lv];
+      const lvTxt = `⭐ ${t('Niv.')} ${lv + 1}`;
+      const lines = d.picks.map(id => {
+        const def = DAILY.find(x => x.id === id);
+        const prog = d.progress[id] || 0, ok = prog >= def.need, got = d.claimed[id];
+        const right = got ? '✅' : ok ? `<button class="go" data-dclaim="${id}">🎁 +${DAILY_REWARD.money} €</button>` : (def.need > 1 ? `${prog}/${def.need}` : '');
+        return `<div class="qline ${got ? 'got' : ''}"><span>${def.icon}</span><i>${esc(t(def.label))}</i><em>${right}</em></div>`;
+      }).join('');
+      const allGot = d.picks.every(id => d.claimed[id]);
+      const bonus = allGot && !d.bonus ? `<div class="qbtns keep"><button class="go" data-dclaim="bonus">🏆 ${t('Journée parfaite')} +${DAILY_BONUS.money} €</button></div>` : '';
+      const dreamBtn = dream ? `<div class="qbtns keep"><button class="go" data-claim="${dream.id}">🌟 ${esc(t(dream.label))} · ${t('🎁 Récupérer')}</button></div>` : '';
+      const done = d.picks.filter(id => d.claimed[id]).length;
+      key = `day${d.day}:${JSON.stringify(d.progress)}:${JSON.stringify(d.claimed)}:${d.bonus}:${dream && dream.id}:${xp}:${settings().lang}`;
+      html = `<div class="qh"><span>📅</span>${t('Objectifs du jour')} · ${done}/${d.picks.length}<em>${lvTxt}</em></div>
+        <div class="qbar xp" title="${xp} XP"><i style="width:${next ? Math.min(100, ((xp - prev) / (next - prev)) * 100).toFixed(0) : 100}%"></i></div>
+        <div class="qlist">${lines}</div>${bonus}${dreamBtn}`;
     }
     if (key !== this.questKey) { el.innerHTML = html; this.questKey = key; }
     el.classList.toggle('hidden', !html);
@@ -598,6 +613,11 @@ export class UI {
 
   onQuestClick(e) {
     const btn = e.target.closest('button');
+    if (btn && btn.dataset.dclaim) {
+      const r = this.world.perform(this.player, 'claim_goal', { goal: 'daily', id: btn.dataset.dclaim });
+      if (r.ok) { this.questKey = ''; this.syncQuest(); this.buzz(); }
+      return;
+    }
     if (btn && btn.dataset.claim) {
       const r = this.world.perform(this.player, 'claim_goal', { goal: btn.dataset.claim });
       if (r.ok) { this.questKey = ''; this.syncQuest(); this.buzz(); }
@@ -720,6 +740,7 @@ export class UI {
     if (now - (this.tipAt || -1e9) < 45000 || this.tipOn) return;
     p.tips = p.tips || [];
     const TIPS = [
+      ['guide', () => p.goals && p.goals.tut >= 1, '📖 Perdu·e ? Le guide complet du jeu est dans ⚙️ Paramètres (en haut à droite).'],
       ['hungry', () => p.hunger > 65, '🍔 Ton ventre gargouille : cuisine chez toi (🥫 = repas au frigo) ou va à la boulangerie.'],
       ['tired', () => p.energy < 25, '⚡ Tu fatigues : rentre dormir, ou bois un café pour tenir jusqu’au soir.'],
       ['mood', () => p.mood < 40, '😊 Ton moral baisse : discute avec quelqu’un, regarde la télé, lis ou assieds-toi sur un banc.'],

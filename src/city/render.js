@@ -350,7 +350,8 @@ export function drawGroundDetails(scene, map) {
         for (let i = 0; i < 5; i++) {
           const ox = (r() - 0.5) * 36, oy = (r() - 0.5) * 16;
           const c = [0xffffff, 0xf28ab2, 0xffd23f, 0xb48cf2, 0x6fbf5a][Math.floor(r() * 5)];
-          g.fillStyle(c, 0.9); g.fillCircle(s.x + ox, s.y + oy, c === 0x6fbf5a ? 2.5 : 1.4);
+          const sz = c === 0x6fbf5a ? 4 : 2.5; // petits carrés : bien plus légers à afficher que des cercles
+          g.fillStyle(c, 0.9); g.fillRect(s.x + ox - sz / 2, s.y + oy - sz / 2, sz, sz);
         }
       }
       // Quai de Seine
@@ -378,14 +379,20 @@ export function drawStreetDecor(scene, map, lights, darks, season = 'printemps')
   const { w, h, tiles } = map;
   const ground = (x, y) => (tiles[y] && tiles[y][x] ? tiles[y][x].ground : null);
   const r = rng(98765);
-  // chaque objet du décor est enregistré pour n'être dessiné que s'il est à l'écran (scene.cull)
+  // Le petit décor (arbres, lampadaires, bancs, bacs à fleurs…) est dessiné UNE fois puis figé en image
+  // (en double résolution pour rester net au zoom) : beaucoup plus léger à afficher qu'un dessin vectoriel
+  // refait à chaque image. Chaque élément est aussi enregistré pour n'être affiché que s'il est à l'écran.
   scene.cullables = scene.cullables || [];
-  const add = (x, y, extra = 2) => {
-    const g = twin(scene, depthAt(x, y) + extra, darks);
+  const pending = [];
+  const add = (x, y, extra = 2, box = [-24, -48, 24, 10]) => {
     const s = toScreen(x, y);
-    scene.cullables.push({ objs: [g, darks[darks.length - 1]], x: s.x, y: s.y });
-    return g;
+    const rec = bakeRecorder(scene, s.x + box[0], s.y + box[1], box[2] - box[0], box[3] - box[1]);
+    pending.push({ rec, depth: depthAt(x, y) + extra, s });
+    return rec.g;
   };
+  // décor animé (jets d'eau) : reste en dessin vivant
+  const live = (x, y, extra) => { const g = twin(scene, depthAt(x, y) + extra, darks); const s = toScreen(x, y); scene.cullables.push({ objs: [g, darks[darks.length - 1]], x: s.x, y: s.y }); return g; };
+  ensureLightTextures(scene);
   const spots = { benches: [], fountains: [], statues: [], trees: [] }; // objets de la rue avec lesquels on peut interagir
 
   for (let y = 0; y < h; y++) {
@@ -394,29 +401,42 @@ export function drawStreetDecor(scene, map, lights, darks, season = 'printemps')
       const s = toScreen(x, y);
 
       if (t.deco === 'tree') {
-        const tree = { g: add(x, y, 0), x: s.x, y: s.y, blossom: r() < 0.25 };
-        drawTree(tree.g, tree.x, tree.y, tree.blossom, season);
-        spots.trees.push(tree); // redessinés quand la saison change
+        const box = [-22, -48, 24, 10];
+        const tree = { x: s.x, y: s.y, blossom: r() < 0.25 };
+        drawTree(add(x, y, 0, box), tree.x, tree.y, tree.blossom, season);
+        tree.item = pending[pending.length - 1];
+        // redessiné (nouvelle image) quand la saison change
+        tree.redraw = sea => {
+          const it = tree.item;
+          const rec = bakeRecorder(scene, it.rec.ox, it.rec.oy, it.rec.w, it.rec.h);
+          drawTree(rec.g, tree.x, tree.y, tree.blossom, sea);
+          const key = rec.bake();
+          it.img.setTexture(key); it.dark.setTexture(key);
+          if (it.key && scene.textures.exists(it.key)) scene.textures.remove(it.key);
+          it.key = key;
+        };
+        spots.trees.push(tree);
       }
 
       if (t.deco === 'statue') {
         spots.statues.push({ x, y });
-        const glow = drawStatue(add(x, y, 0), lights, scene, s.x, s.y);
+        const glow = drawStatue(add(x, y, 0, [-30, -84, 30, 16]), lights, scene, s.x, s.y);
         glow.setDepth(depthAt(x, y) + 0.2);
       }
 
       if (t.deco === 'fountain') {
         spots.fountains.push({ x, y });
-        const g = add(x, y, 0);
+        const g = add(x, y, 0, [-28, -18, 28, 16]);
         g.fillStyle(0x000000, 0.15); g.fillEllipse(s.x, s.y + 3, 50, 20);
         g.fillStyle(0xcfc6b4); g.fillEllipse(s.x, s.y, 48, 22);
         g.fillStyle(0xb5ab98); g.fillEllipse(s.x, s.y + 2, 48, 20);
         g.fillStyle(0x7cc6f2); g.fillEllipse(s.x, s.y - 1, 40, 16);
         g.fillStyle(0xcfc6b4); g.fillRect(s.x - 3, s.y - 14, 6, 13);
-        const jets = add(x, y, 0.5);
+        const jets = live(x, y, 0.5);
         jets.fillStyle(0xe8f6ff, 0.9);
         for (const dx of [-8, 0, 8]) jets.fillEllipse(s.x + dx, s.y - 16 - (dx ? 0 : 6), 4, dx ? 14 : 22);
-        scene.tweens.add({ targets: jets, scaleY: 0.85, alpha: 0.7, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+        // (on n'anime que la transparence : changer l'échelle déplaçait les jets loin du bassin)
+        scene.tweens.add({ targets: jets, alpha: 0.55, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       }
 
       if (!t.walk || (t.ground !== 'pave' && t.ground !== 'cobble')) continue;
@@ -430,23 +450,21 @@ export function drawStreetDecor(scene, map, lights, darks, season = 'printemps')
       if ((side && along % 4 === 2) || plazaLamp) {
         const px = x + (side ? side[0] * 0.36 : 0), py = y + (side ? side[1] * 0.36 : 0);
         const b = toScreen(px, py);
-        const g = add(px, py);
+        const g = add(px, py, 2, [-6, -40, 6, 4]);
         g.fillStyle(0x000000, 0.15); g.fillEllipse(b.x, b.y + 1, 8, 3);
         g.fillStyle(0x34323d); g.fillRect(b.x - 1, b.y - 32, 2, 32); g.fillRect(b.x - 2.5, b.y - 2, 5, 3);
         g.fillStyle(0x34323d); g.fillRect(b.x - 3.5, b.y - 37, 7, 5);
         g.fillStyle(0xfff3c4); g.fillRect(b.x - 2.5, b.y - 36, 5, 3);
-        // Halo de la lampe (au-dessus) et flaque de lumière chaude au sol (sous les passants)
-        const halo = scene.add.graphics().setDepth(depthAt(px, py) + 2.1).setBlendMode(Phaser.BlendModes.ADD);
-        for (const [r, a] of [[22, 0.1], [14, 0.18], [8, 0.35], [4, 0.7]]) { halo.fillStyle(0xffd27a, a); halo.fillCircle(b.x, b.y - 35, r); }
-        const pool = scene.add.graphics().setDepth(0.6).setBlendMode(Phaser.BlendModes.ADD);
-        for (const [w, h, a] of [[110, 46, 0.08], [76, 32, 0.12], [44, 18, 0.16]]) { pool.fillStyle(0xffc766, a); pool.fillEllipse(b.x, b.y + 2, w, h); }
+        // Halo de la lampe (au-dessus) et flaque de lumière chaude au sol (sous les passants) : images partagées
+        const halo = scene.add.image(b.x, b.y - 35, 'lamp_halo').setScale(0.5).setDepth(depthAt(px, py) + 2.1).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0);
+        const pool = scene.add.image(b.x, b.y + 2, 'lamp_pool').setScale(0.5).setDepth(0.6).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0);
         lights.push(halo, pool);
         scene.cullables.push({ objs: [halo, pool], x: b.x, y: b.y });
       } else if (side && t.ground === 'pave' && along % 4 === 0 && r() < 0.7) {
         // Bacs à fleurs
         const px = x + (side[0] ? side[0] * 0.3 : 0.1), py = y + (side[1] ? side[1] * 0.3 : 0.1);
         const b = toScreen(px, py);
-        const g = add(px, py);
+        const g = add(px, py, 2, [-14, -16, 14, 8]);
         isoBox(g, b.x, b.y, 0.32, 0.2, 6, 0xcfc6b4);
         for (let i = 0; i < 5; i++) {
           g.fillStyle([0x4caf50, 0xf28ab2, 0xffd23f, 0x6fbf5a, 0xe86a6a][i], 1);
@@ -467,7 +485,7 @@ export function drawStreetDecor(scene, map, lights, darks, season = 'printemps')
   for (const { x, y } of benchTiles.slice(0, 14)) {
     spots.benches.push({ x, y });
     const b = toScreen(x, y);
-    const g = add(x, y);
+    const g = add(x, y, 2, [-20, -18, 20, 10]);
     isoBox(g, b.x, b.y, 0.5, 0.16, 2, { top: 0xb98458, left: 0x8a5a3c, right: 0x734a32 }, 5);
     isoBox(g, b.x, b.y - 2, 0.5, 0.04, 6, { top: 0xb98458, left: 0x9c6b43, right: 0x734a32 }, 7);
     g.fillStyle(0x34323d); g.fillRect(b.x - 10, b.y - 4, 2, 5); g.fillRect(b.x + 8, b.y - 1, 2, 5);
@@ -479,7 +497,7 @@ export function drawStreetDecor(scene, map, lights, darks, season = 'printemps')
     const e = [...bd.entrances].sort((a, b) => (b.x + b.y) - (a.x + a.y))[0];
     if (!e) continue;
     const b = toScreen(e.x, e.y);
-    const g = add(e.x, e.y, 3);
+    const g = add(e.x, e.y, 3, [-30, -30, 30, 10]);
     for (const [dx, col] of [[-12, 0xf2e6c9], [12, 0xe86a6a]]) {
       g.fillStyle(0x000000, 0.12); g.fillEllipse(b.x + dx, b.y + 2, 16, 6);
       g.fillStyle(0x34323d); g.fillRect(b.x + dx - 0.5, b.y - 20, 1.5, 20);
@@ -488,7 +506,61 @@ export function drawStreetDecor(scene, map, lights, darks, season = 'printemps')
       g.fillStyle(shade(col, 0.85)); g.fillRect(b.x + dx - 13, b.y - 19, 26, 2);
     }
   }
+
+  // Tout le décor dessiné est maintenant figé en images (jour + double « nuit » teinté)
+  for (const it of pending) {
+    it.key = it.rec.bake();
+    it.img = scene.add.image(it.rec.ox, it.rec.oy, it.key).setOrigin(0, 0).setScale(1 / BAKE_K).setDepth(it.depth);
+    it.dark = scene.add.image(it.rec.ox, it.rec.oy, it.key).setOrigin(0, 0).setScale(1 / BAKE_K).setDepth(it.depth + 0.05).setTintFill(NIGHT).setAlpha(0);
+    darks.push(it.dark);
+    scene.cullables.push({ objs: [it.img, it.dark], box: [it.rec.ox, it.rec.oy, it.rec.ox + it.rec.w, it.rec.oy + it.rec.h] });
+  }
   return spots;
+}
+
+// ---------- Figer un dessin en image ----------
+const BAKE_K = 2; // résolution des images de décor (2× : net même zoomé)
+let bakeN = 0;
+
+// Enregistreur : on dessine comme sur un Graphics normal (coordonnées du monde),
+// tout est décalé et agrandi ×BAKE_K dans un Graphics hors écran, puis bake() en fait une texture.
+export function bakeRecorder(scene, ox, oy, w, h) {
+  const real = scene.make.graphics({ add: false });
+  const K = BAKE_K, X = v => (v - ox) * K, Y = v => (v - oy) * K;
+  const P = pts => pts.map(p => ({ x: X(p.x), y: Y(p.y) }));
+  const g = {
+    fillStyle: (c, a = 1) => { real.fillStyle(c, a); return g; },
+    lineStyle: (wd, c, a = 1) => { real.lineStyle(wd * K, c, a); return g; },
+    fillRect: (x, y, ww, hh) => { real.fillRect(X(x), Y(y), ww * K, hh * K); return g; },
+    fillPoints: (pts, close) => { real.fillPoints(P(pts), close); return g; },
+    strokePoints: (pts, close) => { real.strokePoints(P(pts), close); return g; },
+    lineBetween: (x1, y1, x2, y2) => { real.lineBetween(X(x1), Y(y1), X(x2), Y(y2)); return g; },
+    fillCircle: (x, y, r) => { real.fillCircle(X(x), Y(y), r * K); return g; },
+    fillEllipse: (x, y, ww, hh) => { real.fillEllipse(X(x), Y(y), ww * K, hh * K); return g; },
+    fillTriangle: (a, b, c, d, e, f) => { real.fillTriangle(X(a), Y(b), X(c), Y(d), X(e), Y(f)); return g; },
+    clear: () => { real.clear(); return g; },
+  };
+  return {
+    g, ox, oy, w, h,
+    bake() {
+      const key = `bk_${bakeN++}`;
+      real.generateTexture(key, Math.ceil(w * K), Math.ceil(h * K));
+      real.destroy();
+      return key;
+    },
+  };
+}
+
+// Halo et flaque de lumière des lampadaires : une seule texture partagée par tous
+function ensureLightTextures(scene) {
+  if (scene.textures.exists('lamp_halo')) return;
+  const g = scene.make.graphics({ add: false });
+  for (const [r, a] of [[22, 0.1], [14, 0.18], [8, 0.35], [4, 0.7]]) { g.fillStyle(0xffd27a, a); g.fillCircle(44, 44, r * 2); }
+  g.generateTexture('lamp_halo', 88, 88);
+  g.clear();
+  for (const [w, h, a] of [[110, 46, 0.08], [76, 32, 0.12], [44, 18, 0.16]]) { g.fillStyle(0xffc766, a); g.fillEllipse(110, 46, w * 2, h * 2); }
+  g.generateTexture('lamp_pool', 220, 92);
+  g.destroy();
 }
 
 // Feuillage selon la saison : cerisiers en fleurs au printemps, vert profond l'été, roux l'automne, nu l'hiver

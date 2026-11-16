@@ -29,8 +29,53 @@ export const DREAMS = [
   { id: 'dream_mayor', icon: '🏛️', label: 'Être élu·e maire', progress: (a, w) => [w.gov && w.gov.mayor === a.id ? 1 : 0, 1], reward: { money: 500, mood: 25 } },
 ];
 
+// ---------- Objectifs du jour : 3 petites missions qui changent chaque jour ----------
+// count(e) = combien l'action terminée e fait avancer la mission ; ok(a, w) = la mission a du sens aujourd'hui
+const LEISURE = ['watch_tv', 'read_book', 'sit_bench', 'stroll', 'nap', 'admire_statue', 'wish_fountain'];
+const LOCAL = ['coffee', 'eat_cafe', 'eat_bakery', 'groceries', 'shopping', 'market_buy', 'crepe'];
+export const DAILY = [
+  { id: 'd_work', icon: '💼', label: 'Termine ton service', need: 1, count: e => (e.id === 'work' ? 1 : 0), ok: (a, w) => !!(a.job && !a.job.street && a.job.days.includes((w.day - 1) % 7)) },
+  { id: 'd_cook', icon: '🍝', label: 'Cuisine un repas chez toi', need: 1, count: e => (e.id === 'eat_home' ? 1 : 0), ok: a => a.home != null },
+  { id: 'd_talk', icon: '💬', label: 'Discute avec 2 personnes', need: 2, count: e => (e.id === 'talk' || e.id === 'joke' ? 1 : 0), ok: () => true },
+  { id: 'd_rest', icon: '📺', label: 'Prends du temps pour toi', need: 1, count: e => (LEISURE.includes(e.id) ? 1 : 0), ok: () => true },
+  { id: 'd_local', icon: '🥐', label: 'Achète chez 2 commerçants', need: 2, count: e => (LOCAL.includes(e.id) ? 1 : 0), ok: () => true },
+  { id: 'd_kind', icon: '🎁', label: 'Fais plaisir à quelqu’un', need: 1, count: e => (e.id === 'gift' || e.id === 'treat' || e.id === 'stroll' ? 1 : 0), ok: () => true },
+  { id: 'd_birds', icon: '🐦', label: 'Nourris les pigeons', need: 1, count: e => (e.id === 'feed_pigeons' ? 1 : 0), ok: () => true },
+  { id: 'd_study', icon: '🎓', label: 'Suis un cours à l’école', need: 1, count: e => (e.id === 'study' ? 1 : 0), ok: a => (a.education ?? 1) < 3 && a.money > 40 },
+  { id: 'd_fest', icon: '🎪', label: 'Profite de la fête du quartier', need: 1, count: e => (['market_buy', 'crepe', 'dance', 'brocante_hunt'].includes(e.id) ? 1 : 0), ok: (a, w) => w.weekday === 6 || w.weekday === 5 || w.weekday === 4 },
+  { id: 'd_sleep', icon: '😴', label: 'Dors une vraie nuit chez toi', need: 1, count: e => (e.id === 'sleep' ? 1 : 0), ok: a => a.home != null },
+];
+export const DAILY_REWARD = { money: 20, xp: 20 };
+export const DAILY_BONUS = { money: 50, xp: 40 }; // les 3 du jour réussies
+
+// Les missions du jour (tirées au réveil de façon déterministe, parmi celles qui ont du sens)
+export function dailyFor(a, w) {
+  const g = ensureGoals(a);
+  if (!g.daily || g.daily.day !== w.day) {
+    const pool = DAILY.filter(d => d.ok(a, w));
+    let seed = (w.day * 9301 + 49297) % 233280;
+    const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+    const picks = [];
+    if (pool.find(d => d.id === 'd_work')) picks.push('d_work'); // le travail d'abord, s'il y en a aujourd'hui
+    while (picks.length < 3 && picks.length < pool.length) {
+      const d = pool[Math.floor(rnd() * pool.length)];
+      if (!picks.includes(d.id)) picks.push(d.id);
+    }
+    g.daily = { day: w.day, picks, progress: {}, claimed: {}, bonus: false };
+  }
+  return g.daily;
+}
+export const dailyDone = (a, id) => { const d = a.goals && a.goals.daily; const def = DAILY.find(x => x.id === id); return !!(d && def && (d.progress[id] || 0) >= def.need); };
+
+// ---------- Niveau de vie (XP) ----------
+export const LEVELS = [0, 100, 250, 450, 700, 1000, 1400, 1900, 2500];
+export const LEVEL_TITLES = ['Nouveau venu', 'Habitant·e', 'Voisin·e apprécié·e', 'Figure du quartier', 'Pilier du Marais', 'Célébrité locale', 'Légende du Marais', 'Mémoire du Marais', 'Âme du Marais'];
+export const levelOf = xp => { let l = 0; while (l + 1 < LEVELS.length && xp >= LEVELS[l + 1]) l++; return l; };
+export const XP = { tut: 15, dream: 60 };
+
 export function ensureGoals(a, finished = false) {
   if (!a.goals) a.goals = { tut: finished ? TUTORIAL.length : 0, flags: {}, claimed: {} };
+  if (a.goals.xp == null) a.goals.xp = 0;
   return a.goals;
 }
 
@@ -54,5 +99,15 @@ export function trackGoals(world, actor) {
   ensureGoals(actor);
   const mark = id => { actor.goals.flags[id] = true; };
   world.on('start', e => { if (e.actor === actor) mark(e.id); });
-  world.on('done', e => { if (e.actor === actor) mark(e.id); });
+  world.on('done', e => {
+    if (e.actor !== actor) return;
+    mark(e.id);
+    // missions du jour
+    const d = dailyFor(actor, world);
+    for (const id of d.picks) {
+      const def = DAILY.find(x => x.id === id);
+      const n = def ? def.count(e) : 0;
+      if (n) d.progress[id] = Math.min(def.need, (d.progress[id] || 0) + n);
+    }
+  });
 }

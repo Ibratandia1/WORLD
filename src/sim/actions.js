@@ -4,7 +4,7 @@ import { addRel, near, rel, reply, tip as jobTip, canPause } from './social.js';
 import { itemById, hasPhone } from './catalog.js';
 import { isClosed, freeUnits } from './city.js';
 import { AID_EVERY, CAMPAIGN_FEE, TAX_POLICIES, AID_POLICIES, PROJECTS } from './gov.js';
-import { TUTORIAL, TUT_REWARD, TUT_FINAL, DREAMS, tutReady, dreamDone } from './goals.js';
+import { TUTORIAL, TUT_REWARD, TUT_FINAL, DREAMS, tutReady, dreamDone, dailyFor, dailyDone, DAILY_REWARD, DAILY_BONUS, levelOf, LEVEL_TITLES, XP } from './goals.js';
 import { isPolice } from './safety.js';
 
 // RÈGLE D'OR : toutes les actions du jeu sont ici, et le joueur comme les PNJ
@@ -575,27 +575,46 @@ export const ACTIONS = {
     can: (a, w, p) => {
       if (!a.goals || !p) return 'Rien à récupérer';
       if (p.goal === 'tut') return tutReady(a) ? true : 'Étape pas encore faite';
+      if (p.goal === 'daily') {
+        const d = dailyFor(a, w);
+        if (p.id === 'bonus') return d.picks.every(id => d.claimed[id]) && !d.bonus ? true : 'Réussis d’abord les 3 objectifs du jour';
+        if (!d.picks.includes(p.id)) return 'Pas un objectif du jour';
+        if (d.claimed[p.id]) return 'Déjà récupéré';
+        return dailyDone(a, p.id) ? true : 'Pas encore fait';
+      }
       const d = DREAMS.find(x => x.id === p.goal);
       if (!d) return 'Objectif inconnu';
       if (a.goals.claimed[d.id]) return 'Déjà récupéré';
       return dreamDone(a, w, d) ? true : 'Rêve pas encore atteint';
     },
     effect: (a, w, p) => {
-      let r, label;
+      let r, label, xp = 0;
       if (p.goal === 'tut') {
         const step = TUTORIAL[a.goals.tut];
         a.goals.tut++;
         const last = a.goals.tut >= TUTORIAL.length;
         r = { money: TUT_REWARD.money + (last ? TUT_FINAL.money : 0), mood: TUT_REWARD.mood + (last ? TUT_FINAL.mood : 0) };
-        label = last ? 'Premiers pas terminés ! Place à tes rêves 🌟' : `${step.icon} Étape réussie`;
+        label = last ? 'Premiers pas terminés ! Place aux objectifs du jour 📅' : `${step.icon} Étape réussie`;
+        xp = XP.tut;
+      } else if (p.goal === 'daily') {
+        const d = dailyFor(a, w);
+        if (p.id === 'bonus') { d.bonus = true; r = { money: DAILY_BONUS.money, mood: 6 }; xp = DAILY_BONUS.xp; label = '🏆 Journée parfaite !'; }
+        else { d.claimed[p.id] = true; r = { money: DAILY_REWARD.money, mood: 2 }; xp = DAILY_REWARD.xp; label = '✅ Objectif du jour'; }
       } else {
         const d = DREAMS.find(x => x.id === p.goal);
         a.goals.claimed[d.id] = true;
         r = d.reward;
         label = `🌟 Rêve réalisé : ${d.label}`;
+        xp = XP.dream;
       }
       a.money += r.money; a.mood += r.mood;
-      return `${label}${r.money ? ` · +${r.money} €` : ''}`;
+      // Niveau de vie : on monte de niveau avec l'expérience (petit cadeau à chaque niveau)
+      const before = levelOf(a.goals.xp || 0);
+      a.goals.xp = (a.goals.xp || 0) + xp;
+      const after = levelOf(a.goals.xp);
+      let up = '';
+      if (after > before) { a.money += 50 * after; a.mood += 10; up = ` · ⭐ Niveau ${after + 1} : ${LEVEL_TITLES[after]} (+${50 * after} €)`; }
+      return `${label}${r.money ? ` · +${r.money} €` : ''} · +${xp} XP${up}`;
     },
   },
 

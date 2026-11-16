@@ -44,6 +44,7 @@ const EN = {
   'Revoir les astuces': 'Show tips again',
   'Les astuces réapparaîtront.': 'Tips will show again.',
   // --- Astuces ---
+  '📖 Perdu·e ? Le guide complet du jeu est dans ⚙️ Paramètres (en haut à droite).': '📖 Lost? The full game guide is in ⚙️ Settings (top right).',
   '🍔 Ton ventre gargouille : cuisine chez toi (🥫 = repas au frigo) ou va à la boulangerie.': '🍔 Your stomach is rumbling: cook at home (🥫 = meals in the fridge) or go to the bakery.',
   '⚡ Tu fatigues : rentre dormir, ou bois un café pour tenir jusqu’au soir.': '⚡ You are getting tired: go to bed, or have a coffee to last until evening.',
   '😊 Ton moral baisse : discute avec quelqu’un, regarde la télé, lis ou assieds-toi sur un banc.': '😊 Your mood is dropping: chat with someone, watch TV, read or sit on a bench.',
@@ -55,6 +56,18 @@ const EN = {
   '🗺️ Le bouton 🗺️ (à droite) liste tous les lieux du quartier, 👥 tous les habitants.': '🗺️ The 🗺️ button (right) lists every place in the neighbourhood, 👥 every resident.',
   '🔁 Le bouton 🔁 (à droite) lance la routine : ton personnage mange, dort et travaille tout seul.': '🔁 The 🔁 button (right) starts the routine: your character eats, sleeps and works alone.',
   '🌟 Tes rêves sont dans « Ma vie » (💼 à gauche) : chacun rapporte une récompense.': '🌟 Your dreams are in “My life” (💼 on the left): each one gives a reward.',
+  // --- Objectifs du jour, niveau ---
+  'Objectifs du jour': 'Daily goals', 'Journée parfaite': 'Perfect day', 'Niv.': 'Lv', 'Niveau': 'Level',
+  'prochain niveau à': 'next level at',
+  'les objectifs du jour, les rêves et les premiers pas font gagner de l’expérience.': 'daily goals, dreams and first steps earn experience.',
+  'Termine ton service': 'Finish your shift', 'Cuisine un repas chez toi': 'Cook a meal at home', 'Discute avec 2 personnes': 'Chat with 2 people',
+  'Prends du temps pour toi': 'Take some time for yourself', 'Achète chez 2 commerçants': 'Buy from 2 local shops', 'Fais plaisir à quelqu’un': 'Do something nice for someone',
+  'Nourris les pigeons': 'Feed the pigeons', 'Suis un cours à l’école': 'Take a class at school', 'Profite de la fête du quartier': 'Enjoy the neighbourhood festival',
+  'Dors une vraie nuit chez toi': 'Get a real night’s sleep at home',
+  'Nouveau venu': 'Newcomer', 'Habitant·e': 'Resident', 'Voisin·e apprécié·e': 'Well-liked neighbour', 'Figure du quartier': 'Local figure',
+  'Pilier du Marais': 'Pillar of the Marais', 'Célébrité locale': 'Local celebrity', 'Légende du Marais': 'Legend of the Marais',
+  'Mémoire du Marais': 'Memory of the Marais', 'Âme du Marais': 'Soul of the Marais',
+  'Guide': 'Guide', 'Guide du jeu': 'Game guide',
   // --- Carte d'objectif, rêves ---
   'Premiers pas': 'First steps',
   'Prochain rêve': 'Next dream',
