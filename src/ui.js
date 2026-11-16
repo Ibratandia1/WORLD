@@ -33,6 +33,17 @@ const dur = m => {
 const hearts = r => '❤'.repeat(Math.round(r / 20)) + '♡'.repeat(5 - Math.round(r / 20));
 const SOCIAL = ['talk', 'treat', 'ask_tip', 'wave', 'joke', 'gift', 'stroll'];
 
+// Couleur des boutons selon ce que fait l'action (repérage d'un coup d'œil)
+const ACT_CAT = {};
+const cat = (c, ids) => ids.forEach(id => { ACT_CAT[id] = c; });
+cat('food', ['coffee', 'eat_cafe', 'eat_bakery', 'groceries', 'eat_home', 'crepe', 'market_buy']);
+cat('work', ['work', 'overtime', 'apply', 'call_sick', 'quit_job', 'study']);
+cat('rest', ['sleep', 'nap', 'watch_tv', 'read_book', 'sit_bench', 'admire_statue', 'wish_fountain', 'feed_pigeons', 'dance', 'sleep_rough']);
+cat('social', ['talk', 'joke', 'wave', 'gift', 'treat', 'stroll', 'lend', 'recommend', 'ask_tip', 'tip']);
+cat('money', ['pay_rent', 'rent_home', 'buy_home', 'buy', 'allocation', 'claim_goal', 'shopping', 'repair', 'scratch', 'brocante_hunt', 'use_vehicle', 'buy_umbrella']);
+cat('civic', ['vote', 'run_mayor', 'set_policy', 'city_project', 'report', 'consult', 'enter', 'leave', 'goto', 'metro']);
+cat('danger', ['steal', 'shoplift', 'burgle', 'arrest', 'extinguish', 'pay_fine']);
+
 // Interface en HTML par-dessus le canvas : barre d'icônes + fenêtre en bas à droite.
 // La fenêtre montre, par priorité : un lieu touché, « Ma vie », une personne touchée, un événement, ton activité.
 export class UI {
@@ -312,6 +323,7 @@ export class UI {
   // ---------- Contenu de la fenêtre ----------
   render(pop = false) {
     const box = $('box');
+    let shownPlace = null;
     if (this.place) box.innerHTML = this.placeHTML(this.place);
     else if (this.life) box.innerHTML = this.lifeHTML();
     else if (this.panel === 'map') box.innerHTML = this.mapHTML();
@@ -333,7 +345,13 @@ export class UI {
       const info = this.statusInfo();
       this.statusKey = info.key;
       box.innerHTML = info.stay ? this.placeHTML(info.stay, true) : this.statusHTML(info);
+      if (info.stay) shownPlace = info.stay;
     }
+    if (this.place) shownPlace = this.place;
+    // Fiche d'un lieu : fenêtre élargie en paysage (boutons en grille), couleur du type de lieu
+    box.classList.toggle('wide', !!shownPlace);
+    box.dataset.theme = shownPlace ? shownPlace.type
+      : this.life ? 'life' : this.panel ? this.panel : this.person ? 'person' : this.object ? 'object' : this.director.active ? 'event' : 'idle';
     if (pop) { box.classList.remove('pop'); void box.offsetWidth; box.classList.add('pop'); }
   }
 
@@ -350,7 +368,7 @@ export class UI {
   // Bouton générique pour une action (avec paramètres) — icône personnalisable
   actBtn(id, params = {}, label = null, icon = null) {
     const def = ACTIONS[id], p = this.player;
-    const attrs = `data-act="${id}" data-p="${esc(JSON.stringify(params))}"`;
+    const attrs = `data-act="${id}" data-p="${esc(JSON.stringify(params))}" class="c-${ACT_CAT[id] || 'misc'}"`;
     return this.choiceHTML(attrs, icon || def.icon, label || def.label, this.meta(def, params), this.world.check(p, id, params));
   }
 
@@ -385,7 +403,7 @@ export class UI {
   eventHTML(ev) {
     const buttons = ev.choices.map((c, i) => {
       const def = c.action ? ACTIONS[c.action] : null;
-      return this.choiceHTML(`data-choice="${i}"`, c.icon, c.label, def ? this.meta(def, c.params) : '', this.director.check(c));
+      return this.choiceHTML(`data-choice="${i}" class="c-${c.action ? ACT_CAT[c.action] || 'misc' : 'misc'}"`, c.icon, c.label, def ? this.meta(def, c.params) : '', this.director.check(c));
     }).join('');
     // ✕ en haut : fermer l'événement sans choisir
     const head = `<div class="box-head"><span class="ico">${ev.icon}</span><b>${esc(ev.title)}</b><button class="box-close ev-close" data-evclose title="Fermer">✕</button></div>`;
@@ -466,7 +484,7 @@ export class UI {
 
     if (inside) {
       if (!note) note = `<p>${t('Touche un meuble ou une personne.')}</p>`;
-      buttons.push(this.choiceHTML('data-leave', '🚶', 'Sortir dans la rue', '', true));
+      buttons.push(this.choiceHTML('data-leave class="c-civic"', '🚶', 'Sortir dans la rue', '', true));
     }
     const icon = b.type === 'home' && b.id === p.home ? (p.housing === 'own' ? '🔑' : '🏠') : TYPES[b.type].icon;
     return `${this.head(icon, b.name, !inside)}${note}<div class="choices">${buttons.join('')}</div>${this.shopHTML(b, inside)}${b.type === 'cityhall' ? this.govHTML(b, inside) : ''}`;

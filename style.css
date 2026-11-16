@@ -432,3 +432,66 @@ body.text-large #quest { font-size: 13px; }
 #settings .guide summary span { font-family: var(--emoji); font-size: 16px; }
 #settings .guide details[open] summary { color: var(--accent); }
 #settings .guide p { margin: 0 0 10px; line-height: 1.45; color: var(--ink); }
+/* ================= Couleurs de l'interface ================= */
+:root {
+  --c-food: #f08a3c; --c-work: #3f7fe0; --c-rest: #9b6ee8; --c-social: #e86a8c;
+  --c-money: #2fa36b; --c-civic: #2b4ea2; --c-danger: #e2475b; --c-misc: #8a7fb0;
+  --theme: #7b5cf0;
+}
+/* Boutons : liseré et pastille d'icône de la couleur de l'action */
+.choices button { border-left: 4px solid var(--btn, transparent); }
+.choices button > span { background: color-mix(in srgb, var(--btn, #b9aee0) 18%, white); border-radius: 9px; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.choices button.c-food { --btn: var(--c-food); background: #fff4ea; }
+.choices button.c-work { --btn: var(--c-work); background: #eef4ff; }
+.choices button.c-rest { --btn: var(--c-rest); background: #f4effe; }
+.choices button.c-social { --btn: var(--c-social); background: #fdeff3; }
+.choices button.c-money { --btn: var(--c-money); background: #ebf8f1; }
+.choices button.c-civic { --btn: var(--c-civic); background: #edf1fb; }
+.choices button.c-danger { --btn: var(--c-danger); background: #fdecee; }
+.choices button.c-misc { --btn: var(--c-misc); }
+.choices button[disabled] { filter: saturate(0.4); }
+
+/* Couleur du lieu (ou du panneau) : bandeau d'en-tête coloré */
+#box[data-theme="cafe"] { --theme: #d8504d; } #box[data-theme="bakery"] { --theme: #e5a33a; }
+#box[data-theme="shop"] { --theme: #2fa36b; } #box[data-theme="fashion"] { --theme: #d94f9c; }
+#box[data-theme="garage"] { --theme: #2f7d5b; } #box[data-theme="office"] { --theme: #3f7fe0; }
+#box[data-theme="home"] { --theme: #9b6ee8; } #box[data-theme="cityhall"] { --theme: #2b4ea2; }
+#box[data-theme="police"] { --theme: #2b3a6b; } #box[data-theme="hospital"] { --theme: #e2475b; }
+#box[data-theme="firestation"] { --theme: #c0392b; } #box[data-theme="prison"] { --theme: #5f6066; }
+#box[data-theme="school"] { --theme: #e5a33a; } #box[data-theme="metro"] { --theme: #2f7d5b; }
+#box[data-theme="life"] { --theme: #7b5cf0; } #box[data-theme="map"] { --theme: #2a9d8f; }
+#box[data-theme="people"] { --theme: #e86a8c; } #box[data-theme="person"] { --theme: #e86a8c; }
+#box[data-theme="event"] { --theme: #f08a3c; } #box[data-theme="object"] { --theme: #9b6ee8; }
+#box .box-head {
+  margin: -10px -12px 6px; padding: 9px 12px; border-radius: 16px 16px 0 0;
+  background: linear-gradient(135deg, var(--theme), color-mix(in srgb, var(--theme) 70%, white)); color: #fff;
+}
+#box .box-head b { color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, .18); }
+#box .box-head .box-close { background: rgba(255, 255, 255, .9); color: var(--ink); box-shadow: none; width: 28px; height: 28px; font-size: 13px; }
+#box .sec > b:first-child { color: var(--theme); }
+#box { border-top: 0; }
+
+/* Fiche d'un lieu : en paysage, à la même place, boutons en grille */
+#box.wide { width: min(600px, 62vw); max-height: min(62vh, 360px); }
+#box.wide .choices { display: grid; grid-template-columns: repeat(auto-fill, minmax(175px, 1fr)); gap: 6px; }
+#box.wide .choices .cat { grid-column: 1 / -1; }
+#box.wide p { margin: 4px 0 6px; }
+@media (max-height: 420px) {
+  #box.wide { width: min(560px, 64vw); max-height: 70vh; }
+  #box.wide .choices { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  #box .box-head { padding: 7px 10px; margin: -8px -10px 5px; }
+}
+
+/* HUD coloré : chaque jauge et chaque bouton a sa couleur */
+#hud .pill:nth-child(1) { background: linear-gradient(135deg, #fff, #efeaff); }
+#p-money { background: linear-gradient(135deg, #fff, #e3f6ea) !important; }
+#v-energy { background: #f2b33c; } #v-hunger { background: #f08a3c; } #v-mood { background: #e86a8c; }
+.bar i.low { background: var(--bad) !important; }
+#side #b-map { background: #d7f2ee; } #side #b-people { background: #fde3ea; }
+#side #b-routine { background: #ece3fd; } #side #b-look { background: #ffeedd; }
+#side button.on { background: var(--accent) !important; color: #fff; }
+#dock #b-center { background: #fff3c4; }
+#controls #b-settings { background: #ece3fd; }
+#quest .qh { color: var(--accent); }
+#tip { background: linear-gradient(135deg, #3d2f6b, #5b3fa8); }#box.wide .choices button small { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+#box.wide .choices button em { font-size: 10.5px; }
