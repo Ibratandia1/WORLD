@@ -11,6 +11,7 @@ const ROWS = [
   ['skin', 'Peau', 'color'],
   ['hairColor', 'Cheveux', 'color'],
   ['hairStyle', 'Coiffure', 'choice'],
+  ['build', 'Silhouette', 'choice'],
   ['body', 'Haut', 'color'],
   ['legs', 'Bas', 'color'],
   ['accessory', 'Accessoire', 'choice'],

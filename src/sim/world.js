@@ -232,6 +232,7 @@ export class World extends Emitter {
       const d = Math.hypot(dx, dy);
       const sdx = dx - dy; // direction horizontale à l'écran
       if (Math.abs(sdx) > 0.01) a.facing = sdx > 0 ? 1 : -1;
+      if (Math.abs(dx + dy) > 0.01) a.away = dx + dy < 0; // s'éloigne (vers le haut de l'écran) : vu de dos
       if (d <= budget) {
         a.px = t.x; a.py = t.y;
         a.path.shift();

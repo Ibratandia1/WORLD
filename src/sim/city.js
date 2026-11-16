@@ -30,13 +30,14 @@ const pick = a => a[Math.floor(Math.random() * a.length)];
 const LOOKS = {
   skin: [0xf6d7c3, 0xf1c7a3, 0xd9a77e, 0xb57a52, 0x8a5634, 0x5e3a24],
   hairColor: [0x1c1410, 0x4a3020, 0x7a4a2a, 0xb5651d, 0xd9a441, 0xe8d8b0, 0xdddddd, 0xd94f9c, 0x5b8def],
-  hairStyle: ['court', 'long', 'boucles', 'chignon', 'crete', 'casquette', 'chauve'],
+  hairStyle: ['court', 'long', 'boucles', 'afro', 'chignon', 'queue', 'carre', 'tresses', 'crete', 'casquette', 'chauve'],
+  build: ['mince', 'normal', 'normal', 'fort'],
   body: [0xf2c94c, 0xe86a8c, 0x5b8def, 0x4bbf8b, 0x9b6ee8, 0xf08a3c, 0x3cb5c9, 0xffffff, 0x333a4a, 0xd8504d],
   legs: [0x3a4766, 0x2a2f3d, 0x6b4a2f, 0x8a8f99, 0x2e6b4a, 0xc9b48a],
 };
 const randomLook = () => ({
   skin: pick(LOOKS.skin), hairColor: pick(LOOKS.hairColor), hairStyle: pick(LOOKS.hairStyle),
-  body: pick(LOOKS.body), legs: pick(LOOKS.legs), accessory: Math.random() < 0.8 ? 'aucun' : pick(['lunettes', 'echarpe', 'moustache', 'solaires']),
+  body: pick(LOOKS.body), legs: pick(LOOKS.legs), build: pick(LOOKS.build), accessory: Math.random() < 0.8 ? 'aucun' : pick(['lunettes', 'echarpe', 'moustache', 'solaires']),
 });
 
 // Prix pratiqué par un commerce (multiplicateur selon sa clientèle)

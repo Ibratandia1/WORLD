@@ -720,7 +720,7 @@ export class Crowd {
     const id = `pass${slot}`;
     const fake = { id, look: this.makeLook() };
     const key = `char_${id}_0`;
-    for (const k of [key, `${key}_1`, `${key}_2`]) if (this.scene.textures.exists(k)) this.scene.textures.remove(k);
+    for (const s of ['', '_1', '_2', '_i', '_b0', '_b1', '_b2']) if (this.scene.textures.exists(key + s)) this.scene.textures.remove(key + s);
     this.ensureTex(this.scene, fake);
     const spr = this.scene.add.image(0, 0, fake.texKey).setOrigin(0.5, 0.93).setScale(1.5).setAlpha(0);
     this.people.push({ spr, slot, key: fake.texKey, x: g.x, y: g.y, path, speed: 1.1 + Math.random() * 0.5, life: 0, facing: 1, pause: 0 });
@@ -743,6 +743,7 @@ export class Crowd {
             const t = p.path[0];
             const dx = t.x - p.x, dy = t.y - p.y, d = Math.hypot(dx, dy);
             if (Math.abs(dx - dy) > 0.01) p.facing = dx - dy > 0 ? 1 : -1;
+            if (Math.abs(dx + dy) > 0.01) p.away = dx + dy < 0;
             if (d <= budget) { p.x = t.x; p.y = t.y; p.path.shift(); budget -= d; if (Math.random() < 0.01) p.pause = 1500 + Math.random() * 2500; }
             else { p.x += dx / d * budget; p.y += dy / d * budget; budget = 0; }
           }
@@ -750,7 +751,8 @@ export class Crowd {
       }
       const s = toScreen(p.x, p.y);
       const walking = p.path.length && p.pause <= 0 && !paused;
-      const key = walking ? `${p.key}_${Math.floor(now / 170) % 2 ? 1 : 2}` : p.key;
+      const st = Math.floor(now / 170) % 2 ? 1 : 2;
+      const key = walking ? `${p.key}${p.away ? `_b${st}` : `_${st}`}` : p.key;
       const fade = Math.min(1, p.life / 500, p.path.length ? 1 : 0);
       p.spr.setTexture(key).setPosition(s.x, s.y - (walking ? Math.abs(Math.sin(now * 0.0185)) * 1.5 : 0))
         .setDepth(depthAt(p.x, p.y) + 5).setFlipX(p.facing < 0).setAlpha(fade).setTint(tint);

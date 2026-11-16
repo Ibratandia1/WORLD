@@ -71,6 +71,7 @@ export class GameScene extends Phaser.Scene {
     this.updateSnow(delta);
     if ((this.lightTick = (this.lightTick || 0) + delta) > 400) { this.lightTick = 0; this.syncLights(); }
     this.syncViews(time);
+    if ((this.occTick = (this.occTick || 0) + delta) > 90) { this.occTick = 0; this.updateOcclusion(); }
     if ((this.homeTick = (this.homeTick || 0) + delta) > 1000) { this.homeTick = 0; this.syncHomeBubbles(); }
     this.clampCamera();
     this.syncInterior();
@@ -204,6 +205,32 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  // ---------- Façades transparentes ----------
+  // Quand un immeuble passe devant ton personnage, ses cases deviennent transparentes (comme dans les Sims)
+  updateOcclusion() {
+    const p = state.player;
+    const now = new Set();
+    if (p.outdoors) {
+      const s = toScreen(p.px, p.py);
+      const pd = depthAt(p.px, p.py) + 5;
+      const pts = [[s.x, s.y - 4], [s.x, s.y - 22], [s.x, s.y - 40], [s.x - 8, s.y - 22], [s.x + 8, s.y - 22]];
+      for (const hl of this.hulls) {
+        if (hl.depth <= pd || !hl.g) continue;
+        if (pts.some(([x, y]) => Phaser.Geom.Polygon.Contains(hl.poly, x, y))) now.add(hl);
+      }
+    }
+    for (const hl of this.faded || []) if (!now.has(hl)) this.fadeHull(hl, false);
+    for (const hl of now) this.fadeHull(hl, true);
+    this.faded = now;
+  }
+
+  fadeHull(hl, on) {
+    const k = on ? 0.28 : 1;
+    hl.g.setAlpha(k);
+    if (hl.d) hl.d.setAlpha((this.night || 0) * NIGHT_MAX * k);
+    if (hl.lg) hl.lg.setAlpha((this.night || 0) * k);
+  }
+
   // ---------- Saisons ----------
   setSeason(s) {
     if (s === this.season) return;
@@ -244,6 +271,8 @@ export class GameScene extends Phaser.Scene {
     else if (h >= 5.5 && h < 7.5) night = 1 - (h - 5.5) / 2;
     for (const lg of this.lights) lg.setAlpha(night);
     for (const d of this.darks) d.setAlpha(night * NIGHT_MAX);
+    this.night = night;
+    for (const hl of this.faded || []) this.fadeHull(hl, true);
     // Teinte des personnages / voitures / oiseaux (sprites)
     const c = Phaser.Display.Color.Interpolate.ColorWithColor(
       Phaser.Display.Color.ValueToColor(0xffffff), Phaser.Display.Color.ValueToColor(0x3a3f5c), 100, Math.round(night * 100));
@@ -275,7 +304,7 @@ export class GameScene extends Phaser.Scene {
         drawBuildingTile(g, lg, c.x, c.y, b.height, T, info);
         this.lights.push(lg);
         this.hulls.push({
-          b, depth: g.depth,
+          b, depth: g.depth, g, d: this.darks[this.darks.length - 1], lg,
           poly: new Phaser.Geom.Polygon([
             c.x, c.y - HH - b.height, c.x + HW, c.y - b.height, c.x + HW, c.y,
             c.x, c.y + HH, c.x - HW, c.y, c.x - HW, c.y - b.height,
@@ -328,7 +357,7 @@ export class GameScene extends Phaser.Scene {
       drawBuildingTile(g, lg, c.x, c.y, L.height, L.T, info);
       this.lights.push(lg);
       this.hulls.push({
-        b: null, depth: g.depth,
+        b: null, depth: g.depth, g, d: this.darks[this.darks.length - 1], lg,
         poly: new Phaser.Geom.Polygon([
           c.x, c.y - HH - L.height, c.x + HW, c.y - L.height, c.x + HW, c.y,
           c.x, c.y + HH, c.x - HW, c.y, c.x - HW, c.y - L.height,
@@ -389,7 +418,10 @@ export class GameScene extends Phaser.Scene {
       // Apparence (recréée si elle a changé) + animation de marche (2 pas qui alternent)
       ensureCharTexture(this, a);
       const walking = a.moving && a.outdoors && !a.vehicle;
-      const key = walking ? `${a.texKey}_${Math.floor(time / 170) % 2 ? 1 : 2}` : a.texKey;
+      const step = Math.floor(time / 170) % 2 ? 1 : 2;
+      // de face ou de dos selon la direction ; au repos, une légère respiration (décalée d'un habitant à l'autre)
+      const idle = Math.floor((time + (a.id.charCodeAt(a.id.length - 1) * 97)) / 700) % 2 ? '_i' : '';
+      const key = walking ? `${a.texKey}${a.away ? `_b${step}` : `_${step}`}` : `${a.texKey}${a.moving ? '' : idle}`;
       if (v.spr.texture.key !== key) v.spr.setTexture(key);
       v.spr.setPosition(s.x, s.y + bob).setDepth(depthAt(a.px, a.py) + 5).setFlipX(a.facing < 0).setVisible(a.outdoors);
       // En véhicule dans la rue
