@@ -1,0 +1,34 @@
+// Icônes de l'interface, dessinées en SVG : nettes à toutes les tailles et identiques sur tous les téléphones
+// (les emojis changent d'un appareil à l'autre). icon('nom') renvoie le code SVG.
+
+const S = (body, vb = '0 0 24 24') => `<svg class="ic" viewBox="${vb}" aria-hidden="true">${body}</svg>`;
+
+export const ICONS = {
+  clock: S('<circle cx="12" cy="12" r="9.5" fill="#7b5cf0"/><circle cx="12" cy="12" r="7.5" fill="#fff"/><path d="M12 7v5l3.2 2" stroke="#3d3357" stroke-width="2" fill="none" stroke-linecap="round"/>'),
+  sun: S('<g stroke="#f2b33c" stroke-width="2" stroke-linecap="round"><path d="M12 1.8v2.6M12 19.6v2.6M1.8 12h2.6M19.6 12h2.6M4.8 4.8l1.8 1.8M17.4 17.4l1.8 1.8M4.8 19.2l1.8-1.8M17.4 6.6l1.8-1.8"/></g><circle cx="12" cy="12" r="5.2" fill="#ffc93c" stroke="#f2a33a" stroke-width="1.2"/>'),
+  moon: S('<path d="M15.5 3.2a8.8 8.8 0 1 0 5.3 13.6A7.2 7.2 0 0 1 15.5 3.2z" fill="#ffd96b" stroke="#e5b23a" stroke-width="1.2"/>'),
+  cloud: S('<path d="M7 18.5h10.5a4 4 0 0 0 .4-8 5.5 5.5 0 0 0-10.6-1.4A4.6 4.6 0 0 0 7 18.5z" fill="#e3e8f2" stroke="#9aa6bd" stroke-width="1.3"/>'),
+  rain: S('<path d="M7 14.5h10.5a4 4 0 0 0 .4-8A5.5 5.5 0 0 0 7.3 5.1 4.6 4.6 0 0 0 7 14.5z" fill="#d5dcea" stroke="#8a97b0" stroke-width="1.3"/><g stroke="#3f7fe0" stroke-width="2" stroke-linecap="round"><path d="M8 17.5l-1 3M12 17.5l-1 3M16 17.5l-1 3"/></g>'),
+  snow: S('<path d="M7 14h10.5a4 4 0 0 0 .4-8A5.5 5.5 0 0 0 7.3 4.6 4.6 4.6 0 0 0 7 14z" fill="#eef2f8" stroke="#9aa6bd" stroke-width="1.3"/><g fill="#7fb6f0"><circle cx="8" cy="18.5" r="1.5"/><circle cx="12" cy="20.5" r="1.5"/><circle cx="16" cy="18.5" r="1.5"/></g>'),
+  coin: S('<circle cx="12" cy="12" r="9.5" fill="#f2c94c" stroke="#d9a42b" stroke-width="1.5"/><circle cx="12" cy="12" r="6.6" fill="none" stroke="#e5b23a" stroke-width="1"/><path d="M14.8 8.6a3.6 3.6 0 1 0 0 6.8M8.2 11h5M8.2 13.2h5" stroke="#9a6b00" stroke-width="1.6" fill="none" stroke-linecap="round"/>'),
+  bolt: S('<path d="M13.5 2 5 13.5h6L9.8 22 19 9.8h-6.2z" fill="#ffc93c" stroke="#e5a33a" stroke-width="1.3" stroke-linejoin="round"/>'),
+  food: S('<path d="M4 10.5C4 6.4 7.6 4 12 4s8 2.4 8 6.5z" fill="#f2a64c" stroke="#d9822b" stroke-width="1.2"/><circle cx="9" cy="7.6" r=".7" fill="#fff4d6"/><circle cx="13" cy="6.8" r=".7" fill="#fff4d6"/><circle cx="15.4" cy="8.4" r=".7" fill="#fff4d6"/><rect x="3.2" y="11.3" width="17.6" height="2.4" rx="1.2" fill="#6fbf5a"/><rect x="3.6" y="13.9" width="16.8" height="2.6" rx="1.3" fill="#8a4b2a"/><path d="M4 17.2h16c0 1.8-1.4 2.8-3.2 2.8H7.2C5.4 20 4 19 4 17.2z" fill="#f2a64c" stroke="#d9822b" stroke-width="1.2"/>'),
+  mood: S('<circle cx="12" cy="12" r="9.5" fill="#ffd36b" stroke="#e5b23a" stroke-width="1.3"/><circle cx="8.8" cy="10" r="1.3" fill="#3d3357"/><circle cx="15.2" cy="10" r="1.3" fill="#3d3357"/><path d="M8 14.2c1.1 1.6 2.4 2.3 4 2.3s2.9-.7 4-2.3" stroke="#3d3357" stroke-width="1.6" fill="none" stroke-linecap="round"/><circle cx="6.8" cy="13.2" r="1.2" fill="#f28ab2" opacity=".7"/><circle cx="17.2" cy="13.2" r="1.2" fill="#f28ab2" opacity=".7"/>'),
+  fridge: S('<rect x="6" y="2.5" width="12" height="19" rx="2.4" fill="#e9f3fb" stroke="#7aa6c9" stroke-width="1.4"/><path d="M6 9.5h12" stroke="#7aa6c9" stroke-width="1.4"/><path d="M8.6 5.2v2.4M8.6 12v3.6" stroke="#7aa6c9" stroke-width="1.6" stroke-linecap="round"/>'),
+  briefcase: S('<path d="M9 6V4.8C9 4 9.6 3.5 10.4 3.5h3.2c.8 0 1.4.5 1.4 1.3V6" fill="none" stroke="#7a4b2a" stroke-width="1.6"/><rect x="3" y="6" width="18" height="13.5" rx="2.4" fill="#b9773e" stroke="#7a4b2a" stroke-width="1.4"/><path d="M3 11.5h18" stroke="#7a4b2a" stroke-width="1.3"/><rect x="10.3" y="10.2" width="3.4" height="2.8" rx=".7" fill="#f2c94c"/>'),
+  home: S('<path d="M3.5 11 12 3.8 20.5 11" fill="none" stroke="#7b5cf0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.6 9.6V20h12.8V9.6L12 4.6z" fill="#f2e6ff" stroke="#7b5cf0" stroke-width="1.4"/><rect x="10" y="13.2" width="4" height="6.8" rx=".8" fill="#9b6ee8"/>'),
+  key: S('<circle cx="8" cy="12" r="4.6" fill="none" stroke="#e5a33a" stroke-width="2.4"/><path d="M12.5 12H21M18 12v3.2M20.6 12v2.4" stroke="#e5a33a" stroke-width="2.4" stroke-linecap="round"/>'),
+  door: S('<rect x="5.5" y="2.8" width="13" height="18.4" rx="1.6" fill="#fff" stroke="#fff" stroke-width="1.4"/><rect x="7.4" y="4.8" width="9.2" height="14.4" rx="1" fill="#2fa36b"/><circle cx="14.2" cy="12.2" r="1.1" fill="#fff"/><path d="M3 21.2h18" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>'),
+  target: S('<circle cx="12" cy="12" r="9" fill="#fff" stroke="#e2475b" stroke-width="2"/><circle cx="12" cy="12" r="5.4" fill="none" stroke="#e2475b" stroke-width="2"/><circle cx="12" cy="12" r="1.8" fill="#e2475b"/>'),
+  map: S('<path d="M3 6.2 8.6 4l6.8 2.4L21 4.2v13.6l-5.6 2.2-6.8-2.4L3 19.8z" fill="#c8eee8" stroke="#2a9d8f" stroke-width="1.4" stroke-linejoin="round"/><path d="M8.6 4v13.8M15.4 6.4v13.6" stroke="#2a9d8f" stroke-width="1.3"/><circle cx="12" cy="10.5" r="1.9" fill="#e2475b"/>'),
+  people: S('<circle cx="8.6" cy="8.2" r="3.2" fill="#f28ab2"/><path d="M2.8 19.5c.4-3.6 2.8-5.6 5.8-5.6s5.4 2 5.8 5.6z" fill="#e86a8c"/><circle cx="16.2" cy="9" r="2.7" fill="#9b6ee8"/><path d="M12.4 19.5c.3-3.1 1.9-4.8 4.4-4.8s4.2 1.7 4.4 4.8z" fill="#7b5cf0"/>'),
+  routine: S('<path d="M19.2 9A7.6 7.6 0 0 0 5.6 7.2M4.8 15a7.6 7.6 0 0 0 13.6 1.8" fill="none" stroke="#7b5cf0" stroke-width="2.2" stroke-linecap="round"/><path d="M19.8 4.2v5.2h-5.2M4.2 19.8v-5.2h5.2" fill="none" stroke="#7b5cf0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>'),
+  shirt: S('<path d="M8.4 3.5 3 6.6l2 4.2 2.2-1V20.5h9.6V9.8l2.2 1 2-4.2-5.4-3.1c-.4 1.6-1.8 2.6-3.6 2.6s-3.2-1-3.6-2.6z" fill="#f08a3c" stroke="#c9692b" stroke-width="1.3" stroke-linejoin="round"/>'),
+  gear: S('<path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6zm8.6 5.3-.1-3 2-1.6-2-3.4-2.4.9a8 8 0 0 0-2.6-1.5L15 2.4h-4l-.5 2.5A8 8 0 0 0 7.9 6.4L5.5 5.5l-2 3.4 2 1.6-.1 3-1.9 1.6 2 3.4 2.4-.9a8 8 0 0 0 2.6 1.5l.5 2.5h4l.5-2.5a8 8 0 0 0 2.6-1.5l2.4.9 2-3.4z" fill="#8a7fb0"/>'),
+  pause: S('<rect x="6.5" y="5" width="4" height="14" rx="1.2" fill="currentColor"/><rect x="13.5" y="5" width="4" height="14" rx="1.2" fill="currentColor"/>'),
+  play: S('<path d="M8 5.2v13.6c0 .8.9 1.3 1.6.8l10-6.8a1 1 0 0 0 0-1.6l-10-6.8C8.9 3.9 8 4.4 8 5.2z" fill="currentColor"/>'),
+  fast: S('<path d="M3.5 6v12c0 .8.9 1.2 1.5.7L12 13.4V18c0 .8.9 1.2 1.5.7l8-6a.9.9 0 0 0 0-1.4l-8-6C12.9 4.8 12 5.2 12 6v4.6L5 5.3C4.4 4.8 3.5 5.2 3.5 6z" fill="currentColor"/>'),
+  full: S('<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>'),
+};
+
+export const icon = n => ICONS[n] || '';

@@ -18,6 +18,16 @@ const EN = {
   'Arrêter': 'Stop',
   'Sortir dans la rue': 'Go out to the street',
   'Paramètres': 'Settings',
+  // --- Bienvenue ---
+  'Passer': 'Skip', 'Suivant': 'Next', 'C’est parti !': 'Let’s go!', 'Revoir l’accueil': 'Show welcome again',
+  'Bienvenue dans World !': 'Welcome to World!',
+  'Tu viens d’emménager dans le Marais, à Paris. Travaille, fais-toi des amis, deviens propriétaire… ou même maire ! Chaque habitant vit sa propre vie.': 'You just moved to the Marais, in Paris. Work, make friends, buy a home… or even become mayor! Every resident lives their own life.',
+  'Comment jouer': 'How to play',
+  'Touche la rue pour marcher, un bâtiment pour voir ce qu’on y fait, un habitant pour lui parler. Glisse pour bouger la carte, pince pour zoomer.': 'Tap the street to walk, a building to see what you can do there, a resident to talk to them. Drag to move the map, pinch to zoom.',
+  'Prends soin de toi': 'Take care of yourself',
+  'En haut : ton énergie, ta faim et ton moral. Dors, mange, détends-toi. À gauche : ton frigo, ton travail et ton logement.': 'At the top: your energy, hunger and mood. Sleep, eat, relax. On the left: your fridge, job and home.',
+  'Tes objectifs': 'Your goals',
+  'Suis les « Premiers pas » en haut à gauche, puis les objectifs du jour pour gagner de l’argent et de l’expérience. Le guide complet est dans ⚙️.': 'Follow the “First steps” at the top left, then the daily goals to earn money and experience. The full guide is in ⚙️.',
   // --- Écran d'accueil ---
   'Continuer': 'Continue', 'Modifier mon personnage': 'Edit my character', 'Nouvelle partie': 'New game',
   'Recommencer une nouvelle partie ? Ton argent et ta progression seront effacés.': 'Start a new game? Your money and progress will be erased.',

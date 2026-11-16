@@ -95,6 +95,7 @@ export function openCustomizer({ first = false } = {}) {
       el.onclick = null;
       w.paused = first ? false : wasPaused;
       if (state.ui) state.ui.syncControls();
+      if (first && state.ui) state.ui.showWelcome(); // nouvelle partie : quelques cartes pour bien démarrer
     }
   };
 }

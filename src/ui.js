@@ -9,6 +9,7 @@ import { freeUnits, isClosed } from './sim/city.js';
 import { Sound } from './audio.js';
 import { t, LANGS } from './i18n.js';
 import { GUIDE } from './guide.js';
+import { icon } from './icons.js';
 import { settings, setSetting, onSettings } from './settings.js';
 import { isPolice, jailed } from './sim/safety.js';
 import { SEASON_INFO } from './sim/world.js';
@@ -101,6 +102,8 @@ export class UI {
     $('box').addEventListener('input', e => { if (e.target.dataset.range) setSetting(e.target.dataset.range, Number(e.target.value)); });
     onSettings(k => { this.applySettings(); if (k === 'lang') { this.questKey = ''; this.render(); } });
     this.applySettings();
+    this.applyIcons();
+    this.watchLayout();
     document.addEventListener('click', e => { if (e.target.closest('button')) snd.click(); }, true);
     world.on('event', () => snd.chime());
     world.on('fail', e => { if (mine(e)) snd.error(); });
@@ -122,6 +125,65 @@ export class UI {
   buzz() {
     if (!settings().vibrate) return;
     if (navigator.vibrate && navigator.userActivation && navigator.userActivation.hasBeenActive) navigator.vibrate(25);
+  }
+
+  // ---------- Bienvenue : 4 cartes pour comprendre le jeu en 30 secondes (une seule fois par appareil) ----------
+  showWelcome(force = false) {
+    if (!force && settings().welcomed) return;
+    const SLIDES = [
+      ['👋', 'Bienvenue dans World !', 'Tu viens d’emménager dans le Marais, à Paris. Travaille, fais-toi des amis, deviens propriétaire… ou même maire ! Chaque habitant vit sa propre vie.'],
+      ['👆', 'Comment jouer', 'Touche la rue pour marcher, un bâtiment pour voir ce qu’on y fait, un habitant pour lui parler. Glisse pour bouger la carte, pince pour zoomer.'],
+      ['⚡', 'Prends soin de toi', 'En haut : ton énergie, ta faim et ton moral. Dors, mange, détends-toi. À gauche : ton frigo, ton travail et ton logement.'],
+      ['🎯', 'Tes objectifs', 'Suis les « Premiers pas » en haut à gauche, puis les objectifs du jour pour gagner de l’argent et de l’expérience. Le guide complet est dans ⚙️.'],
+    ];
+    let i = 0;
+    const el = $('welcome');
+    const draw = () => {
+      const [ic, title, text] = SLIDES[i];
+      el.innerHTML = `<div class="card"><div class="wic">${ic}</div><h2>${esc(t(title))}</h2><p>${esc(t(text))}</p>
+        <div class="dots">${SLIDES.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('')}</div>
+        <div class="btns"><button data-wskip>${t('Passer')}</button><button class="main" data-wnext>${i < SLIDES.length - 1 ? t('Suivant') : t('C’est parti !')}</button></div></div>`;
+    };
+    el.onclick = e => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      if (b.hasAttribute('data-wnext') && i < SLIDES.length - 1) { i++; return draw(); }
+      el.classList.add('hidden'); setSetting('welcomed', true);
+    };
+    draw();
+    el.classList.remove('hidden');
+  }
+
+  // Icônes dessinées (SVG) à la place des emojis : mêmes sur tous les appareils
+  applyIcons() {
+    const set = (el, n) => { if (el) el.innerHTML = icon(n); };
+    const pillIcon = id => $(id) && $(id).closest('.pill').querySelector('span');
+    set(document.querySelector('#hud .pill span'), 'clock');
+    set(document.querySelector('#p-money span'), 'coin');
+    set(pillIcon('v-energy'), 'bolt'); set(pillIcon('v-hunger'), 'food'); set(pillIcon('v-mood'), 'mood');
+    set(pillIcon('v-food'), 'fridge'); set(document.querySelector('#p-job span'), 'briefcase');
+    const B = { 'b-exit': 'door', 'b-center': 'target', 'b-map': 'map', 'b-people': 'people', 'b-routine': 'routine', 'b-look': 'shirt',
+      'b-settings': 'gear', 'b-pause': 'pause', 'b-play': 'play', 'b-fast': 'fast', 'b-full': 'full' };
+    for (const [id, n] of Object.entries(B)) set($(id), n);
+  }
+
+  // Mise en page qui s'adapte : les colonnes et la carte d'objectif se placent SOUS la barre du haut,
+  // même quand elle passe sur deux lignes (petits écrans) → rien ne se chevauche
+  watchLayout() {
+    const apply = () => {
+      const r = document.documentElement.style;
+      const hud = $('hud').getBoundingClientRect(), q = $('quest').getBoundingClientRect();
+      r.setProperty('--hud-b', `${Math.round(hud.bottom)}px`);
+      r.setProperty('--ctl-b', `${Math.round($('controls').getBoundingClientRect().bottom)}px`);
+      r.setProperty('--ctl-w', `${Math.round($('controls').getBoundingClientRect().width)}px`);
+      r.setProperty('--dock-r', `${Math.round($('dock').getBoundingClientRect().right)}px`);
+      // la fenêtre du bas s'arrête sous la carte d'objectif (elles ne se recouvrent jamais)
+      r.setProperty('--quest-b', `${Math.round(q.height ? q.bottom : hud.bottom)}px`);
+      if (state.interior && state.interior.building) state.interior.fitSoon();
+    };
+    apply();
+    if (window.ResizeObserver) { const ro = new ResizeObserver(apply); for (const id of ['hud', 'controls', 'dock', 'quest', 'box']) ro.observe($(id)); }
+    window.addEventListener('resize', apply);
   }
 
   // Petit message passager (bulle du haut)
@@ -164,6 +226,7 @@ export class UI {
     if (!btn) return;
     const p = this.player;
     if (btn.hasAttribute('data-sclose')) return this.closeSettings();
+    if (btn.hasAttribute('data-rewelcome')) { this.closeSettings(); return this.showWelcome(true); }
     if (btn.dataset.tab) return this.openSettings(btn.dataset.tab);
     if (btn.dataset.set) { setSetting(btn.dataset.set, !settings()[btn.dataset.set]); if (btn.dataset.set === 'sound' && settings().sound) this.sound.start(); }
     else if (btn.dataset.setk) { const v = btn.dataset.setv; setSetting(btn.dataset.setk, /^\d+$/.test(v) ? Number(v) : v); }
@@ -178,7 +241,7 @@ export class UI {
     const TABS = [['guide', '📖', 'Guide'], ['general', '🌍', 'Langue et affichage'], ['sound', '🔊', 'Son'], ['comfort', '📱', 'Confort'], ['battery', '🔋', 'Batterie']];
     const guide = (GUIDE[s.lang] || GUIDE.fr).map(([ic, title, text], i) => `<details ${i === 0 ? 'open' : ''}><summary><span>${ic}</span>${esc(title)}</summary><p>${esc(text).replace(/\n/g, '<br>')}</p></details>`).join('');
     const PAGES = {
-      guide: `<h3>📖 ${t('Guide du jeu')}</h3><div class="guide">${guide}</div>`,
+      guide: `<h3>📖 ${t('Guide du jeu')}</h3><div class="choices">${this.choiceHTML('data-rewelcome class="c-rest"', '👋', 'Revoir l’accueil', '', true)}</div><div class="guide">${guide}</div>`,
       general: `<h3>🌍 ${t('Langue')}</h3>${chips('lang', LANGS)}
         ${s.lang !== 'fr' ? '<p class="note">Events, news and conversations are still in French for now.</p>' : ''}
         <h3>🔠 ${t('Taille du texte')}</h3>${chips('textSize', [['small', 'Petit'], ['normal', 'Normal'], ['large', 'Grand']])}`,
@@ -214,7 +277,8 @@ export class UI {
 
     $('v-time').textContent = w.clock;
     $('v-day').textContent = `${w.dayShort} ${SEASON_INFO[w.season].icon}`;
-    $('v-weather').textContent = w.weather === 'rain' ? '🌧️' : w.weather === 'snow' ? '❄️' : w.weather === 'cloud' ? '☁️' : w.isNight ? '🌙' : '☀️';
+    const wx = w.weather === 'rain' ? 'rain' : w.weather === 'snow' ? 'snow' : w.weather === 'cloud' ? 'cloud' : w.isNight ? 'moon' : 'sun';
+    if (wx !== this.wxIcon) { this.wxIcon = wx; $('v-weather').innerHTML = icon(wx); }
     $('v-money').textContent = money(p.money);
     $('p-money').classList.toggle('neg', p.money < 0);
     this.bar('v-energy', p.energy);
@@ -227,7 +291,8 @@ export class UI {
     $('v-warn').textContent = p.job && p.job.warnings ? `⚠${p.job.warnings}` : '';
     // Logement : ✓ à jour, -X € à payer, 🔑 propriétaire, ✖ sans logement
     const home = $('v-home');
-    $('v-homeic').textContent = p.housing === 'own' ? '🔑' : '🏠';
+    const hic = p.housing === 'own' ? 'key' : 'home';
+    if (hic !== this.homeIcon) { this.homeIcon = hic; $('v-homeic').innerHTML = icon(hic); }
     home.textContent = p.home == null ? '✖' : p.housing === 'own' ? '✓' : p.rentDue > 0 ? `-${p.rentDue}` : '✓';
     $('p-home').classList.toggle('neg', p.home == null || p.rentDue > 0);
 
@@ -629,7 +694,15 @@ export class UI {
     }
     if (key !== this.questKey) { el.innerHTML = html; this.questKey = key; }
     el.classList.toggle('hidden', !html);
-    el.classList.toggle('min', !!this.questMin);
+    // L'élément de l'interface lié à l'étape du tutoriel s'illumine (ex. 💼 pour « Va travailler »)
+    const hintId = step && !tutReady(p) ? step.ui : null;
+    if (hintId !== this.hintId) {
+      if (this.hintId && $(this.hintId)) ($(this.hintId).closest('.pill') || $(this.hintId)).classList.remove('hint');
+      if (hintId && $(hintId)) ($(hintId).closest('.pill') || $(hintId)).classList.add('hint');
+      this.hintId = hintId;
+    }
+    // dans un bâtiment, sur petit écran, la carte se réduit d'elle-même pour laisser voir la pièce
+    el.classList.toggle('min', !!this.questMin || (p.inside != null && window.innerHeight < 500));
   }
 
   onQuestClick(e) {

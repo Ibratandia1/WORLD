@@ -269,7 +269,7 @@ export class InteriorScene extends Phaser.Scene {
     // La porte : la toucher (ou l'étiquette) fait sortir directement dans la rue
     if (L.entrance) {
       const d = P(L.entrance.x + 0.15, L.entrance.y + 0.75, 4);
-      this.exitPill = this.makePill(d.x, d.y + 14, '🚪', 'Sortir', null, 0x3fae73, true);
+      this.exitPill = this.makePill(d.x, d.y + 28, '🚪', 'Sortir', null, 0x3fae73, true); // sous le muret : ne chevauche pas les étiquettes des pièces
     } else this.exitPill = null;
     this.renderFloorButtons();
   }
@@ -617,15 +617,29 @@ export class InteriorScene extends Phaser.Scene {
       minY: P(-0.5, -0.5, L.wallH).y - 40, maxY: P(L.w - 0.5, L.h - 0.5).y + below,
     };
     this.bounds = b;
+    // La pièce se place dans l'espace libre de l'écran : à droite de la colonne de gauche, sous la barre du haut
+    // (et la carte d'objectif), à gauche de la fenêtre du bas — rien ne la recouvre
     const d = state.dpr || 1; // les marges de l'interface sont en pixels CSS
-    const boxW = (Math.min(310, cam.width / d * 0.46) + 24) * d;
-    const availW = Math.max(220 * d, cam.width - boxW - 50 * d);
-    const availH = Math.max(160 * d, cam.height - 90 * d);
+    const rect = id => { const e = document.getElementById(id); return e && !e.classList.contains('hidden') ? e.getBoundingClientRect() : null; };
+    const W = cam.width / d, H = cam.height / d;
+    const dock = rect('dock'), box = rect('box'), hud = rect('hud'), quest = rect('quest');
+    let left = (dock ? dock.right : 0) + 10, right = W - 52, top = Math.max(hud ? hud.bottom : 40, quest && quest.height ? quest.bottom : 0) + 6, bottom = H - 10;
+    if (box && box.width && box.left - 10 - left > 220) right = box.left - 10;
+    if (right - left < 200) { left = 10; right = W - 52; }
+    if (bottom - top < 150) top = Math.max(10, bottom - 150);
+    const availW = (right - left) * d, availH = (bottom - top) * d;
     const z = Math.min(availW / (b.maxX - b.minX), availH / (b.maxY - b.minY));
     this.minZoom = z * 0.7;
     this.maxZoom = Math.max(z * 3, 2.5 * d);
     cam.setZoom(z);
-    cam.centerOn((b.minX + b.maxX) / 2 + (cam.width / 2 - availW / 2 - 50 * d) / z, (b.minY + b.maxY) / 2 - 10 * d / z);
+    const fx = (left + right) / 2 * d, fy = (top + bottom) / 2 * d;
+    cam.centerOn((b.minX + b.maxX) / 2 + (cam.width / 2 - fx) / z, (b.minY + b.maxY) / 2 + (cam.height / 2 - fy) / z);
+  }
+
+  // Recadrer peu après un changement de l'interface (fenêtre ouverte, carte réduite…)
+  fitSoon() {
+    clearTimeout(this.fitTimer);
+    this.fitTimer = setTimeout(() => { if (this.building && this.L) this.fit(); }, 120);
   }
 
   setZoom(z) { this.cameras.main.setZoom(Phaser.Math.Clamp(z, this.minZoom, this.maxZoom)); }

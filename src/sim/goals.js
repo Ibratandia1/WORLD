@@ -7,12 +7,13 @@ import { CATALOG } from './catalog.js';
 
 // Premiers pas : `done` regarde les actions déjà faites (flags), `target` sert au bouton « Montrer »
 export const TUTORIAL = [
+  // ui = élément de l'interface qui s'illumine pendant l'étape
   { id: 'tut_eat', icon: '🥐', text: 'Prends un petit-déjeuner', hint: 'Dans un café ☕ ou une boulangerie 🥐 ouverts (les boulangeries ferment le lundi), ou cuisine chez toi.', done: f => f.eat_bakery || f.eat_cafe || f.eat_home || f.coffee, target: 'breakfast' },
-  { id: 'tut_work', icon: '💼', text: 'Va travailler', hint: 'Ton service commence à l’heure indiquée sur 💼 en bas à gauche. Touche ton lieu de travail, puis « Travailler ».', done: f => f.work, target: 'job' },
-  { id: 'tut_shop', icon: '🛒', text: 'Fais des courses', hint: 'À la supérette 🛒 : 4 repas pour ton frigo (🥫 en bas à gauche).', done: f => f.groceries, target: 'shop' },
-  { id: 'tut_cook', icon: '🍝', text: 'Cuisine chez toi', hint: 'Rentre chez toi 🏠 et touche la cuisinière, ou « Cuisiner » dans la fiche.', done: f => f.eat_home, target: 'home' },
-  { id: 'tut_talk', icon: '💬', text: 'Discute avec un voisin', hint: 'Touche un habitant dans la rue, puis un sujet de conversation.', done: f => f.talk || f.joke || f.wave, target: 'people' },
-  { id: 'tut_sleep', icon: '😴', text: 'Dors chez toi', hint: 'Le soir, rentre chez toi et touche le lit (ou « Dormir »).', done: f => f.sleep, target: 'home' },
+  { id: 'tut_work', icon: '💼', text: 'Va travailler', hint: 'Ton service commence à l’heure indiquée sur 💼 en bas à gauche. Touche ton lieu de travail, puis « Travailler ».', done: f => f.work, target: 'job', ui: 'p-job' },
+  { id: 'tut_shop', icon: '🛒', text: 'Fais des courses', hint: 'À la supérette 🛒 : 4 repas pour ton frigo (🥫 en bas à gauche).', done: f => f.groceries, target: 'shop', ui: 'v-food' },
+  { id: 'tut_cook', icon: '🍝', text: 'Cuisine chez toi', hint: 'Rentre chez toi 🏠 et touche la cuisinière, ou « Cuisiner » dans la fiche.', done: f => f.eat_home, target: 'home', ui: 'p-home' },
+  { id: 'tut_talk', icon: '💬', text: 'Discute avec un voisin', hint: 'Touche un habitant dans la rue, puis un sujet de conversation.', done: f => f.talk || f.joke || f.wave, target: 'people', ui: 'b-people' },
+  { id: 'tut_sleep', icon: '😴', text: 'Dors chez toi', hint: 'Le soir, rentre chez toi et touche le lit (ou « Dormir »).', done: f => f.sleep, target: 'home', ui: 'p-home' },
 ];
 export const TUT_REWARD = { money: 15, mood: 3 };
 export const TUT_FINAL = { money: 100, mood: 10 }; // en plus, pour la dernière étape

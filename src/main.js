@@ -68,7 +68,7 @@ const game = new Phaser.Game({
 window.addEventListener('resize', () => game.scale.resize(window.innerWidth * DPR, window.innerHeight * DPR));
 
 // 3. Accueil : nouvelle partie → création du personnage ; sinon écran « Continuer »
-if (TEST) { document.title = 'World (test)'; }
+if (TEST) { document.title = 'World (test)'; state.ui.showWelcome(); }
 else if (resumed) showStart();
 else openCustomizer({ first: true });
 
