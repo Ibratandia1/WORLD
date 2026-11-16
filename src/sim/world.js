@@ -14,6 +14,22 @@ const DEFAULT_SKIP = 10;         // accélération quand le joueur est occupé (
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
+export const SEASON_DAYS = 14;
+export const SEASONS = ['printemps', 'ete', 'automne', 'hiver'];
+export const SEASON_INFO = {
+  printemps: { icon: '🌸', label: 'Printemps', news: 'Le printemps est là : les cerisiers sont en fleurs.' },
+  ete: { icon: '☀️', label: 'Été', news: 'L’été commence : place aux terrasses et aux longues soirées.' },
+  automne: { icon: '🍂', label: 'Automne', news: 'L’automne arrive : les feuilles tombent, sortez les parapluies.' },
+  hiver: { icon: '❄️', label: 'Hiver', news: 'L’hiver s’installe : il pourrait neiger sur le Marais.' },
+};
+// Probabilités de chaque temps selon la saison (le reste = soleil)
+const WEATHER_ODDS = {
+  printemps: { sun: 0.5, cloud: 0.3, rain: 0.2 },
+  ete: { sun: 0.72, cloud: 0.18, rain: 0.1 },
+  automne: { sun: 0.3, cloud: 0.35, rain: 0.35 },
+  hiver: { sun: 0.3, cloud: 0.3, rain: 0.1, snow: 0.3 },
+};
+
 // Le monde : temps, météo, acteurs. Aucune dépendance à Phaser.
 // Événements émis : plan, start, done, cancel, arrive, fail, weather, newDay, event, eventClosed,
 // jobWarning, fired, raise, hired, rentBill, rentReminder, evicted
@@ -40,6 +56,8 @@ export class World extends Emitter {
     return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
   }
   get isNight() { const h = this.hour; return h < 6.5 || h >= 21; }
+  // Saisons de 14 jours : printemps → été → automne → hiver
+  get season() { return SEASONS[Math.floor((this.day - 1) / SEASON_DAYS) % 4]; }
   get player() { return this.actors.find(a => a.isPlayer); }
   building(id) { return this.map.buildings[id]; }
   actorById(id) { return this.actors.find(a => a.id === id); }
@@ -105,14 +123,22 @@ export class World extends Emitter {
   }
 
   rollWeather() {
-    const r = Math.random();
-    this.weather = r < 0.55 ? 'sun' : r < 0.8 ? 'cloud' : 'rain';
+    // Le temps dépend de la saison : soleil l'été, pluie l'automne, neige l'hiver
+    const odds = WEATHER_ODDS[this.season];
+    let r = Math.random();
+    this.weather = 'sun';
+    for (const [k, p] of Object.entries(odds)) { if (r < p) { this.weather = k; break; } r -= p; }
     this.weatherIn = 180 + Math.random() * 240;
     this.emit('weather', this.weather);
   }
 
   newDay() {
     newDayHousing(this);
+    if (this.season !== SEASONS[Math.floor((this.day - 2) / SEASON_DAYS) % 4] && this.day > 1) {
+      this.emit('season', this.season);
+      if (this.city) this.city.post(SEASON_INFO[this.season].icon, SEASON_INFO[this.season].news);
+      this.rollWeather();
+    }
     // Impôts de la semaine (le lundi) : bilan de l'impôt prélevé + taxe foncière des propriétaires
     if (this.weekday === 0) {
       for (const a of this.actors) {
@@ -163,6 +189,7 @@ export class World extends Emitter {
     // Le moral au plus bas fatigue
     if (a.mood < 20) a.energy -= 0.01 * dt;
     if (this.weather === 'rain' && a.outdoors && a.path.length && !a.items.umbrella) a.energy -= 0.04 * dt;
+    if (this.weather === 'snow' && a.outdoors) a.energy -= 0.02 * dt; // le froid fatigue
 
     // Métiers de rue (facteur, police) : on travaille en tournée dans le quartier
     if (a.job && a.job.street && a.outdoors && shiftNow(a.job, this) && this.minutes >= shiftOf(a.job, this.day).start) {

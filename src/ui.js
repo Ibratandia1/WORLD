@@ -6,6 +6,9 @@ import { fmtShift, DAY_SHORT, MAX_WARNINGS, RAISE_EVERY, JOB_TITLES, openings, i
 import { rel, level, near } from './sim/social.js';
 import { weeklyRent, occupants, LATE_EVICT } from './sim/housing.js';
 import { freeUnits, isClosed } from './sim/city.js';
+import { Sound } from './audio.js';
+import { SEASON_INFO } from './sim/world.js';
+import { cityPulse } from './city/render.js';
 import { TUTORIAL, TUT_REWARD, TUT_FINAL, DREAMS, tutStep, tutReady, dreamClaimable, nextDream } from './sim/goals.js';
 import { TAX_POLICIES, AID_POLICIES, CAMPAIGN_FEE, PROJECTS } from './sim/gov.js';
 import { CATALOG } from './sim/catalog.js';
@@ -74,6 +77,19 @@ export class UI {
     $('p-home').onclick = () => this.showLife();
     $('p-next').onclick = () => this.showLife();
     $('b-exit').onclick = () => { world.perform(player, 'leave'); this.render(); };
+
+    // Sons : clic sur les boutons, événement, argent gagné, récompense, erreur
+    const snd = this.sound = state.sound = new Sound();
+    $('b-sound').textContent = snd.on ? '🔊' : '🔇';
+    $('b-sound').onclick = () => { $('b-sound').textContent = snd.toggle() ? '🔊' : '🔇'; };
+    document.addEventListener('click', e => { if (e.target.closest('button')) snd.click(); }, true);
+    world.on('event', () => snd.chime());
+    world.on('fail', e => { if (mine(e)) snd.error(); });
+    world.on('done', e => {
+      if (!mine(e)) return;
+      if (e.id === 'claim_goal') snd.fanfare();
+      else if (e.delta && e.delta.money >= 1) snd.coin();
+    });
     $('b-map').onclick = () => this.showPanel('map');
     $('b-people').onclick = () => this.showPanel('people');
     $('quest').addEventListener('click', e => this.onQuestClick(e));
@@ -103,8 +119,8 @@ export class UI {
     const w = this.world, p = this.player;
 
     $('v-time').textContent = w.clock;
-    $('v-day').textContent = w.dayShort;
-    $('v-weather').textContent = w.weather === 'rain' ? '🌧️' : w.weather === 'cloud' ? '☁️' : w.isNight ? '🌙' : '☀️';
+    $('v-day').textContent = `${w.dayShort} ${SEASON_INFO[w.season].icon}`;
+    $('v-weather').textContent = w.weather === 'rain' ? '🌧️' : w.weather === 'snow' ? '❄️' : w.weather === 'cloud' ? '☁️' : w.isNight ? '🌙' : '☀️';
     $('v-money').textContent = money(p.money);
     $('p-money').classList.toggle('neg', p.money < 0);
     this.bar('v-energy', p.energy);
@@ -130,6 +146,13 @@ export class UI {
     this.syncQuest();
     this.checkTips(performance.now());
     this.tickEvent(dt);
+
+    // Ambiance sonore : dehors / dedans, météo, heure, saison
+    if (p.inside !== this.lastInside) { if (this.lastInside !== undefined) this.sound.door(); this.lastInside = p.inside; }
+    this.sound.setScene({
+      outdoors: p.outdoors, weather: w.weather, hour: w.hour, season: w.season,
+      place: p.inside != null ? w.building(p.inside).type : null, pulse: cityPulse(w.hour),
+    });
 
     const h = w.hour;
     let night = 0;

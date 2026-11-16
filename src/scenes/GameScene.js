@@ -6,7 +6,7 @@ import { ensureCharTexture, randomLook } from '../look.js';
 import { attachControls } from '../camera.js';
 import { findPath } from '../sim/pathfinding.js';
 import { freeUnits, isClosed } from '../sim/city.js';
-import { drawBuildingTile, drawShadow, drawGroundDetails, drawStreetDecor, makeCarTextures, Traffic, Crowd, rng, makeBirdTextures, Birds, twin, NIGHT, NIGHT_MAX } from '../city/render.js';
+import { drawTree, drawBuildingTile, drawShadow, drawGroundDetails, drawStreetDecor, makeCarTextures, Traffic, Crowd, rng, makeBirdTextures, Birds, twin, NIGHT, NIGHT_MAX } from '../city/render.js';
 
 const EMOJI_FONT = '"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
 const GROUND = {
@@ -41,7 +41,10 @@ export class GameScene extends Phaser.Scene {
     // Obscurité du sol et du ciel (sous les flaques de lumière des lampadaires)
     this.darks.push(this.add.rectangle(0, 0, 40000, 40000, NIGHT).setDepth(0.55).setAlpha(0));
     this.drawBuildings();
-    this.spots = drawStreetDecor(this, this.map, this.lights, this.darks);
+    this.season = this.world.season;
+    this.spots = drawStreetDecor(this, this.map, this.lights, this.darks, this.season);
+    this.makeSnowLayer();
+    this.world.on('season', s => this.setSeason(s));
     this.traffic = new Traffic(this, this.map);
     this.crowd = new Crowd(this, this.map, randomLook, ensureCharTexture);
     makeBirdTextures(this);
@@ -63,7 +66,8 @@ export class GameScene extends Phaser.Scene {
   update(time, delta) {
     this.world.update(delta);
     if (!this.world.paused) { this.traffic.update(delta, this.world.hour); this.birds.update(delta, this.world.actors); }
-    this.crowd.update(delta, this.world.hour, findPath, this.world.paused);
+    this.crowd.update(delta, this.world.hour, findPath, this.world.paused, this.world.weather);
+    this.updateSnow(delta);
     if ((this.lightTick = (this.lightTick || 0) + delta) > 400) { this.lightTick = 0; this.syncLights(); }
     this.syncViews(time);
     if ((this.homeTick = (this.homeTick || 0) + delta) > 1000) { this.homeTick = 0; this.syncHomeBubbles(); }
@@ -197,6 +201,37 @@ export class GameScene extends Phaser.Scene {
         this.add.image(s.x, s.y, `g_${tiles[y][x].ground}_${(x + y) % 2}`).setDepth(0);
       }
     }
+  }
+
+  // ---------- Saisons ----------
+  setSeason(s) {
+    if (s === this.season) return;
+    this.season = s;
+    for (const t of this.spots.trees) { t.g.clear(); drawTree(t.g, t.x, t.y, t.blossom, s); }
+  }
+
+  // Neige au sol : elle s'accumule quand il neige et fond ensuite (plus vite au soleil)
+  makeSnowLayer() {
+    const { w, h, tiles } = this.map;
+    const g = this.add.graphics().setDepth(0.45).setAlpha(0);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const gr = tiles[y][x].ground;
+      if (gr === 'water') continue;
+      const s = toScreen(x, y);
+      g.fillStyle(0xffffff, gr === 'road' ? 0.45 : 1); // la chaussée reste plus grise (déneigée)
+      g.fillPoints([{ x: s.x, y: s.y - HH }, { x: s.x + HW, y: s.y }, { x: s.x, y: s.y + HH }, { x: s.x - HW, y: s.y }], true);
+    }
+    this.snow = g;
+    this.snowCover = this.world.weather === 'snow' ? 0.5 : 0;
+  }
+
+  updateSnow(delta) {
+    const w = this.world;
+    if (w.paused) return;
+    const gm = delta / 1000 * (w.fast ? 6 : w.speed); // ~minutes de jeu écoulées
+    if (w.weather === 'snow') this.snowCover = Math.min(1, this.snowCover + gm / 90);
+    else this.snowCover = Math.max(0, this.snowCover - gm / (w.weather === 'sun' ? 120 : 360));
+    this.snow.setAlpha(this.snowCover * 0.6);
   }
 
   // Les fenêtres s'allument à la tombée de la nuit

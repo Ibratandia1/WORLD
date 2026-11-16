@@ -225,6 +225,20 @@ export class InteriorScene extends Phaser.Scene {
       if (!prev || (!prev.action && it.action)) this.itemAt.set(key, it);
     }
 
+    // Les objets qu'on peut toucher brillent doucement (halo doré au sol qui respire)
+    const glow = this.w(this.add.graphics().setDepth(1.1)); // au-dessus des sols des pièces (profondeur 1)
+    const seen = new Set();
+    for (const it of L.items) {
+      if (it.wall || it.on || !(it.action || (it.actions && it.actions.length))) continue;
+      const key = `${it.x},${it.y}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const d = k => [P(it.x - k, it.y - k), P(it.x + k, it.y - k), P(it.x + k, it.y + k), P(it.x - k, it.y + k)];
+      glow.fillStyle(0xffc93c, 0.28); glow.fillPoints(d(0.5), true);
+      glow.lineStyle(2, 0xffb000, 0.9); glow.strokePoints(d(0.5), true);
+    }
+    this.tweens.add({ targets: glow, alpha: { from: 0.15, to: 0.85 }, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+
     // Étiquettes des pièces + nom du lieu (et de l'étage)
     this.zoneLabels = L.zones.map((z, i) => ({ ...this.makeZoneLabel(z), i }));
     const b = this.building;

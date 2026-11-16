@@ -308,19 +308,23 @@ export function drawGroundDetails(scene, map) {
 }
 
 // ---------- Mobilier urbain, arbres, fontaine, terrasses ----------
-export function drawStreetDecor(scene, map, lights, darks) {
+export function drawStreetDecor(scene, map, lights, darks, season = 'printemps') {
   const { w, h, tiles } = map;
   const ground = (x, y) => (tiles[y] && tiles[y][x] ? tiles[y][x].ground : null);
   const r = rng(98765);
   const add = (x, y, extra = 2) => twin(scene, depthAt(x, y) + extra, darks);
-  const spots = { benches: [], fountains: [], statues: [] }; // objets de la rue avec lesquels on peut interagir
+  const spots = { benches: [], fountains: [], statues: [], trees: [] }; // objets de la rue avec lesquels on peut interagir
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const t = tiles[y][x];
       const s = toScreen(x, y);
 
-      if (t.deco === 'tree') drawTree(add(x, y, 0), s.x, s.y, r() < 0.25);
+      if (t.deco === 'tree') {
+        const tree = { g: add(x, y, 0), x: s.x, y: s.y, blossom: r() < 0.25 };
+        drawTree(tree.g, tree.x, tree.y, tree.blossom, season);
+        spots.trees.push(tree); // redessinés quand la saison change
+      }
 
       if (t.deco === 'statue') {
         spots.statues.push({ x, y });
@@ -413,10 +417,26 @@ export function drawStreetDecor(scene, map, lights, darks) {
   return spots;
 }
 
-export function drawTree(g, x, y, blossom = false) {
-  const leaf = blossom ? [0xe98fb5, 0xf4a9c8, 0xffd0e2] : [0x3f9a4a, 0x4caf50, 0x7bd36f];
+// Feuillage selon la saison : cerisiers en fleurs au printemps, vert profond l'été, roux l'automne, nu l'hiver
+const SEASON_LEAVES = {
+  ete: () => [0x2f8a3e, 0x3f9a4a, 0x63c25c],
+  automne: k => [[0xc8562b, 0xe07a35, 0xf2b84a], [0xd99a2b, 0xe8b83a, 0xf6d36b], [0xa8442a, 0xc9603a, 0xe89a52]][((k % 3) + 3) % 3],
+};
+export function drawTree(g, x, y, blossom = false, season = 'printemps') {
   g.fillStyle(0x000000, 0.18); g.fillEllipse(x + 4, y + 3, 30, 11);
   g.fillStyle(0x7a4b2a); g.fillRect(x - 2, y - 16, 4, 17);
+  if (season === 'hiver') {
+    // branches nues (+ un peu de neige posée)
+    g.lineStyle(2, 0x6b4226, 1);
+    g.lineBetween(x, y - 14, x - 9, y - 27); g.lineBetween(x, y - 16, x + 8, y - 29); g.lineBetween(x, y - 15, x + 1, y - 34);
+    g.lineStyle(1, 0x6b4226, 1);
+    g.lineBetween(x - 6, y - 23, x - 12, y - 25); g.lineBetween(x + 5, y - 25, x + 11, y - 24); g.lineBetween(x + 1, y - 28, x - 4, y - 33);
+    g.fillStyle(0xffffff, 0.9); g.fillEllipse(x - 9, y - 28, 5, 2); g.fillEllipse(x + 8, y - 30, 5, 2); g.fillEllipse(x + 1, y - 35, 4, 2);
+    return;
+  }
+  const leaf = season === 'ete' ? SEASON_LEAVES.ete()
+    : season === 'automne' ? SEASON_LEAVES.automne(Math.round(x * 7 + y * 3))
+      : blossom ? [0xe98fb5, 0xf4a9c8, 0xffd0e2] : [0x3f9a4a, 0x4caf50, 0x7bd36f];
   g.fillStyle(leaf[0]); g.fillCircle(x - 8, y - 20, 9); g.fillCircle(x + 8, y - 21, 9); g.fillCircle(x, y - 17, 8);
   g.fillStyle(leaf[1]); g.fillCircle(x - 3, y - 28, 11); g.fillCircle(x + 5, y - 26, 9);
   g.fillStyle(leaf[2]); g.fillCircle(x - 5, y - 32, 4); g.fillCircle(x + 6, y - 29, 3);
@@ -706,8 +726,9 @@ export class Crowd {
     this.people.push({ spr, slot, key: fake.texKey, x: g.x, y: g.y, path, speed: 1.1 + Math.random() * 0.5, life: 0, facing: 1, pause: 0 });
   }
 
-  update(dt, hour, findPath, paused) {
-    const target = Math.round(this.max * cityPulse(hour));
+  update(dt, hour, findPath, paused, weather = 'sun') {
+    // moins de monde dehors sous la pluie ou la neige
+    const target = Math.round(this.max * cityPulse(hour) * (weather === 'rain' || weather === 'snow' ? 0.4 : 1));
     this.spawnIn -= dt;
     if (!paused && this.people.length < target && this.spawnIn <= 0) { this.spawn(findPath); this.spawnIn = 700 + Math.random() * 1400; }
     const tint = this.scene.nightTint || 0xffffff;

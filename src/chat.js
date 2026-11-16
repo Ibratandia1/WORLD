@@ -52,7 +52,7 @@ function card(npc) {
     joueur: p.name,
     relation_avec_le_joueur: `${level(r)[1]} (${r}/100)`,
     situation_du_joueur: { metier: p.job ? jobTitle(w, p.job) : 'sans emploi', logement: p.home == null ? 'sans logement' : 'a un logement' },
-    moment: `${w.dayShort} ${w.clock}, météo : ${w.weather === 'rain' ? 'pluie' : w.weather === 'cloud' ? 'nuageux' : 'beau temps'}`,
+    moment: `${w.dayShort} ${w.clock}, météo : ${w.weather === 'rain' ? 'pluie' : w.weather === 'snow' ? 'neige' : w.weather === 'cloud' ? 'nuageux' : 'beau temps'}, saison : ${w.season}`,
     postes_libres_connus: open,
     par_telephone: !(npc.inside === p.inside && (npc.inside != null || Math.hypot(npc.px - p.px, npc.py - p.py) <= 2.5)),
     actions_possibles: {

@@ -106,6 +106,17 @@ export function decide(a, w, opts = {}) {
   const others = nearby(w, a).filter(o => o.controller !== 'player' && !o.doing && canPause(o, w));
   if (others.length && Math.random() < 0.2) return { id: 'talk', params: { who: others[Math.floor(Math.random() * others.length)].id } };
   const r = Math.random();
+  // La météo change les habitudes : sous la pluie ou la neige on se réfugie au café ou chez soi,
+  // aux beaux jours on traîne dehors (bancs, terrasses)
+  const wet = w.weather === 'rain' || w.weather === 'snow';
+  if (wet && a.outdoors && r < 0.6) {
+    if (a.money > 10 && Math.random() < 0.55) { const c = shop(a, w, 'coffee'); if (c) return c; }
+    if (a.home != null) return { id: 'enter', params: { building: a.home } };
+  }
+  if (!wet && w.weather === 'sun' && a.outdoors && (w.season === 'ete' || w.season === 'printemps') && h >= 10 && h < 20 && r < 0.12) {
+    if (a.money > 30 && Math.random() < 0.5) { const c = shop(a, w, 'eat_cafe'); if (c && a.hunger > 30) return c; }
+    return { id: 'sit_bench' };
+  }
   // Un véhicule s'entretient ; quand on a de l'argent de côté, on se fait plaisir
   if (a.vehicle && a.money > 80 && (a.lastRepair == null || w.day - a.lastRepair >= 7) && Math.random() < 0.3) { const c = shop(a, w, 'repair'); if (c) return c; }
   if (a.money > 500 && Math.random() < Math.min(0.25, a.money / 8000)) { const c = shop(a, w, 'shopping'); if (c) return c; }
