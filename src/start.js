@@ -3,6 +3,7 @@ import { hex } from './color.js';
 import { openCustomizer } from './customize.js';
 import { newGame } from './save.js';
 import { state } from './state.js';
+import { t } from './i18n.js';
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -18,9 +19,9 @@ export function showStart() {
         <h1>World</h1>
         <p>${esc(p.name)} · ${w.dayShort} ${w.clock} · ${Math.round(p.money)} €</p>
         <div class="btns">
-          <button class="main" data-go>▶ Continuer</button>
-          <button data-look>👕 Modifier mon personnage</button>
-          <button class="danger" data-new>🔄 Nouvelle partie</button>
+          <button class="main" data-go>▶ ${t('Continuer')}</button>
+          <button data-look>👕 ${t('Modifier mon personnage')}</button>
+          <button class="danger" data-new>🔄 ${t('Nouvelle partie')}</button>
         </div>
       </div>
     </div>`;
@@ -35,7 +36,7 @@ export function showStart() {
     if (b.hasAttribute('data-go')) { close(); w.paused = false; state.ui.syncControls(); }
     else if (b.hasAttribute('data-look')) { close(); w.paused = false; openCustomizer(); }
     else if (b.hasAttribute('data-new')) {
-      if (confirm('Recommencer une nouvelle partie ? Ton argent et ta progression seront effacés.')) newGame();
+      if (confirm(t('Recommencer une nouvelle partie ? Ton argent et ta progression seront effacés.'))) newGame();
     }
   };
 }

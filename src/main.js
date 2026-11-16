@@ -8,6 +8,7 @@ import { Government } from './sim/gov.js';
 import { ensureGoals, trackGoals } from './sim/goals.js';
 import { Festivals } from './sim/festivals.js';
 import { Safety } from './sim/safety.js';
+import { settings } from './settings.js';
 import { UI } from './ui.js';
 import { GameScene } from './scenes/GameScene.js';
 import { InteriorScene } from './scenes/InteriorScene.js';
@@ -53,7 +54,7 @@ state.ui = new UI(world, player, director);
 // 2. L'affichage Phaser (carte, intérieurs, effets)
 // Rendu à la résolution réelle de l'écran (sinon l'image est étirée et floue sur téléphone / écran haute définition)
 // (plafonné à 2 : au-delà, un téléphone dessine 2,25× plus de pixels pour une différence à peine visible)
-const DPR = Math.min(window.devicePixelRatio || 1, 2);
+const DPR = settings().saver ? 1 : Math.min(window.devicePixelRatio || 1, 2); // économie de batterie : résolution simple
 state.dpr = DPR;
 const game = new Phaser.Game({
   type: Phaser.AUTO,

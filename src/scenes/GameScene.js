@@ -8,6 +8,7 @@ import { findPath } from '../sim/pathfinding.js';
 import { freeUnits, isClosed } from '../sim/city.js';
 import { shade } from '../color.js';
 import { FestDecor } from '../city/festdecor.js';
+import { settings } from '../settings.js';
 import { festById } from '../sim/festivals.js';
 import { drawTree, drawBuildingTile, drawShadow, drawGroundDetails, drawStreetDecor, makeCarTextures, Traffic, Crowd, rng, makeBirdTextures, Birds, twin, NIGHT, NIGHT_MAX } from '../city/render.js';
 
@@ -60,6 +61,7 @@ export class GameScene extends Phaser.Scene {
     if (this.world.safety) for (const id of Object.keys(this.world.safety.fires)) this.showFire(this.world.building(+id));
     this.traffic = new Traffic(this, this.map);
     this.crowd = new Crowd(this, this.map, randomLook, ensureCharTexture);
+    this.applySaver(settings().saver);
     makeBirdTextures(this);
     this.birds = new Birds(this, this.map);
 
@@ -217,6 +219,12 @@ export class GameScene extends Phaser.Scene {
         this.add.image(s.x, s.y, `g_${tiles[y][x].ground}_${(x + y) % 2}`).setDepth(0);
       }
     }
+  }
+
+  // Économie de batterie : moins de passants et de voitures
+  applySaver(on) {
+    if (this.crowd) this.crowd.max = on ? 5 : 14;
+    if (this.traffic) this.traffic.max = on ? 7 : 18;
   }
 
   // ---------- Performances : on ne dessine que ce qui est à l'écran ----------

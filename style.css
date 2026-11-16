@@ -371,3 +371,13 @@ body.indoors #dock #b-exit { display: block; }
 }
 /* Croix de fermeture des événements */
 #box .box-head .ev-close { margin-left: auto; }
+/* Paramètres */
+#box .chips { display: flex; flex-wrap: wrap; gap: 5px; margin: 4px 0 6px; }
+#box .chip { border: 0; border-radius: 999px; padding: 5px 11px; font: inherit; font-size: 12px; background: #f1ecfb; color: var(--ink); cursor: pointer; }
+#box .chip.on { background: var(--accent); color: #fff; font-weight: 700; }
+#box .range { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-size: 12px; color: var(--ink-soft); }
+#box .range input { flex: 1; accent-color: var(--accent); }
+/* Taille du texte */
+body.text-small #box, body.text-small #quest, body.text-small #tip { font-size: 11px; }
+body.text-large #box, body.text-large #tip { font-size: 15px; }
+body.text-large #quest { font-size: 13px; }

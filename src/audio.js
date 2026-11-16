@@ -3,37 +3,49 @@
 // pluie, vent de neige, brouhaha et tasses au café. Petits sons d'interface : clic, événement, pièces, erreur, porte.
 // Le son démarre au premier toucher (règle des navigateurs) ; bouton 🔊 / 🔇 pour couper, choix mémorisé.
 
-const KEY = 'world.sound';
+import { settings, setSetting, onSettings } from './settings.js';
 
 export class Sound {
   constructor() {
-    this.on = true;
-    try { this.on = localStorage.getItem(KEY) !== 'off'; } catch { /* stockage indisponible */ }
     this.ctx = null;
     this.state = {};
     const unlock = () => { this.start(); window.removeEventListener('pointerdown', unlock); };
     window.addEventListener('pointerdown', unlock);
+    onSettings(() => this.apply());
   }
 
+  get on() { return settings().sound; }
+
   toggle() {
-    this.on = !this.on;
-    try { localStorage.setItem(KEY, this.on ? 'on' : 'off'); } catch { /* rien */ }
-    if (this.ctx) this.master.gain.setTargetAtTime(this.on ? 0.9 : 0, this.ctx.currentTime, 0.1);
+    setSetting('sound', !settings().sound);
     if (this.on) this.start();
     return this.on;
   }
 
+  // Volumes selon les paramètres : général, musique, ambiances, interface
+  apply() {
+    if (!this.ctx) return;
+    const s = settings(), t = this.ctx.currentTime;
+    this.master.gain.setTargetAtTime(s.sound ? s.volume : 0, t, 0.1);
+    this.ambGate.gain.setTargetAtTime(s.ambience ? 1 : 0, t, 0.1);
+    this.mus.gain.setTargetAtTime(s.music ? 1 : 0, t, 0.1);
+    this.ui.gain.setTargetAtTime(s.uiSounds ? 0.5 : 0, t, 0.1);
+  }
   start() {
     if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     const c = this.ctx = new AC();
-    this.master = c.createGain(); this.master.gain.value = this.on ? 0.9 : 0;
+    this.master = c.createGain(); this.master.gain.value = 0;
     this.master.connect(c.destination);
     // Bus d'ambiance : étouffé (passe-bas) quand on est à l'intérieur
     this.muffle = c.createBiquadFilter(); this.muffle.type = 'lowpass'; this.muffle.frequency.value = 18000;
     this.amb = c.createGain(); this.amb.gain.value = 1;
-    this.amb.connect(this.muffle).connect(this.master);
+    this.ambGate = c.createGain(); this.ambGate.gain.value = 1;            // coupe les ambiances
+    this.mus = c.createGain(); this.mus.gain.value = 1;                    // coupe la musique
+    this.amb.connect(this.ambGate).connect(this.muffle);
+    this.mus.connect(this.muffle);
+    this.muffle.connect(this.master);
     this.ui = c.createGain(); this.ui.gain.value = 0.5; this.ui.connect(this.master);
 
     // Bruit blanc réutilisé par les ambiances
@@ -54,6 +66,7 @@ export class Sound {
     this.wind = loop('lowpass', 260);           // vent d'hiver
     this.crowd = loop('bandpass', 700, 1.2);    // brouhaha (café, boulangerie)
     this.timer = setInterval(() => this.tick(), 250);
+    this.apply();
   }
 
   // État du monde envoyé par l'interface ~4 fois par seconde
@@ -123,10 +136,10 @@ export class Sound {
     const midi = m => 440 * Math.pow(2, (m - 69) / 12);
     const b = this.beat = (this.beat || 0) + 1;
     const bar = Math.floor(b / 3) % 8, ch = CHORDS[Math.floor(bar / 2) % 4], t = b % 3;
-    if (t === 0) this.tone(midi(ch[0] - 12), 0.45, { vol: 0.06, bus: this.amb });
-    else { this.tone(midi(ch[1]), 0.18, { type: 'triangle', vol: 0.025, bus: this.amb }); this.tone(midi(ch[2]), 0.18, { type: 'triangle', vol: 0.02, bus: this.amb }); }
+    if (t === 0) this.tone(midi(ch[0] - 12), 0.45, { vol: 0.06, bus: this.mus });
+    else { this.tone(midi(ch[1]), 0.18, { type: 'triangle', vol: 0.025, bus: this.mus }); this.tone(midi(ch[2]), 0.18, { type: 'triangle', vol: 0.02, bus: this.mus }); }
     const melody = [2, 1, 0, 1, 2, 2, 1, 0][(b + bar) % 8];
-    this.tone(midi(ch[melody] + 12), 0.22, { type: 'square', vol: 0.018, bus: this.amb });
+    this.tone(midi(ch[melody] + 12), 0.22, { type: 'square', vol: 0.018, bus: this.mus });
   }
 
   click() { this.tone(880, 0.05, { type: 'triangle', vol: 0.08 }); }

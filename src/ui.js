@@ -7,6 +7,8 @@ import { rel, level, near } from './sim/social.js';
 import { weeklyRent, occupants, LATE_EVICT } from './sim/housing.js';
 import { freeUnits, isClosed } from './sim/city.js';
 import { Sound } from './audio.js';
+import { t, LANGS } from './i18n.js';
+import { settings, setSetting, onSettings } from './settings.js';
 import { isPolice, jailed } from './sim/safety.js';
 import { SEASON_INFO } from './sim/world.js';
 import { cityPulse } from './city/render.js';
@@ -81,8 +83,11 @@ export class UI {
 
     // Sons : clic sur les boutons, événement, argent gagné, récompense, erreur
     const snd = this.sound = state.sound = new Sound();
-    $('b-sound').textContent = snd.on ? '🔊' : '🔇';
-    $('b-sound').onclick = () => { $('b-sound').textContent = snd.toggle() ? '🔊' : '🔇'; };
+    // Paramètres (⚙️) : langue, sons, vibrations, astuces, taille du texte, économie de batterie
+    $('b-settings').onclick = () => this.showPanel('settings');
+    $('box').addEventListener('input', e => { if (e.target.dataset.range) setSetting(e.target.dataset.range, Number(e.target.value)); });
+    onSettings(k => { this.applySettings(); if (k === 'lang') { this.questKey = ''; this.render(); } });
+    this.applySettings();
     document.addEventListener('click', e => { if (e.target.closest('button')) snd.click(); }, true);
     world.on('event', () => snd.chime());
     world.on('fail', e => { if (mine(e)) snd.error(); });
@@ -102,7 +107,48 @@ export class UI {
   }
 
   buzz() {
+    if (!settings().vibrate) return;
     if (navigator.vibrate && navigator.userActivation && navigator.userActivation.hasBeenActive) navigator.vibrate(25);
+  }
+
+  // Petit message passager (bulle du haut)
+  floatNote(msg) {
+    const el = $('tip');
+    el.textContent = msg; el.classList.add('show');
+    clearTimeout(this.tipTimer);
+    this.tipTimer = setTimeout(() => { el.classList.remove('show'); this.tipOn = false; }, 2500);
+  }
+
+  // ---------- Paramètres ----------
+  applySettings() {
+    const s = settings();
+    document.documentElement.lang = s.lang;
+    document.body.classList.toggle('text-small', s.textSize === 'small');
+    document.body.classList.toggle('text-large', s.textSize === 'large');
+    const TITLES = { 'b-settings': 'Paramètres', 'b-map': 'Plan des lieux', 'b-people': 'Habitants', 'b-routine': 'Routine automatique',
+      'b-look': 'Mon style', 'b-exit': 'Sortir dans la rue', 'b-center': 'Recentrer sur moi' };
+    for (const [id, title] of Object.entries(TITLES)) if ($(id)) $(id).title = t(title);
+    if (state.scene && state.scene.applySaver) state.scene.applySaver(s.saver);
+  }
+
+  settingsHTML() {
+    const s = settings();
+    const sw = (key, label, icon) => this.choiceHTML(`data-set="${key}"`, icon, label, s[key] ? `✅ ${t('Activé')}` : `⬜ ${t('Coupé')}`, true);
+    const chips = (key, opts) => `<div class="chips">${opts.map(([v, l]) => `<button class="chip ${String(s[key]) === String(v) ? 'on' : ''}" data-setk="${key}" data-setv="${v}">${esc(t(l))}</button>`).join('')}</div>`;
+    return `${this.head('⚙️', 'Paramètres')}
+      <div class="sec"><b>🌍 ${t('Langue')}</b>${chips('lang', LANGS)}
+        ${s.lang !== 'fr' ? '<p><small>Events, news and conversations are still in French for now.</small></p>' : ''}</div>
+      <div class="sec"><b>🔊 ${t('Son')}</b>
+        <div class="choices">${sw('sound', 'Son', '🔊')}</div>
+        <label class="range">${t('Volume')} <input type="range" min="0" max="1" step="0.05" value="${s.volume}" data-range="volume"></label>
+        <div class="choices">${sw('music', 'Musique', '🎻')}${sw('ambience', 'Ambiances (ville, pluie, café)', '🌧️')}${sw('uiSounds', 'Sons de l’interface', '🔔')}</div></div>
+      <div class="sec"><b>📱 ${t('Confort')}</b>
+        <div class="choices">${sw('vibrate', 'Vibrations', '📳')}${sw('tips', 'Astuces', '💡')}</div>
+        <p>${t('Les événements s’effacent après')}</p>${chips('eventTimer', [[8, '8 s'], [12, '12 s'], [25, '25 s'], [0, 'jamais']])}
+        <p>${t('Taille du texte')}</p>${chips('textSize', [['small', 'Petit'], ['normal', 'Normal'], ['large', 'Grand']])}
+        <div class="choices">${this.choiceHTML('data-resettips', '💡', 'Revoir les astuces', '', true)}</div></div>
+      <div class="sec"><b>🔋 ${t('Économie de batterie')}</b><p>${t('Moins de passants et de voitures ; résolution réduite au prochain lancement.')}</p>
+        <div class="choices">${sw('saver', 'Économie de batterie', '🔋')}</div></div>`;
   }
 
   syncControls() {
@@ -236,6 +282,7 @@ export class UI {
     else if (this.life) box.innerHTML = this.lifeHTML();
     else if (this.panel === 'map') box.innerHTML = this.mapHTML();
     else if (this.panel === 'people') box.innerHTML = this.peopleHTML();
+    else if (this.panel === 'settings') box.innerHTML = this.settingsHTML();
     else if (this.person) {
       // on garde ce qui est en train d'être tapé
       const inp = $('chat-in');
@@ -257,13 +304,13 @@ export class UI {
   }
 
   head(icon, title, close = true) {
-    return `<div class="box-head"><span class="ico">${icon}</span><b>${esc(title)}</b>${close ? '<button class="box-close" data-close>✕</button>' : ''}</div>`;
+    return `<div class="box-head"><span class="ico">${icon}</span><b>${esc(t(title))}</b>${close ? `<button class="box-close" data-close title="${t('Fermer')}">✕</button>` : ''}</div>`;
   }
 
   choiceHTML(attrs, icon, label, meta, check) {
     const off = check !== true;
     return `<button ${attrs} ${off ? 'disabled' : ''}><span>${icon}</span>
-      <div class="lbl">${esc(label)}${off ? `<small>${esc(check)}</small>` : ''}</div>${meta ? `<em>${meta}</em>` : ''}</button>`;
+      <div class="lbl">${esc(t(label))}${off ? `<small>${esc(check)}</small>` : ''}</div>${meta ? `<em>${meta}</em>` : ''}</button>`;
   }
 
   // Bouton générique pour une action (avec paramètres) — icône personnalisable
@@ -290,7 +337,7 @@ export class UI {
       }
       return head + this.choiceHTML('data-look', it.icon, `${it.name} · à toi`, '👕', true);
     });
-    return `<div class="sec"><b>🛍️ Boutique</b><div class="choices">${rows.join('')}</div></div>`;
+    return `<div class="sec"><b>${t('🛍️ Boutique')}</b><div class="choices">${rows.join('')}</div></div>`;
   }
 
   meta(def, params = {}) {
@@ -384,7 +431,7 @@ export class UI {
     }
 
     if (inside) {
-      if (!note) note = '<p>Touche un meuble ou une personne.</p>';
+      if (!note) note = `<p>${t('Touche un meuble ou une personne.')}</p>`;
       buttons.push(this.choiceHTML('data-leave', '🚶', 'Sortir dans la rue', '', true));
     }
     const icon = b.type === 'home' && b.id === p.home ? (p.housing === 'own' ? '🔑' : '🏠') : TYPES[b.type].icon;
@@ -421,7 +468,7 @@ export class UI {
         rows.push(this.actBtn('city_project', { project: k }, `${pr.label} · ${money(cost)} €`, pr.icon));
       }
     }
-    return `<div class="sec"><b>🏛️ La mairie</b><p>${lines.join('<br>')}</p><div class="choices">${rows.join('')}</div></div>`;
+    return `<div class="sec"><b>${t('🏛️ La mairie')}</b><p>${lines.join('<br>')}</p><div class="choices">${rows.join('')}</div></div>`;
   }
 
   // « Ma vie » : contrat, logement, routine
@@ -461,11 +508,11 @@ export class UI {
 
     const vehicles = CATALOG.filter(i => i.vehicle && p.owned.includes(i.id));
     const ride = vehicles.length
-      ? `<div class="sec"><b>🚲 Déplacements</b><div class="choices">${
+      ? `<div class="sec"><b>${t('🚲 Déplacements')}</b><div class="choices">${
         this.actBtn('use_vehicle', { item: null }, 'Marcher', '🚶')}${vehicles.map(v => this.actBtn('use_vehicle', { item: v.id }, v.name, v.icon)).join('')}</div></div>`
-      : '<div class="sec"><b>🚲 Déplacements</b><p>À pied. Vélos, scooters et voitures au Garage Roue Libre.</p></div>';
+      : `<div class="sec"><b>${t('🚲 Déplacements')}</b><p>À pied. Vélos, scooters et voitures au Garage Roue Libre.</p></div>`;
 
-    const routine = `<div class="sec"><b>🔁 Routine automatique</b><p>Ton personnage mange, dort et va travailler tout seul. Tu peux toujours reprendre la main.</p>
+    const routine = `<div class="sec"><b>${t('🔁 Routine automatique')}</b><p>${t('Ton personnage mange, dort et va travailler tout seul. Tu peux toujours reprendre la main.')}</p>
       <div class="choices">${this.choiceHTML('data-routine', p.routine ? '⏹️' : '▶️', p.routine ? 'Désactiver la routine' : 'Activer la routine', '', true)}</div></div>`;
     return `${this.head('📋', 'Ma vie')}${this.dreamsHTML()}${job}${home}${ride}${routine}`;
   }
@@ -473,18 +520,18 @@ export class UI {
   // ---------- Objectifs : rêves (dans « Ma vie ») et carte d'objectif ----------
   dreamsHTML() {
     const p = this.player, w = this.world;
-    if (tutStep(p)) return `<div class="sec"><b>🌟 Mes rêves</b><p>Termine d’abord tes premiers pas (en haut à gauche) : tes rêves se débloquent ensuite.</p></div>`;
+    if (tutStep(p)) return `<div class="sec"><b>🌟 ${t('Mes rêves')}</b><p>${t('Termine d’abord tes premiers pas (en haut à gauche) : tes rêves se débloquent ensuite.')}</p></div>`;
     const rows = DREAMS.map(d => {
       const [c, m] = d.progress(p, w);
       const got = p.goals.claimed[d.id];
       const pct = Math.min(100, (c / m) * 100);
       const val = m > 1 ? ` · ${money(Math.min(c, m))}/${money(m)}` : '';
       if (!got && c >= m) return this.actBtn('claim_goal', { goal: d.id }, `${d.label} : récupérer ${d.reward.money ? `+${d.reward.money} €` : 'ta récompense'}`, d.icon);
-      return `<div class="dream ${got ? 'ok' : ''}"><span class="ic">${d.icon}</span><div class="nm">${esc(d.label)}${got ? ' ✓' : val}
+      return `<div class="dream ${got ? 'ok' : ''}"><span class="ic">${d.icon}</span><div class="nm">${esc(t(d.label))}${got ? ' ✓' : val}
         ${got ? '' : `<div class="qbar"><i style="width:${pct.toFixed(0)}%"></i></div>`}</div></div>`;
     });
     const n = DREAMS.filter(d => p.goals.claimed[d.id]).length;
-    return `<div class="sec"><b>🌟 Mes rêves · ${n}/${DREAMS.length}</b><div class="choices">${rows.join('')}</div></div>`;
+    return `<div class="sec"><b>🌟 ${t('Mes rêves')} · ${n}/${DREAMS.length}</b><div class="choices">${rows.join('')}</div></div>`;
   }
 
   syncQuest() {
@@ -497,19 +544,19 @@ export class UI {
       const last = p.goals.tut === TUTORIAL.length - 1;
       const gain = TUT_REWARD.money + (last ? TUT_FINAL.money : 0);
       key = `t${p.goals.tut}:${ready}`;
-      html = `<div class="qh"><span>🎯</span>Premiers pas<em>${p.goals.tut + 1}/${TUTORIAL.length}</em></div>
-        <div class="qt"><span>${step.icon}</span>${esc(step.text)}${ready ? ' ✓' : ''}</div>
-        ${ready ? '' : `<div class="qhint">${esc(step.hint)}</div>`}
-        <div class="qbtns ${ready ? 'keep' : ''}">${ready ? `<button class="go" data-claim="tut">🎁 Récupérer +${gain} €</button>` : `<button data-show="${step.target}">👀 Montrer</button>`}</div>`;
+      html = `<div class="qh"><span>🎯</span>${t('Premiers pas')}<em>${p.goals.tut + 1}/${TUTORIAL.length}</em></div>
+        <div class="qt"><span>${step.icon}</span>${esc(t(step.text))}${ready ? ' ✓' : ''}</div>
+        ${ready ? '' : `<div class="qhint">${esc(t(step.hint))}</div>`}
+        <div class="qbtns ${ready ? 'keep' : ''}">${ready ? `<button class="go" data-claim="tut">${t('🎁 Récupérer')} +${gain} €</button>` : `<button data-show="${step.target}">${t('👀 Montrer')}</button>`}</div>`;
     } else {
       const done = DREAMS.find(d => dreamClaimable(p, w, d));
       const d = done || nextDream(p, w);
       if (d) {
         const [c, m] = d.progress(p, w);
         key = `d${d.id}:${!!done}:${Math.floor((c / m) * 50)}`;
-        html = `<div class="qh"><span>🌟</span>${done ? 'Rêve réalisé !' : 'Prochain rêve'}<em>${m > 1 ? `${money(Math.min(c, m))}/${money(m)}` : ''}</em></div>
-          <div class="qt"><span>${d.icon}</span>${esc(d.label)}</div>
-          ${done ? `<div class="qbtns keep"><button class="go" data-claim="${d.id}">🎁 Récupérer${d.reward.money ? ` +${d.reward.money} €` : ''}</button></div>`
+        html = `<div class="qh"><span>🌟</span>${t(done ? 'Rêve réalisé !' : 'Prochain rêve')}<em>${m > 1 ? `${money(Math.min(c, m))}/${money(m)}` : ''}</em></div>
+          <div class="qt"><span>${d.icon}</span>${esc(t(d.label))}</div>
+          ${done ? `<div class="qbtns keep"><button class="go" data-claim="${d.id}">${t('🎁 Récupérer')}${d.reward.money ? ` +${d.reward.money} €` : ''}</button></div>`
             : `<div class="qbar"><i style="width:${Math.min(100, (c / m) * 100).toFixed(0)}%"></i></div>`}`;
       }
     }
@@ -572,21 +619,21 @@ export class UI {
       const mine = p.job && p.job.building === b.id ? ' · ton travail' : '';
       const jobs = b.jobs && openings(w, b) ? ` · ${openings(w, b)} poste${openings(w, b) > 1 ? 's' : ''}` : '';
       if (b.type === 'office') return `${mine ? 'ton travail' : 'bureaux'}${jobs}`;
-      return `${sellerAt(w, b) ? '🟢 ouvert' : '🔴 fermé'}${mine}${jobs}`;
+      return `${t(sellerAt(w, b) ? '🟢 ouvert' : '🔴 fermé')}${mine}${jobs}`;
     };
     const sections = GROUPS.map(([title, types]) => {
       const list = w.map.buildings.filter(b => types.includes(b.type)).sort((a, b) => walk(a) - walk(b));
       if (!list.length) return '';
-      return `<div class="sec"><b>${title}</b><div class="list">${list.map(b => `<button data-goto-b="${b.id}">
+      return `<div class="sec"><b>${t(title)}</b><div class="list">${list.map(b => `<button data-goto-b="${b.id}">
         <span class="ic">${b.type === 'home' && b.id === p.home ? '🏠' : isClosed(w, b.id) ? '🔒' : TYPES[b.type].icon}</span>
         <span class="nm">${esc(b.name)}<small>${status(b)}</small></span><span class="rt">🚶 ${walk(b)} min</span></button>`).join('')}</div></div>`;
     });
-    return `${this.head('🗺️', `Plan · ${w.map.name}`)}${sections.join('')}`;
+    return `${this.head('🗺️', t('Plan · {x}', { x: w.map.name }))}${sections.join('')}`;
   }
 
   peopleHTML() {
     const p = this.player, w = this.world;
-    const where = a => (a.inside != null ? (a.inside === a.home ? 'à la maison' : w.building(a.inside).name) : 'dans la rue');
+    const where = a => (a.inside != null ? (a.inside === a.home ? t('à la maison') : w.building(a.inside).name) : t('dans la rue'));
     const list = w.actors.filter(a => a !== p).sort((a, b) => rel(p, b) - rel(p, a) || a.name.localeCompare(b.name, 'fr'));
     const known = list.filter(a => rel(p, a) >= 10).length;
     const rows = list.map(a => {
@@ -597,7 +644,7 @@ export class UI {
       return `<button data-person="${a.id}"><span class="ic">${licon}</span><span class="nm">${esc(a.name)}<small>${esc(job)} · ${lname}</small></span>
         <span class="rt">${now} ${esc(where(a))}</span></button>`;
     });
-    return `${this.head('👥', `Habitants · ${list.length}`)}<p>Tu connais ${known} personne${known > 1 ? 's' : ''}. Touche quelqu’un pour le retrouver.</p><div class="list">${rows.join('')}</div>`;
+    return `${this.head('👥', t('Habitants · {n}', { n: list.length }))}<p>Tu connais ${known} personne${known > 1 ? 's' : ''}. Touche quelqu’un pour le retrouver.</p><div class="list">${rows.join('')}</div>`;
   }
 
   // ---------- Prochain rendez-vous (HUD) ----------
@@ -633,7 +680,8 @@ export class UI {
     if (this.evLeft <= 0) { this.director.close(); this.evShown = null; this.render(); }
   }
 
-  evLife(ev) { return ev.choices.some(c => c.action) ? 25000 : 12000; }
+  // durée réglable dans les paramètres (0 = l'événement reste jusqu'à ce qu'on le ferme) ; deux fois plus s'il y a un choix à faire
+  evLife(ev) { const s = settings().eventTimer; return !s ? Infinity : (ev.choices.some(c => c.action) ? s * 2000 : s * 1000); }
 
   // ---------- Astuces : une à la fois, chacune une seule fois ----------
   checkTips(now) {
@@ -645,20 +693,21 @@ export class UI {
       ['tired', () => p.energy < 25, '⚡ Tu fatigues : rentre dormir, ou bois un café pour tenir jusqu’au soir.'],
       ['mood', () => p.mood < 40, '😊 Ton moral baisse : discute avec quelqu’un, regarde la télé, lis ou assieds-toi sur un banc.'],
       ['broke', () => p.money < 60, '💶 Ton argent fond : travaille, ou demande l’aide sociale à la mairie si tu es sans emploi.'],
-      ['rent', () => p.rentDue > 0, '🧾 Ton loyer est à payer (le lundi) : touche 🏠 en bas à gauche. Après 8 jours de retard, c’est l’expulsion.'],
+      ['rent', () => p.rentDue > 0, '🧾 Ton loyer est à payer (le lundi) : touche 🏠 dans la colonne de gauche. Après 8 jours de retard, c’est l’expulsion.'],
       ['inside', () => p.inside != null, '🪑 À l’intérieur, touche un meuble pour l’utiliser : lit, canapé, télé, comptoir…'],
       ['night', () => (w.hour >= 22 || w.hour < 4) && p.outdoors, '🌙 Il se fait tard : rentre dormir pour être en forme demain.'],
       ['vote', () => w.gov && w.gov.votingOpen && !w.gov.votes[p.id], '🗳️ Élections municipales : va voter à la mairie 🏛️ (et tu peux même te présenter !).'],
-      ['map', () => !tutStep(p), '🗺️ Le bouton 🗺️ en bas liste tous les lieux du quartier, 👥 tous les habitants.'],
-      ['routine', () => !tutStep(p) && w.day >= 2, '🔁 Le bouton 🔁 lance la routine : ton personnage mange, dort et travaille tout seul.'],
-      ['dreams', () => !tutStep(p), '🌟 Tes rêves sont dans « Ma vie » (💼 en bas à gauche) : chacun rapporte une récompense.'],
+      ['map', () => !tutStep(p), '🗺️ Le bouton 🗺️ (à droite) liste tous les lieux du quartier, 👥 tous les habitants.'],
+      ['routine', () => !tutStep(p) && w.day >= 2, '🔁 Le bouton 🔁 (à droite) lance la routine : ton personnage mange, dort et travaille tout seul.'],
+      ['dreams', () => !tutStep(p), '🌟 Tes rêves sont dans « Ma vie » (💼 à gauche) : chacun rapporte une récompense.'],
     ];
-    const t = TIPS.find(([id, cond]) => !p.tips.includes(id) && cond());
-    if (!t) return;
-    p.tips.push(t[0]);
+    if (!settings().tips) return;
+    const tip = TIPS.find(([id, cond]) => !p.tips.includes(id) && cond());
+    if (!tip) return;
+    p.tips.push(tip[0]);
     this.tipAt = now; this.tipOn = true;
     const el = $('tip');
-    el.textContent = t[2];
+    el.textContent = t(tip[2]);
     el.classList.add('show');
     clearTimeout(this.tipTimer);
     this.tipTimer = setTimeout(() => { el.classList.remove('show'); this.tipOn = false; }, 8000);
@@ -707,7 +756,7 @@ export class UI {
       <form class="say-form" data-chat><input id="chat-in" maxlength="300" autocomplete="off" placeholder="${reach ? 'Ou écris librement…' : 'Trop loin pour parler'}" ${reach && !this.chatWaiting ? '' : 'disabled'}><button type="submit" ${reach ? '' : 'disabled'}>➤</button></form>${mode}</div>`;
 
     return `${this.head('🧑', t.name)}<p>${licon} ${lname} · <span class="hearts">${hearts(r)}</span><br>${job}${now}</p>
-      <div class="sec"><b>✨ Interagir</b><div class="choices">${extra.join('')}</div></div>${chat}`;
+      <div class="sec"><b>${t('✨ Interagir')}</b><div class="choices">${extra.join('')}</div></div>${chat}`;
   }
 
   // Envoi commun (texte libre, thème ou réponse proposée)
@@ -751,7 +800,7 @@ export class UI {
       const b = p.plan.buildingId != null ? w.building(p.plan.buildingId) : null;
       return {
         key: `plan:${p.plan.id}:${p.plan.buildingId}`, icon: '🚶',
-        title: p.plan.id === 'goto' ? 'En marche' : `En route : ${def.label}`,
+        title: p.plan.id === 'goto' ? 'En marche' : t('En route : {x}', { x: t(def.label) }),
         sub: b ? b.name : '', cancel: true,
       };
     }
@@ -760,9 +809,9 @@ export class UI {
   }
 
   statusHTML(info) {
-    return `<div class="box-head"><span class="ico">${info.icon}</span><b>${esc(info.title)}</b>
-      ${info.cancel ? '<button class="box-close" data-cancel title="Arrêter">✕</button>' : ''}</div>
-      <p class="sub">${esc(info.sub)}</p>
+    return `<div class="box-head"><span class="ico">${info.icon}</span><b>${esc(t(info.title))}</b>
+      ${info.cancel ? `<button class="box-close" data-cancel title="${t('Arrêter')}">✕</button>` : ''}</div>
+      <p class="sub">${esc(t(info.sub))}</p>
       ${info.progress != null ? `<div class="progress"><i style="width:${(info.progress * 100).toFixed(1)}%"></i></div>` : ''}`;
   }
 
@@ -772,6 +821,9 @@ export class UI {
     const w = this.world, p = this.player;
     if (btn.hasAttribute('data-close')) { this.closePanels(); return this.render(); }
     if (btn.hasAttribute('data-evclose')) { this.director.close(); this.evShown = null; return this.render(); }
+    if (btn.dataset.set) { setSetting(btn.dataset.set, !settings()[btn.dataset.set]); if (btn.dataset.set === 'sound' && settings().sound) this.sound.start(); return this.render(); }
+    if (btn.dataset.setk) { const v = btn.dataset.setv; setSetting(btn.dataset.setk, /^\d+$/.test(v) ? Number(v) : v); return this.render(); }
+    if (btn.hasAttribute('data-resettips')) { p.tips = []; this.tipAt = -1e9; this.floatNote(t('Les astuces réapparaîtront.')); return; }
     if (btn.hasAttribute('data-cancel')) { w.cancel(p); return this.render(); }
     if (btn.hasAttribute('data-leave')) { w.perform(p, 'leave'); return this.render(); }
     if (btn.hasAttribute('data-routine')) { $('b-routine').click(); return; }
