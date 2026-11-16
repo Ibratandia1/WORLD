@@ -381,3 +381,36 @@ body.indoors #dock #b-exit { display: block; }
 body.text-small #box, body.text-small #quest, body.text-small #tip { font-size: 11px; }
 body.text-large #box, body.text-large #tip { font-size: 15px; }
 body.text-large #quest { font-size: 13px; }
+/* Fenêtre des paramètres : paysage, onglets à gauche */
+#settings {
+  position: fixed; inset: 0; z-index: 7; display: flex; align-items: center; justify-content: center;
+  background: rgba(40, 28, 90, 0.42); backdrop-filter: blur(3px); padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right));
+}
+#settings.hidden { display: none; }
+#settings .card {
+  display: flex; width: min(760px, 96vw); height: min(440px, 92vh); background: #fcfaff; border-radius: 20px;
+  box-shadow: 0 10px 40px rgba(40, 20, 100, .35); overflow: hidden; font-size: 13px;
+}
+#settings nav { width: 190px; flex: none; background: #f3effc; padding: 12px 8px; display: flex; flex-direction: column; gap: 6px; }
+#settings nav button {
+  display: flex; align-items: center; gap: 8px; border: 0; border-radius: 12px; padding: 10px 12px; text-align: left;
+  font: inherit; font-weight: 600; background: transparent; color: var(--ink); cursor: pointer;
+}
+#settings nav button span { font-family: var(--emoji); font-size: 17px; }
+#settings nav button.on { background: var(--accent); color: #fff; }
+#settings section { flex: 1; min-width: 0; padding: 12px 16px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+#settings .shead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; font-size: 15px; }
+#settings h3 { font-size: 13px; margin: 12px 0 4px; color: var(--ink-soft); }
+#settings p { color: var(--ink-soft); margin: 6px 0; }
+#settings .note { font-size: 11px; }
+#settings .choices.two { display: grid; grid-template-columns: 1fr 1fr; }
+#settings .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 6px; }
+#settings .chip { border: 0; border-radius: 999px; padding: 7px 14px; font: inherit; background: #f1ecfb; color: var(--ink); cursor: pointer; }
+#settings .chip.on { background: var(--accent); color: #fff; font-weight: 700; }
+#settings .range { display: flex; align-items: center; gap: 10px; margin: 10px 0; color: var(--ink-soft); }
+#settings .range input { flex: 1; accent-color: var(--accent); }
+@media (max-height: 420px) {
+  #settings nav { width: 150px; padding: 8px 6px; }
+  #settings nav button { padding: 7px 9px; }
+  #settings .card { height: 94vh; }
+}

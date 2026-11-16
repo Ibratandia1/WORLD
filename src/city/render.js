@@ -229,8 +229,12 @@ export function drawBuildingTile(g, lg, cx, cy, h, T, info) {
     }
     g.fillStyle(0xf2c94c); g.fillCircle(p.x, p.y - 35, 1.6);
   }
-  g.lineStyle(1, 0x000000, 0.1);
-  g.lineBetween(cx, cy + HH - h, cx, cy + HH);
+  // Arêtes : légère au milieu d'un même immeuble, bien marquée là où un autre immeuble commence
+  // (on distingue ainsi chaque bâtiment, même dans un îlot continu)
+  const edge = (x, y1, y2, strong) => { g.lineStyle(strong ? 2 : 1, 0x2b2236, strong ? 0.45 : 0.1); g.lineBetween(x, y1, x, y2); };
+  edge(cx, cy + HH - h, cy + HH, expL && expR);           // angle avant (coin du bâtiment ou début du voisin)
+  if (expBL && expL) edge(cx - HW + 1, cy - h, cy, true);   // bord gauche de la façade gauche
+  if (expBR && expR) edge(cx + HW - 1, cy - h, cy, true);   // bord droit de la façade droite
 }
 
 // Statue de Marianne sur son socle, avec parterre de fleurs ; un projecteur l'éclaire la nuit

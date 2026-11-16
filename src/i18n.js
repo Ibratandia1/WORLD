@@ -30,6 +30,7 @@ const EN = {
   'Sons de l’interface': 'Interface sounds',
   'Vibrations': 'Vibrations',
   'Confort': 'Comfort',
+  'Langue et affichage': 'Language & display', 'Batterie': 'Battery',
   'Plan des lieux': 'Places map', 'Habitants': 'Residents', 'Routine automatique': 'Automatic routine',
   'Mon style': 'My style', 'Recentrer sur moi': 'Center on me',
   'Astuces': 'Tips',

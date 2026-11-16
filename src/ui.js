@@ -84,7 +84,7 @@ export class UI {
     // Sons : clic sur les boutons, événement, argent gagné, récompense, erreur
     const snd = this.sound = state.sound = new Sound();
     // Paramètres (⚙️) : langue, sons, vibrations, astuces, taille du texte, économie de batterie
-    $('b-settings').onclick = () => this.showPanel('settings');
+    $('b-settings').onclick = () => this.openSettings();
     $('box').addEventListener('input', e => { if (e.target.dataset.range) setSetting(e.target.dataset.range, Number(e.target.value)); });
     onSettings(k => { this.applySettings(); if (k === 'lang') { this.questKey = ''; this.render(); } });
     this.applySettings();
@@ -131,26 +131,57 @@ export class UI {
     if (state.scene && state.scene.applySaver) state.scene.applySaver(s.saver);
   }
 
+  // ---------- Fenêtre des paramètres : grande, en paysage, avec des onglets à gauche ----------
+  openSettings(tab = this.setTab || 'general') {
+    this.setTab = tab;
+    const el = $('settings');
+    el.innerHTML = this.settingsHTML();
+    el.classList.remove('hidden');
+    if (!el.onclick) {
+      el.onclick = e => this.onSettingsClick(e);
+      el.addEventListener('input', e => { if (e.target.dataset.range) setSetting(e.target.dataset.range, Number(e.target.value)); });
+    }
+  }
+
+  closeSettings() { $('settings').classList.add('hidden'); }
+
+  onSettingsClick(e) {
+    if (e.target.id === 'settings') return this.closeSettings(); // toucher à côté : on ferme
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    const p = this.player;
+    if (btn.hasAttribute('data-sclose')) return this.closeSettings();
+    if (btn.dataset.tab) return this.openSettings(btn.dataset.tab);
+    if (btn.dataset.set) { setSetting(btn.dataset.set, !settings()[btn.dataset.set]); if (btn.dataset.set === 'sound' && settings().sound) this.sound.start(); }
+    else if (btn.dataset.setk) { const v = btn.dataset.setv; setSetting(btn.dataset.setk, /^\d+$/.test(v) ? Number(v) : v); }
+    else if (btn.hasAttribute('data-resettips')) { p.tips = []; this.tipAt = -1e9; this.floatNote(t('Les astuces réapparaîtront.')); }
+    this.openSettings();
+  }
+
   settingsHTML() {
     const s = settings();
     const sw = (key, label, icon) => this.choiceHTML(`data-set="${key}"`, icon, label, s[key] ? `✅ ${t('Activé')}` : `⬜ ${t('Coupé')}`, true);
     const chips = (key, opts) => `<div class="chips">${opts.map(([v, l]) => `<button class="chip ${String(s[key]) === String(v) ? 'on' : ''}" data-setk="${key}" data-setv="${v}">${esc(t(l))}</button>`).join('')}</div>`;
-    return `${this.head('⚙️', 'Paramètres')}
-      <div class="sec"><b>🌍 ${t('Langue')}</b>${chips('lang', LANGS)}
-        ${s.lang !== 'fr' ? '<p><small>Events, news and conversations are still in French for now.</small></p>' : ''}</div>
-      <div class="sec"><b>🔊 ${t('Son')}</b>
-        <div class="choices">${sw('sound', 'Son', '🔊')}</div>
+    const TABS = [['general', '🌍', 'Langue et affichage'], ['sound', '🔊', 'Son'], ['comfort', '📱', 'Confort'], ['battery', '🔋', 'Batterie']];
+    const PAGES = {
+      general: `<h3>🌍 ${t('Langue')}</h3>${chips('lang', LANGS)}
+        ${s.lang !== 'fr' ? '<p class="note">Events, news and conversations are still in French for now.</p>' : ''}
+        <h3>🔠 ${t('Taille du texte')}</h3>${chips('textSize', [['small', 'Petit'], ['normal', 'Normal'], ['large', 'Grand']])}`,
+      sound: `<div class="choices">${sw('sound', 'Son', '🔊')}</div>
         <label class="range">${t('Volume')} <input type="range" min="0" max="1" step="0.05" value="${s.volume}" data-range="volume"></label>
-        <div class="choices">${sw('music', 'Musique', '🎻')}${sw('ambience', 'Ambiances (ville, pluie, café)', '🌧️')}${sw('uiSounds', 'Sons de l’interface', '🔔')}</div></div>
-      <div class="sec"><b>📱 ${t('Confort')}</b>
-        <div class="choices">${sw('vibrate', 'Vibrations', '📳')}${sw('tips', 'Astuces', '💡')}</div>
-        <p>${t('Les événements s’effacent après')}</p>${chips('eventTimer', [[8, '8 s'], [12, '12 s'], [25, '25 s'], [0, 'jamais']])}
-        <p>${t('Taille du texte')}</p>${chips('textSize', [['small', 'Petit'], ['normal', 'Normal'], ['large', 'Grand']])}
-        <div class="choices">${this.choiceHTML('data-resettips', '💡', 'Revoir les astuces', '', true)}</div></div>
-      <div class="sec"><b>🔋 ${t('Économie de batterie')}</b><p>${t('Moins de passants et de voitures ; résolution réduite au prochain lancement.')}</p>
-        <div class="choices">${sw('saver', 'Économie de batterie', '🔋')}</div></div>`;
+        <div class="choices two">${sw('music', 'Musique', '🎻')}${sw('ambience', 'Ambiances (ville, pluie, café)', '🌧️')}${sw('uiSounds', 'Sons de l’interface', '🔔')}</div>`,
+      comfort: `<div class="choices two">${sw('vibrate', 'Vibrations', '📳')}${sw('tips', 'Astuces', '💡')}</div>
+        <h3>⏱️ ${t('Les événements s’effacent après')}</h3>${chips('eventTimer', [[8, '8 s'], [12, '12 s'], [25, '25 s'], [0, 'jamais']])}
+        <div class="choices">${this.choiceHTML('data-resettips', '💡', 'Revoir les astuces', '', true)}</div>`,
+      battery: `<p>${t('Moins de passants et de voitures ; résolution réduite au prochain lancement.')}</p>
+        <div class="choices">${sw('saver', 'Économie de batterie', '🔋')}</div>`,
+    };
+    const tab = PAGES[this.setTab] ? this.setTab : 'general';
+    return `<div class="card">
+      <nav>${TABS.map(([id, ic, l]) => `<button class="${id === tab ? 'on' : ''}" data-tab="${id}"><span>${ic}</span>${esc(t(l))}</button>`).join('')}</nav>
+      <section><div class="shead"><b>⚙️ ${t('Paramètres')}</b><button class="box-close" data-sclose title="${t('Fermer')}">✕</button></div>${PAGES[tab]}</section>
+    </div>`;
   }
-
   syncControls() {
     const w = this.world;
     $('b-pause').classList.toggle('on', w.paused);

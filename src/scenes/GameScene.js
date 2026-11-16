@@ -23,6 +23,12 @@ const GROUND = {
 const HW = TW / 2, HH = TH / 2;
 const depthAt = (x, y) => 10 + (x + y) * 10;
 
+// Façades : des teintes douces mais bien différentes, pour reconnaître chaque immeuble d'un coup d'œil
+const FACADES = [0xf1e4c8, 0xf3d9a4, 0xeec3b8, 0xc9dcc0, 0xc7d8e8, 0xe2b48f, 0xd9cdea, 0xf5cfa8, 0xe8e2d4, 0xd6c3a5, 0xbfd8d2, 0xf0d5c0];
+const ROOFS = [0x8796b0, 0x5f6c86, 0xb5654a, 0x6fa48f, 0x7a88a2, 0x9c5a4a];
+// Teinte du métier pour les commerces (en plus de l'auvent)
+const SHOP_TINT = { cafe: 0xe8c4a0, bakery: 0xf4dc9a, shop: 0xcfe8d2, fashion: 0xf2c6d8 };
+
 // Rendu isométrique de la carte + contrôles tactiles (glisser, pincer, toucher).
 export class GameScene extends Phaser.Scene {
   constructor() { super('game'); }
@@ -376,7 +382,7 @@ export class GameScene extends Phaser.Scene {
     const shadows = this.add.graphics().setDepth(0.5);
     const at = (x, y) => (this.map.tiles[y] && this.map.tiles[y][x] ? this.map.tiles[y][x].building : null);
     for (const b of this.map.buildings) {
-      const T = TYPES[b.type];
+      const T = this.lookFor(b);
       let sx = 0, sy = 0, top = Infinity;
       const door = b.tiles.filter(t => at(t.x, t.y + 1) !== b.id).sort((m, n) => (n.x + n.y) - (m.x + m.y))[0];
       for (const t of b.tiles) {
@@ -411,14 +417,30 @@ export class GameScene extends Phaser.Scene {
     this.hulls.sort((a, b) => b.depth - a.depth);
   }
 
+  // Couleur propre à chaque bâtiment : chaque logement a sa façade, chaque commerce la teinte de son métier,
+  // et les toits varient (zinc, ardoise, tuile, cuivre). Les services gardent leur apparence (police, hôpital…).
+  lookFor(b) {
+    const T = TYPES[b.type];
+    const roof = ROOFS[(b.id * 3 + 1) % ROOFS.length];
+    if (b.type === 'home') {
+      const col = FACADES[(b.id * 5) % FACADES.length];
+      return { ...T, left: col, right: shade(col, 0.86), roof };
+    }
+    if (SHOP_TINT[b.type]) {
+      const col = shade(SHOP_TINT[b.type], 0.97 + (b.id % 3) * 0.025);
+      return { ...T, left: col, right: shade(col, 0.86), roof };
+    }
+    return T;
+  }
+
   // Immeubles de décor (X sur la carte) : des parcelles de 2×2 cases, chacune avec sa hauteur, sa pierre,
   // son toit et parfois une boutique au rez-de-chaussée. Ce sont eux qui donnent l'effet « vraie ville ».
   drawFillers(shadows) {
     const tiles = this.map.tiles;
     const isF = (x, y) => !!(tiles[y] && tiles[y][x] && tiles[y][x].deco === 'filler');
     const lot = (x, y) => (isF(x, y) ? `${x >> 1},${y >> 1}` : null);
-    const STONE = [0xf1e4c8, 0xe8dcc6, 0xead2b0, 0xdcd6cc, 0xecd8cc, 0xe6cf9e, 0xf3e9d8];
-    const ROOF = [0x8796b0, 0x7a88a2, 0x6f7d96, 0x8796b0, 0xb5654a];
+    const STONE = FACADES;
+    const ROOF = ROOFS;
     const AWN = [0xd8504d, 0x3fae73, 0x2b4ea2, 0xe5a33a, 0x8a3a6b, 0x2f7d5b];
     const lots = new Map();
     for (let y = 0; y < this.map.h; y++) for (let x = 0; x < this.map.w; x++) {
