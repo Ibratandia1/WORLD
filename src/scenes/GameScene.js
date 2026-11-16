@@ -6,6 +6,7 @@ import { ensureCharTexture, randomLook } from '../look.js';
 import { attachControls } from '../camera.js';
 import { findPath } from '../sim/pathfinding.js';
 import { freeUnits, isClosed } from '../sim/city.js';
+import { shade } from '../color.js';
 import { drawTree, drawBuildingTile, drawShadow, drawGroundDetails, drawStreetDecor, makeCarTextures, Traffic, Crowd, rng, makeBirdTextures, Birds, twin, NIGHT, NIGHT_MAX } from '../city/render.js';
 
 const EMOJI_FONT = '"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
@@ -284,7 +285,56 @@ export class GameScene extends Phaser.Scene {
       }
       this.addBubble(b, sx / b.tiles.length, top - 8, T.icon);
     }
+    this.drawFillers(shadows);
     this.hulls.sort((a, b) => b.depth - a.depth);
+  }
+
+  // Immeubles de décor (X sur la carte) : des parcelles de 2×2 cases, chacune avec sa hauteur, sa pierre,
+  // son toit et parfois une boutique au rez-de-chaussée. Ce sont eux qui donnent l'effet « vraie ville ».
+  drawFillers(shadows) {
+    const tiles = this.map.tiles;
+    const isF = (x, y) => !!(tiles[y] && tiles[y][x] && tiles[y][x].deco === 'filler');
+    const lot = (x, y) => (isF(x, y) ? `${x >> 1},${y >> 1}` : null);
+    const STONE = [0xf1e4c8, 0xe8dcc6, 0xead2b0, 0xdcd6cc, 0xecd8cc, 0xe6cf9e, 0xf3e9d8];
+    const ROOF = [0x8796b0, 0x7a88a2, 0x6f7d96, 0x8796b0, 0xb5654a];
+    const AWN = [0xd8504d, 0x3fae73, 0x2b4ea2, 0xe5a33a, 0x8a3a6b, 0x2f7d5b];
+    const lots = new Map();
+    for (let y = 0; y < this.map.h; y++) for (let x = 0; x < this.map.w; x++) {
+      if (!isF(x, y)) continue;
+      const key = lot(x, y);
+      if (!lots.has(key)) {
+        const r = rng((x >> 1) * 92821 + (y >> 1) * 68917 + 7);
+        const wall = STONE[Math.floor(r() * STONE.length)];
+        const shop = r() < 0.35;
+        lots.set(key, {
+          height: [60, 72, 72, 84, 96][Math.floor(r() * 5)],
+          type: shop ? 'shop' : 'home',
+          T: {
+            ...TYPES.home, left: wall, right: shade(wall, 0.86), roof: ROOF[Math.floor(r() * ROOF.length)],
+            ...(shop ? { awning: AWN[Math.floor(r() * AWN.length)], firstFloor: 30 } : {}),
+          },
+        });
+      }
+      const L = lots.get(key);
+      const c = toScreen(x, y);
+      const info = {
+        type: L.type, expL: lot(x, y + 1) !== key, expR: lot(x + 1, y) !== key,
+        expBL: lot(x - 1, y) !== key, expBR: lot(x, y - 1) !== key,
+        r: rng((x + 3) * 7919 + (y + 5) * 104729), door: false,
+      };
+      if (info.expR) drawShadow(shadows, c.x, c.y, L.height);
+      const g = twin(this, depthAt(x, y), this.darks);
+      const lg = this.add.graphics().setDepth(depthAt(x, y) + 0.1).setAlpha(0);
+      drawBuildingTile(g, lg, c.x, c.y, L.height, L.T, info);
+      this.lights.push(lg);
+      this.hulls.push({
+        b: null, depth: g.depth,
+        poly: new Phaser.Geom.Polygon([
+          c.x, c.y - HH - L.height, c.x + HW, c.y - L.height, c.x + HW, c.y,
+          c.x, c.y + HH, c.x - HW, c.y, c.x - HW, c.y - L.height,
+        ]),
+      });
+    }
   }
 
   addBubble(b, x, y, icon) {
@@ -454,7 +504,8 @@ export class GameScene extends Phaser.Scene {
       if (Math.abs(wp.x - c.x) < 18 && wp.y > c.y - 30 && wp.y < c.y + 4) return state.ui.showPlace(b);
     }
     for (const hl of this.hulls) {
-      if (Phaser.Geom.Polygon.Contains(hl.poly, wp.x, wp.y)) return state.ui.showPlace(hl.b);
+      // (immeuble de décor : rien à faire, mais le toucher ne doit pas ouvrir le lieu caché derrière)
+      if (Phaser.Geom.Polygon.Contains(hl.poly, wp.x, wp.y)) return hl.b ? state.ui.showPlace(hl.b) : this.floatText('🏢 Immeuble d’habitation privé', '#7a6f96');
     }
     const t = toTile(wp.x, wp.y);
     if (!this.map.walk(t.x, t.y)) return;

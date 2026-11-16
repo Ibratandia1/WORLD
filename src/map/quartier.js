@@ -3,7 +3,7 @@
 //
 // Légende du sol :
 //   w  Seine (eau)     .  trottoir     =  rue (voitures)     :  ruelle / place pavée (piétons)
-//   g  herbe           T  arbre        o  fontaine         x  statue
+//   g  herbe           T  arbre        o  fontaine         x  statue        X  immeuble de décor
 // Lettres majuscules : un bâtiment (toutes les cases d'une même lettre forment un seul lieu).
 // Chaque ligne doit avoir la même longueur.
 //
@@ -11,7 +11,7 @@
 
 export const QUARTIER = {
   name: 'Le Marais',
-  layout: 2, // version du tracé : quand elle change, les sauvegardes replacent les passants sur le nouveau plan
+  layout: 3, // version du tracé : quand elle change, les sauvegardes replacent les passants sur le nouveau plan
 
   order: 'ACKOSBMDGEPRFLYV' + 'HNUIJQ' + 'Z',
 
@@ -24,6 +24,7 @@ export const QUARTIER = {
     T: { ground: 'grass', walk: false, deco: 'tree' },
     o: { ground: 'grass', walk: false, deco: 'fountain' },
     x: { ground: 'cobble', walk: false, deco: 'statue' }, // statue de Marianne, devant la mairie
+    X: { ground: 'pave', walk: false, deco: 'filler' },   // immeuble de décor (habité, mais on n'y entre pas) : la ville est dense
   },
 
   // Logements : rent = loyer par jour (payé chaque lundi pour la semaine), price = prix d'achat,
@@ -64,29 +65,29 @@ export const QUARTIER = {
     'ww..................................',
     '=====================...............',
     '.........=..........================',
-    '.AA.:CC..=.OOOO.:BB.......=.........',
-    '.AA.:CC..=.OOOO.:BB.SSS...=.GG..FF..',
-    '.A..:....=.OOOO.:...SSS...=.GG..FF..',
-    '...:..KK.=......:::.SS....=.GGG.....',
-    '..:...KK.=.HHH.T..:.......=....:....',
-    '.:.......=.HHH....:.PP....=.DD.:.LL.',
-    '.........=........:.PP....=.DD.:.LL.',
+    'XAA.:CCX.=.OOOO.:BB.......=.........',
+    'XAA.:CCX.=.OOOO.:BBXSSSXX.=.GGXXFFXX',
+    'XAX.:.XX.=.OOOO.:..XSSSXX.=.GGXXFFXX',
+    'XX.:.XKK.=.XXXX.:::.SSXXX.=.GGG.XXXX',
+    'X.:.XXKK.=.HHHXT..:.XXXXX.=.XX.:.XXX',
+    '.:.XXXXX.=.HHHX.X.:.PPXXX.=.DD.:.LLX',
+    '.........=......X.:.PPXXX.=.DD.:.LLX',
     '===============...:.......=....:....',
     '.........=....======================',
-    '.EEE.RR..=.................=........',
-    '.EEE.RR..=..NN.:::::::.UU..=.TgTgTg.',
-    '.E.......==.NN.:T:o:T:.UU..=.gggggg.',
-    '.gggg..:..=....:::::::.....=.TgoggT.',
-    '.goTg.:...=.MM.:T:::T:.II..=.gggggg.',
-    '.gTgg:....=..........:.II..=.JJ.....',
+    'XEEEXRRX.=.XX..............=........',
+    'XEEEXRRX.=..NN.:::::::.UUX.=.TgTgTg.',
+    'XE...XX..==.NN.:T:o:T:.UUX.=.gggggg.',
+    '.gggg..:..=.XX.:::::::.XXX.=.TgoggT.',
+    '.goTg.:.X.=.MM.:T:::T:.IIX.=.gggggg.',
+    '.gTgg:.XX.=.XXX......:.II..=.JJ.....',
     '.....:....=............=============',
     '========================...=........',
-    '..........=................=.ZZZZ...',
-    '.YY..:QQ..=.VVV.:.gTgggTg..=.ZZZZ.T.',
-    '.YY..:QQ..=.VVV.:.gggogg...=.ZZZZ...',
-    '.....:....=.....:.gTgggTg..=.:::::..',
-    '.gTg.:....=..:::::.........=T::x::T.',
-    '.ggT.:..T.=..:.............=.:::::..',
-    '..........=................=........',
+    '..........=................=.ZZZZX.X',
+    'XYYX.:QQX.=.VVV.:.gTgggTg..=.ZZZZ.TX',
+    'XYYX.:QQX.=.VVV.:.gggogg...=.ZZZZ..X',
+    'X....:.XX.=.X...:.gTgggTg..=.:::::.X',
+    '.gTg.:.X..=..:::::.......X.=T::x::TX',
+    '.ggT.:..T.=..:....XXXXXXXX.=.:::::.X',
+    '......XX..=...XXXXXXXXXXXX.=......XX',
   ],
 };
