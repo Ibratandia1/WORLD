@@ -12,3 +12,6 @@ game world/
 # Secrets (ne jamais sauvegarder une clé API)
 .env
 *.key
+
+# Images d'inspiration (références, pas utilisées par le jeu) : gardées sur le PC, pas publiées
+image dinspiration/
