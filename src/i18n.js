@@ -123,7 +123,10 @@ const EN = {
   'Voler à l’étalage (risqué)': 'Shoplift (risky)', 'Cambrioler (la nuit, très risqué)': 'Burgle (at night, very risky)',
   'Arrêter': 'Arrest', 'Porter plainte': 'File a complaint', 'Éteindre l’incendie': 'Put out the fire',
   'Consulter un médecin': 'See a doctor', 'Suivre un cours (2 h)': 'Take a class (2 h)', 'En prison': 'In prison',
-  'Récupérer la récompense': 'Collect reward', 'Rejoindre': 'Join', 'Y aller': 'Go there',
+  'Récupérer la récompense': 'Collect reward',
+  'Regarder': 'Look', 'S’asseoir un moment': 'Sit for a while', 'Un en-cas au distributeur': 'A snack from the machine',
+  'Boire un verre d’eau': 'Drink some water', 'Feuilleter un livre': 'Browse a book', 'Arroser la plante': 'Water the plant',
+  'Sortir de la boutique': 'Leave the shop', 'Poste': 'Job', 'Rejoindre': 'Join', 'Y aller': 'Go there',
   'Activer la routine': 'Turn routine on', 'Désactiver la routine': 'Turn routine off',
   // --- Fiches ---
   '✨ Interagir': '✨ Interact',

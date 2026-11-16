@@ -38,7 +38,8 @@ const ACT_CAT = {};
 const cat = (c, ids) => ids.forEach(id => { ACT_CAT[id] = c; });
 cat('food', ['coffee', 'eat_cafe', 'eat_bakery', 'groceries', 'eat_home', 'crepe', 'market_buy']);
 cat('work', ['work', 'overtime', 'apply', 'call_sick', 'quit_job', 'study']);
-cat('rest', ['sleep', 'nap', 'watch_tv', 'read_book', 'sit_bench', 'admire_statue', 'wish_fountain', 'feed_pigeons', 'dance', 'sleep_rough']);
+cat('rest', ['sleep', 'nap', 'watch_tv', 'read_book', 'sit_bench', 'admire_statue', 'wish_fountain', 'feed_pigeons', 'dance', 'sleep_rough', 'sit_here', 'browse_books', 'water_plant', 'inspect']);
+cat('food', ['vending_snack', 'drink_water']);
 cat('social', ['talk', 'joke', 'wave', 'gift', 'treat', 'stroll', 'lend', 'recommend', 'ask_tip', 'tip']);
 cat('money', ['pay_rent', 'rent_home', 'buy_home', 'buy', 'allocation', 'claim_goal', 'shopping', 'repair', 'scratch', 'brocante_hunt', 'use_vehicle', 'buy_umbrella']);
 cat('civic', ['vote', 'run_mayor', 'set_policy', 'city_project', 'report', 'consult', 'enter', 'leave', 'goto', 'metro']);
@@ -305,7 +306,7 @@ export class UI {
     const buttons = o.actions.map(id => {
       if (!isNear) return this.choiceHTML('', ACTIONS[id].icon, ACTIONS[id].label, '', 'Approche-toi d’abord');
       if (o.building && ACTIONS[id].place && !this.world.canDoAt(this.player, id, o.building)) return this.choiceHTML('', ACTIONS[id].icon, ACTIONS[id].label, '', 'Pas possible ici');
-      return this.actBtn(id);
+      return this.actBtn(id, o.params || {});
     });
     if (!isNear) buttons.unshift(this.choiceHTML('data-goobj', '🚶', 'Y aller', '', true));
     return `${this.head(o.icon, o.name)}<div class="choices">${buttons.join('')}</div>`;
@@ -418,12 +419,12 @@ export class UI {
     // Ici même (pas dans le commerce du même type le plus proche)
     for (const id of Object.keys(ACTIONS)) if (!ACTIONS[id].custom && w.canDoAt(p, id, b)) buttons.push(this.actBtn(id, ACTIONS[id].place.type ? { at: b.id } : {}));
 
-    // Emploi
-    let note = '';
+    // Emploi : le poste à pourvoir passe en premier (bandeau juste sous le titre)
+    let note = '', jobTop = '';
     if (b.jobs && !(p.job && p.job.building === b.id)) {
       const n = openings(w, b);
-      note = `<p>${n ? `${n} poste${n > 1 ? 's' : ''} libre${n > 1 ? 's' : ''} · ${b.jobs.wage} €/h` : 'Pas de poste libre pour l’instant.'}</p>`;
-      buttons.push(this.actBtn('apply', { building: b.id }, `Postuler (${b.jobs.wage} €/h)`));
+      const title = JOB_TITLES[b.type] || 'Poste';
+      jobTop = `<div class="jobtop"><span>💼 ${esc(t(title))} · ${b.jobs.wage} €/h · ${n ? `${n} poste${n > 1 ? 's' : ''} libre${n > 1 ? 's' : ''}` : 'complet'}</span>${this.actBtn('apply', { building: b.id }, 'Postuler')}</div>`;
     } else if (p.job && p.job.building === b.id) {
       note = `<p>Ton travail · ${fmtShift(p.job)} · ${p.job.days.map(d => DAY_SHORT[d]).join(' ')}</p>`;
     }
@@ -482,12 +483,14 @@ export class UI {
       note = `<p class="status">${status}</p>${life}${note}`;
     }
 
+    // Tout en bas : sortir (bouton pleine largeur)
+    let leave = '';
     if (inside) {
       if (!note) note = `<p>${t('Touche un meuble ou une personne.')}</p>`;
-      buttons.push(this.choiceHTML('data-leave class="c-civic"', '🚶', 'Sortir dans la rue', '', true));
+      leave = `<div class="leave">${this.choiceHTML('data-leave class="c-civic"', '🚶', b.type === 'home' ? 'Sortir dans la rue' : 'Sortir de la boutique', '', true)}</div>`;
     }
     const icon = b.type === 'home' && b.id === p.home ? (p.housing === 'own' ? '🔑' : '🏠') : TYPES[b.type].icon;
-    return `${this.head(icon, b.name, !inside)}${note}<div class="choices">${buttons.join('')}</div>${this.shopHTML(b, inside)}${b.type === 'cityhall' ? this.govHTML(b, inside) : ''}`;
+    return `${this.head(icon, b.name, !inside)}${jobTop}${note}<div class="choices">${buttons.join('')}</div>${this.shopHTML(b, inside)}${b.type === 'cityhall' ? this.govHTML(b, inside) : ''}${leave}`;
   }
 
   // Mairie : le maire, la politique, les caisses, les élections (vote, candidature), les décisions du maire

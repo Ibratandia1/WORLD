@@ -495,3 +495,37 @@ body.text-large #quest { font-size: 13px; }
 #quest .qh { color: var(--accent); }
 #tip { background: linear-gradient(135deg, #3d2f6b, #5b3fa8); }#box.wide .choices button small { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 #box.wide .choices button em { font-size: 10.5px; }
+/* Fiche d'un lieu plus compacte (ne prend pas tout l'écran), poste en haut, sortir en bas */
+#box.wide { width: min(480px, 50vw); max-height: min(52vh, 320px); font-size: 12px; padding: 8px 10px; }
+#box.wide .box-head { margin: -8px -10px 5px; padding: 7px 10px; }
+#box.wide .box-head .ico { font-size: 18px; }
+#box.wide .choices { grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); gap: 4px; }
+#box.wide .choices button { padding: 5px 7px; gap: 5px; font-size: 11.5px; }
+#box.wide .choices button > span { width: 22px; height: 22px; font-size: 13px; }
+#box.wide p { margin: 3px 0 4px; font-size: 11.5px; }
+#box.wide .sec { margin-top: 4px; padding-top: 4px; }
+#box .jobtop {
+  display: flex; align-items: center; gap: 6px; margin: 0 0 5px; padding: 4px 6px; border-radius: 10px;
+  background: #eef4ff; border: 1px dashed #9fbdf0; font-size: 11.5px; font-weight: 600; color: #2b4ea2;
+}
+#box .jobtop span { flex: 1; min-width: 0; }
+#box .jobtop button { flex: none; padding: 4px 8px; border-left-width: 3px; }
+#box .jobtop button .lbl small { font-size: 9.5px; max-width: 150px; }
+#box .leave { margin-top: 6px; }
+#box .leave button { width: 100%; justify-content: center; }
+@media (max-height: 420px) {
+  #box.wide { width: min(440px, 50vw); max-height: 62vh; }
+}#box .jobtop button {
+  display: flex; align-items: center; gap: 4px; border: 0; border-radius: 10px; padding: 4px 9px; cursor: pointer;
+  background: #3f7fe0; color: #fff; font: inherit; font-size: 11.5px; font-weight: 700;
+}
+#box .jobtop button span { font-family: var(--emoji); }
+#box .jobtop button em { display: none; }
+#box .jobtop button .lbl { display: flex; flex-direction: column; text-align: left; }
+#box .jobtop button[disabled] { background: #c9d3e6; color: #4a5672; cursor: default; }#box .leave button {
+  display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; border: 0; border-radius: 10px;
+  padding: 7px 10px; cursor: pointer; font: inherit; font-weight: 700; color: #fff;
+  background: linear-gradient(135deg, #2b4ea2, #4a6fd0);
+}
+#box .leave button span { font-family: var(--emoji); font-size: 15px; }
+#box .leave button em { display: none; }

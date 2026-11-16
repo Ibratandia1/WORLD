@@ -5,6 +5,26 @@ import { ACTIONS } from '../sim/actions.js';
 import { TYPES } from '../map/types.js';
 import { ensureCharTexture, ensurePose } from '../look.js';
 import { attachControls } from '../camera.js';
+
+// Noms des meubles et usages par défaut (quand le plan ne leur donne pas d'action)
+const ITEM_NAMES = {
+  desk: 'Bureau', chair: 'Chaise', stool: 'Tabouret', plant: 'Plante', bigplant: 'Grande plante', meeting: 'Table de réunion',
+  counter: 'Comptoir', coffee: 'Machine à café', register: 'Caisse', urne: 'Urne', flagstand: 'Drapeau', bust: 'Buste de Marianne',
+  reception: 'Accueil', sofa: 'Canapé', tablec: 'Table', vending: 'Distributeur', cooler: 'Fontaine à eau', printer: 'Imprimante',
+  bossdesk: 'Grand bureau', armchair: 'Fauteuil', bookshelf: 'Bibliothèque', bed: 'Lit', nightstand: 'Table de nuit', tvstand: 'Télé',
+  fridge: 'Frigo', kitchen: 'Cuisine', tableh: 'Table', breadshelf: 'Étagère à pain', display: 'Vitrine', oven: 'Four',
+  worktable: 'Plan de travail', sacks: 'Sacs de farine', bench: 'Banc', shelf: 'Rayon', fridgeglass: 'Frigo vitré', rack: 'Portant',
+  foldtable: 'Table de pliage', fitting: 'Cabine d’essayage', carshow: 'Véhicule exposé', tires: 'Pneus', workbench: 'Établi',
+  bike: 'Vélo', cakes: 'Gâteaux', rug: 'Tapis',
+};
+const genericActions = k => {
+  if (['chair', 'stool', 'bench', 'sofa', 'armchair'].includes(k)) return ['sit_here', 'inspect'];
+  if (k === 'vending') return ['vending_snack', 'inspect'];
+  if (k === 'cooler') return ['drink_water', 'inspect'];
+  if (k === 'bookshelf') return ['browse_books', 'inspect'];
+  if (k === 'plant' || k === 'bigplant') return ['water_plant', 'inspect'];
+  return ['inspect'];
+};
 import { shade } from '../color.js';
 import { state } from '../state.js';
 
@@ -649,6 +669,8 @@ export class InteriorScene extends Phaser.Scene {
       const action = (it && (it.action || (it.actions && it.actions[0]))) || (st && st.a.find(a => a !== 'any'));
       if (action) return this.tryAction(action);
       if (it && it.k === 'stairs_up') return this.setFloor((this.floorIdx + 1) % this.floors.length);
+      // Tout le reste est aussi touchable : regarder, s'asseoir, arroser, un en-cas…
+      if (it) return state.ui.showObject({ name: it.name || ITEM_NAMES[it.k] || 'Objet', icon: '✨', actions: genericActions(it.k), params: { what: it.k }, building: this.building });
     }
   }
 

@@ -20,6 +20,25 @@ import { isPolice } from './safety.js';
 //   onStart / tick(a, w, dt) / effect(a, w, p) => message optionnel
 
 const target = (w, p) => w.actorById(p.who);
+
+// Petites descriptions des meubles (action « Regarder »)
+export const ITEM_FLAVOR = {
+  desk: 'Un bureau bien rangé… presque.', chair: 'Une chaise solide.', stool: 'Un tabouret un peu bancal.',
+  plant: 'Une plante verte qui aimerait un peu d’eau.', bigplant: 'Une grande plante, fière de ses feuilles.',
+  meeting: 'La grande table des réunions interminables.', counter: 'Le comptoir, bien astiqué.', coffee: 'Ça sent bon le café.',
+  register: 'La caisse enregistreuse fait « ding ».', urne: 'L’urne transparente des élections.', flagstand: 'Bleu, blanc, rouge.',
+  bust: 'Le buste de Marianne, symbole de la République.', reception: 'L’accueil, avec son petit bouquet.', sofa: 'Un canapé moelleux.',
+  tablec: 'Une petite table ronde.', vending: 'Un distributeur plein de friandises.', cooler: 'Une fontaine à eau qui glougloute.',
+  printer: 'L’imprimante… encore en panne de papier.', bossdesk: 'Le grand bureau de la direction.', armchair: 'Un fauteuil confortable.',
+  bookshelf: 'Des livres de toutes les couleurs.', bed: 'Un lit bien fait.', nightstand: 'Une table de nuit et sa petite lampe.',
+  tvstand: 'La télé.', fridge: 'Le frigo ronronne.', kitchen: 'La cuisine.', tableh: 'La table de la maison.',
+  breadshelf: 'Baguettes, pains de campagne, croissants…', display: 'Une vitrine qui donne faim.', oven: 'Le four est brûlant !',
+  worktable: 'Le plan de travail, plein de farine.', sacks: 'Des sacs de farine de 25 kg.', bench: 'Un banc en bois.',
+  shelf: 'Un rayon bien achalandé.', fridgeglass: 'Boissons fraîches et produits laitiers.', rack: 'Un portant de vêtements à la mode.',
+  foldtable: 'Des pulls pliés au carré.', fitting: 'La cabine d’essayage.', carshow: 'Un véhicule rutilant.',
+  tires: 'Une pile de pneus.', workbench: 'L’établi et ses outils.', bike: 'Un joli vélo.', cakes: 'Des gâteaux appétissants.',
+  stairs_up: 'L’escalier vers l’étage.',
+};
 // Proche, ou joignable par téléphone si on se connaît
 export const canReach = (a, t) => near(a, t) || ((hasPhone(a) || hasPhone(t)) && rel(a, t) >= 10);
 const nearCheck = (a, w, p) => {
@@ -759,6 +778,38 @@ export const ACTIONS = {
       for (const o of others) addRel(a, o, 3);
       return others.length ? `Quelle ambiance ! Tu danses avec ${others.length} personne${others.length > 1 ? 's' : ''} · ❤ +3` : 'Quelle ambiance !';
     },
+  },
+
+  // ---------- Objets d'intérieur sans fonction particulière : on peut quand même s'en servir ----------
+  inspect: {
+    icon: '👀', label: 'Regarder', instant: true,
+    can: a => (a.inside == null ? 'Seulement à l’intérieur' : true),
+    effect: (a, w, p) => ITEM_FLAVOR[p && p.what] || 'Rien de spécial… mais c’est plutôt joli.',
+  },
+  sit_here: {
+    icon: '🪑', label: 'S’asseoir un moment', here: true, duration: 15, skip: 3,
+    can: a => (a.inside == null ? 'Seulement à l’intérieur' : true),
+    effect: a => { a.energy += 3; a.mood += 2; return 'Ça fait du bien de s’asseoir.'; },
+  },
+  vending_snack: {
+    icon: '🍫', label: 'Un en-cas au distributeur', instant: true, cost: 2,
+    can: a => (a.inside == null ? 'Seulement à l’intérieur' : true),
+    effect: a => { a.hunger -= 8; a.energy += 3; return 'Clac ! Une barre chocolatée.'; },
+  },
+  drink_water: {
+    icon: '💧', label: 'Boire un verre d’eau', instant: true,
+    can: a => (a.inside == null ? 'Seulement à l’intérieur' : true),
+    effect: a => { a.energy += 2; return 'Un verre d’eau fraîche.'; },
+  },
+  browse_books: {
+    icon: '📚', label: 'Feuilleter un livre', here: true, duration: 20, skip: 4,
+    can: a => (a.inside == null ? 'Seulement à l’intérieur' : true),
+    effect: a => { a.mood += 3; return 'Quelques pages passionnantes.'; },
+  },
+  water_plant: {
+    icon: '🪴', label: 'Arroser la plante', instant: true,
+    can: a => (a.inside == null ? 'Seulement à l’intérieur' : true),
+    effect: a => { a.mood += 1; a.karma += 0.1; return 'La plante a l’air contente.'; },
   },
 
   admire_statue: {
