@@ -6,6 +6,7 @@ import { EventDirector } from './sim/events.js';
 import { CityLife } from './sim/city.js';
 import { Government } from './sim/gov.js';
 import { ensureGoals, trackGoals } from './sim/goals.js';
+import { Festivals } from './sim/festivals.js';
 import { UI } from './ui.js';
 import { GameScene } from './scenes/GameScene.js';
 import { InteriorScene } from './scenes/InteriorScene.js';
@@ -35,6 +36,8 @@ if (!TEST) {
 
 // Nouvelle partie : le quartier s'éveille un peu avant que tu prennes la main (les commerçants ont ouvert)
 if (!resumed) for (let i = 0; i < 25; i++) world.step(1);
+
+new Festivals(world); // marché, brocante, concerts… (world.festivals), après le chargement pour partir du bon jour
 
 // Objectifs : une partie reprise après le 3e jour n'a pas besoin du tutoriel
 ensureGoals(player, resumed && world.day > 3);

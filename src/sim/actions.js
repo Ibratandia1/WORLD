@@ -594,6 +594,38 @@ export const ACTIONS = {
     },
   },
 
+  // ---------- Fêtes du quartier (sur place, quand la fête a lieu là où l'on est) ----------
+  market_buy: {
+    icon: '🧺', label: 'Acheter des produits frais', here: true, duration: 15, cost: 12, skip: 3,
+    can: (a, w) => (!w.festivals || !w.festivals.here(a, 'marche') ? 'Seulement au marché du dimanche' : a.home == null ? 'Pas de cuisine sans logement' : true),
+    effect: a => { a.food += 3; a.mood += 4; a.festDay = a.festDay || {}; return 'Panier plein de bons produits (3 repas) !'; },
+  },
+  crepe: {
+    icon: '🥞', label: 'Une crêpe au sucre', here: true, duration: 10, cost: 4, skip: 3,
+    can: (a, w) => (w.festivals && (w.festivals.here(a, 'marche') || w.festivals.here(a, 'brocante') || w.festivals.here(a, 'musique')) ? true : 'Il n’y a pas de stand de crêpes ici'),
+    effect: a => { a.hunger -= 20; a.mood += 4; return 'Miam !'; },
+  },
+  brocante_hunt: {
+    icon: '🏺', label: 'Chiner (10 €)', here: true, duration: 30, cost: 10, skip: 4,
+    can: (a, w) => (w.festivals && w.festivals.here(a, 'brocante') ? true : 'Seulement pendant la brocante'),
+    effect: a => {
+      const r = Math.random();
+      if (r < 0.12) { a.money += 60; a.mood += 8; return '💎 Un trésor ! Revendu 60 € à un collectionneur.'; }
+      if (r < 0.7) { a.mood += 7; return 'Une jolie trouvaille pour ton appartement.'; }
+      a.mood += 2; return 'Rien de spécial, mais une belle balade.';
+    },
+  },
+  dance: {
+    icon: '💃', label: 'Danser', here: true, duration: 30, skip: 3,
+    can: (a, w) => (w.festivals && (w.festivals.here(a, 'concert') || w.festivals.here(a, 'musique')) ? (a.energy < 15 ? 'Trop fatigué·e pour danser' : true) : 'Pas de musique ici'),
+    effect: (a, w) => {
+      a.mood += 12; a.energy -= 6;
+      const others = w.actors.filter(o => o !== a && near(a, o) && o.doing === 'dance');
+      for (const o of others) addRel(a, o, 3);
+      return others.length ? `Quelle ambiance ! Tu danses avec ${others.length} personne${others.length > 1 ? 's' : ''} · ❤ +3` : 'Quelle ambiance !';
+    },
+  },
+
   admire_statue: {
     icon: '🗽', label: 'Admirer la statue', here: true, duration: 10, skip: 3,
     can: a => (a.outdoors ? true : 'Seulement dehors'),

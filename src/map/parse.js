@@ -81,7 +81,7 @@ export function parseMap(def) {
   };
 
   return {
-    name: def.name, layout: def.layout || 1, w, h, tiles, buildings, byLetter, entranceMap, walk,
+    name: def.name, layout: def.layout || 1, places: def.places || {}, w, h, tiles, buildings, byLetter, entranceMap, walk,
     walkable, footpaths, nearestWalkable,
     randomWalkable: () => walkable[Math.floor(Math.random() * walkable.length)],
     randomFootpath: () => footpaths[Math.floor(Math.random() * footpaths.length)],

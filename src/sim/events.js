@@ -5,6 +5,7 @@ const bossName = (w, a) => { const m = managerOf(w, a); return m ? `${m.name}, t
 const landlordName = w => { const l = roleOf(w, 'landlord'); return l ? l.name : 'Ton propriétaire'; };
 import { nextShiftText } from './actions.js';
 import { MAYOR_PAY } from './gov.js';
+import { festById } from './festivals.js';
 
 // Les décisions arrivent par événements, et chaque événement naît d'une situation réelle :
 // l'heure, le lieu, la météo, les besoins, le travail, le loyer, les gens autour.
@@ -191,6 +192,22 @@ export const EVENTS = [
   },
 
   // ---------- La vie du quartier ----------
+  {
+    // Une fête commence (marché, brocante, concert…) : une invitation, une fois par fête et par jour
+    id: 'fete', icon: '🎪', cooldown: 180,
+    when: (a, w, d) => {
+      if (!w.festivals || a.doing || a.inside != null) return null;
+      d.festSeen = d.festSeen || {};
+      const id = [...w.festivals.active].find(i => d.festSeen[i] !== w.day && !w.festivals.here(a, i));
+      return id ? festById(id) : null;
+    },
+    onFire: (a, w, f, d) => { d.festSeen[f.id] = w.day; },
+    title: (a, w, f) => `${f.icon} ${f.name}`,
+    text: (a, w, f) => f.news,
+    choices: (a, w, f) => (f.where === 'partout'
+      ? [{ icon: '🎶', label: 'Super !' }]
+      : [{ icon: '🚶', label: 'Y aller', action: 'goto', params: w.festivals.target(f) }, { icon: '⏳', label: 'Plus tard' }]),
+  },
   {
     // Bureaux de vote ouverts et tu n'as pas encore voté (dans la rue, en journée)
     id: 'elections', icon: '🗳️', title: 'Élections municipales', once: 'day', cooldown: 600,

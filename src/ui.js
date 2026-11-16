@@ -152,6 +152,7 @@ export class UI {
     this.sound.setScene({
       outdoors: p.outdoors, weather: w.weather, hour: w.hour, season: w.season,
       place: p.inside != null ? w.building(p.inside).type : null, pulse: cityPulse(w.hour),
+      fest: w.festivals && p.outdoors ? w.festivals.around(p)[0] || null : null,
     });
 
     const h = w.hour;

@@ -110,6 +110,7 @@ export class World extends Emitter {
 
     if (this.day !== prevDay) this.newDay();
     if (this.city) this.city.update();
+    if (this.festivals) this.festivals.update();
     for (const d of this.directors) d.update(dt);
   }
 

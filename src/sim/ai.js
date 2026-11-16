@@ -2,6 +2,7 @@ import { shiftNow, openings } from './jobs.js';
 import { nearby, canPause } from './social.js';
 import { ACTIONS } from './actions.js';
 import { priceMul } from './city.js';
+import { festById } from './festivals.js';
 
 // Heure du coucher : assez tôt pour 8 h de sommeil avant le service du lendemain
 const bedtimeOf = a => (a.job ? (a.job.start + 24 - 8.75) % 24 : 23);
@@ -106,6 +107,23 @@ export function decide(a, w, opts = {}) {
   const others = nearby(w, a).filter(o => o.controller !== 'player' && !o.doing && canPause(o, w));
   if (others.length && Math.random() < 0.2) return { id: 'talk', params: { who: others[Math.floor(Math.random() * others.length)].id } };
   const r = Math.random();
+  // Les fêtes du quartier attirent du monde : on y va, puis on y participe (une fois par fête et par jour)
+  const fests = w.festivals ? [...w.festivals.active] : [];
+  if (fests.length) {
+    a.festDay = a.festDay || {};
+    const here = w.festivals.around(a).filter(id => a.festDay[id] !== w.day);
+    if (here.length) {
+      const id = here[0];
+      const pick = { marche: ['market_buy', 'crepe'], brocante: ['brocante_hunt', 'crepe'], concert: ['dance'], musique: ['dance', 'crepe'] }[id];
+      const act = pick.find(x => w.check(a, x) === true && (x !== 'crepe' || a.hunger > 30));
+      a.festDay[id] = w.day;
+      if (act) return { id: act };
+    } else {
+      const want = fests.find(id => a.festDay[id] !== w.day && id !== 'musique');
+      if (want && r < 0.45 && w.weather !== 'rain' && w.weather !== 'snow') return { id: 'goto', params: w.festivals.target(festById(want)) };
+      if (fests.includes('musique') && a.festDay.musique !== w.day && r < 0.3) return { id: 'goto', params: w.map.randomFootpath() };
+    }
+  }
   // La météo change les habitudes : sous la pluie ou la neige on se réfugie au café ou chez soi,
   // aux beaux jours on traîne dehors (bancs, terrasses)
   const wet = w.weather === 'rain' || w.weather === 'snow';

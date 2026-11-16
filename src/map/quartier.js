@@ -15,6 +15,12 @@ export const QUARTIER = {
 
   order: 'ACKOSBMDGEPRFLYV' + 'HNUIJQ' + 'Z',
 
+  // Lieux des fêtes du quartier (centre de la place)
+  places: {
+    marche: { x: 18, y: 17, name: 'place du Marché' },
+    vosges: { x: 31, y: 18, name: 'place des Vosges' },
+  },
+
   legend: {
     w: { ground: 'water', walk: false },
     '.': { ground: 'pave', walk: true },

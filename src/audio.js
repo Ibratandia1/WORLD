@@ -71,7 +71,10 @@ export class Sound {
     this.ramp(this.rain, s.weather === 'rain' ? (out ? 0.16 : 0.07) : 0, 2);
     this.ramp(this.wind, s.weather === 'snow' ? 0.09 : s.weather === 'cloud' && out ? 0.02 : 0, 2);
     const lively = !out && ['cafe', 'bakery', 'shop', 'cityhall', 'fashion'].includes(s.place);
-    this.ramp(this.crowd, lively ? 0.05 : 0, 0.6);
+    const fair = out && (s.fest === 'marche' || s.fest === 'brocante' || s.fest === 'concert');
+    this.ramp(this.crowd, lively ? 0.05 : fair ? 0.04 : 0, 0.6);
+    // Musique des fêtes (concert, fête de la musique) : une petite valse musette jouée en direct
+    if (out && (s.fest === 'concert' || s.fest === 'musique')) this.music();
 
     const r = Math.random();
     const day = s.hour >= 6 && s.hour < 20;
@@ -112,6 +115,19 @@ export class Sound {
   cricket() { for (let i = 0; i < 3; i++) this.tone(4300, 0.04, { type: 'triangle', vol: 0.012, delay: i * 0.07, bus: this.amb }); }
   car() { const up = Math.random() < 0.5; this.noise(1.6, { freq: up ? 300 : 900, to: up ? 900 : 300, q: 0.8, vol: 0.05, bus: this.amb }); }
   clink() { const f = 2600 + Math.random() * 1200; this.tone(f, 0.12, { vol: 0.03, bus: this.amb }); this.tone(f * 1.5, 0.08, { vol: 0.015, delay: 0.01, bus: this.amb }); }
+
+  // Valse (3 temps) sur une grille d'accords la mineur – fa – do – mi : basse au 1er temps, accord ensuite,
+  // et une mélodie qui monte et descend sur les notes de l'accord. Appelée toutes les 250 ms.
+  music() {
+    const CHORDS = [[57, 60, 64], [53, 57, 60], [48, 52, 55], [52, 56, 59]];
+    const midi = m => 440 * Math.pow(2, (m - 69) / 12);
+    const b = this.beat = (this.beat || 0) + 1;
+    const bar = Math.floor(b / 3) % 8, ch = CHORDS[Math.floor(bar / 2) % 4], t = b % 3;
+    if (t === 0) this.tone(midi(ch[0] - 12), 0.45, { vol: 0.06, bus: this.amb });
+    else { this.tone(midi(ch[1]), 0.18, { type: 'triangle', vol: 0.025, bus: this.amb }); this.tone(midi(ch[2]), 0.18, { type: 'triangle', vol: 0.02, bus: this.amb }); }
+    const melody = [2, 1, 0, 1, 2, 2, 1, 0][(b + bar) % 8];
+    this.tone(midi(ch[melody] + 12), 0.22, { type: 'square', vol: 0.018, bus: this.amb });
+  }
 
   click() { this.tone(880, 0.05, { type: 'triangle', vol: 0.08 }); }
   chime() { this.tone(784, 0.25, { vol: 0.12 }); this.tone(1175, 0.35, { vol: 0.1, delay: 0.12 }); }
