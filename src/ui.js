@@ -73,6 +73,7 @@ export class UI {
     $('p-job').onclick = () => this.showLife();
     $('p-home').onclick = () => this.showLife();
     $('p-next').onclick = () => this.showLife();
+    $('b-exit').onclick = () => { world.perform(player, 'leave'); this.render(); };
     $('b-map').onclick = () => this.showPanel('map');
     $('b-people').onclick = () => this.showPanel('people');
     $('quest').addEventListener('click', e => this.onQuestClick(e));
@@ -128,6 +129,7 @@ export class UI {
     if (next) { $('v-nexti').textContent = next[0]; $('v-next').textContent = next[1]; }
     this.syncQuest();
     this.checkTips(performance.now());
+    this.tickEvent(dt);
 
     const h = w.hour;
     let night = 0;
@@ -278,7 +280,7 @@ export class UI {
       const def = c.action ? ACTIONS[c.action] : null;
       return this.choiceHTML(`data-choice="${i}"`, c.icon, c.label, def ? this.meta(def, c.params) : '', this.director.check(c));
     }).join('');
-    return `${this.head(ev.icon, ev.title, false)}<p>${esc(ev.text).replace(/\n/g, '<br>')}</p><div class="choices">${buttons}</div>`;
+    return `${this.head(ev.icon, ev.title, false)}<p>${esc(ev.text).replace(/\n/g, '<br>')}</p><div class="choices">${buttons}</div><div class="evtimer"><i style="width:100%"></i></div>`;
   }
 
   // Panneau d'un lieu : vu de la rue (inside = false) ou depuis l'intérieur.
@@ -571,6 +573,23 @@ export class UI {
     if (w.hour >= 22 || w.hour < 5) return ['😴', 'au lit'];
     return null;
   }
+
+  // ---------- Les événements s'effacent tout seuls après un moment ----------
+  // (temps réel, compté seulement quand l'événement est affiché : simple info 12 s, choix à faire 25 s)
+  tickEvent() {
+    const ev = this.director.active;
+    const shown = ev && !this.place && !this.life && !this.person && !this.object && !this.panel;
+    if (!ev) { this.evShown = null; return; }
+    if (this.evShown !== ev) { this.evShown = ev; this.evLeft = this.evLife(ev); this.evLast = performance.now(); }
+    const now = performance.now();
+    if (shown) this.evLeft -= now - this.evLast;
+    this.evLast = now;
+    const bar = document.querySelector('#box .evtimer i');
+    if (bar) bar.style.width = `${Math.max(0, this.evLeft / this.evLife(ev)) * 100}%`;
+    if (this.evLeft <= 0) { this.director.close(); this.evShown = null; this.render(); }
+  }
+
+  evLife(ev) { return ev.choices.some(c => c.action) ? 25000 : 12000; }
 
   // ---------- Astuces : une à la fois, chacune une seule fois ----------
   checkTips(now) {

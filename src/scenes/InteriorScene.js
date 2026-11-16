@@ -232,6 +232,11 @@ export class InteriorScene extends Phaser.Scene {
     const top = P(-0.5, -0.5, L.wallH);
     const title = this.floors.length > 1 ? `${b.name} · ${L.name}` : b.name;
     this.makePill(top.x, top.y - 16, icon, title, null, 0x3d3357, true);
+    // La porte : la toucher (ou l'étiquette) fait sortir directement dans la rue
+    if (L.entrance) {
+      const d = P(L.entrance.x + 0.15, L.entrance.y + 0.75, 4);
+      this.exitPill = this.makePill(d.x, d.y + 14, '🚪', 'Sortir', null, 0x3fae73, true);
+    } else this.exitPill = null;
     this.renderFloorButtons();
   }
 
@@ -603,6 +608,15 @@ export class InteriorScene extends Phaser.Scene {
   // ---------- Toucher un meuble ou une personne ----------
   tap(p) {
     const wp = this.cameras.main.getWorldPoint(p.x, p.y);
+    // Sortir : toucher l'étiquette « Sortir » ou la case de la porte
+    const L = this.L;
+    if (L && L.entrance) {
+      const ep = this.exitPill && this.exitPill.c;
+      const onPill = ep && Math.abs(wp.x - ep.x) < 34 && Math.abs(wp.y - ep.y) < 16;
+      const t0 = toTile(wp.x, wp.y);
+      const onDoor = t0.x === L.entrance.x && (t0.y === L.entrance.y || t0.y === L.entrance.y + 1);
+      if (onPill || onDoor) { state.world.perform(state.player, 'leave'); return; }
+    }
     for (const [id, v] of this.views) {
       if (id === state.player.id || v.floor !== this.floorIdx) continue;
       const h = v.lie ? 20 : 54;

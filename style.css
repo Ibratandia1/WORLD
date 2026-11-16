@@ -346,3 +346,9 @@ body.indoors #b-center { display: none; }
   #quest { top: calc(max(6px, env(safe-area-inset-top)) + 32px); font-size: 11px; }
   #tip { top: 40px; font-size: 12px; }
 }
+
+/* Bouton « Sortir » (seulement à l'intérieur) et minuteur des événements */
+#dock #b-exit { display: none; background: var(--good); color: #fff; }
+body.indoors #dock #b-exit { display: block; }
+#box .evtimer { height: 3px; border-radius: 3px; background: #e7e0f5; overflow: hidden; margin-top: 8px; }
+#box .evtimer i { display: block; height: 100%; background: var(--accent); opacity: .6; }
