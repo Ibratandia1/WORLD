@@ -70,6 +70,14 @@ const game = new Phaser.Game({
   scene: [GameScene, InteriorScene, FxScene],
 });
 window.addEventListener('resize', () => game.scale.resize(window.innerWidth * DPR, window.innerHeight * DPR));
+// Ouvert téléphone à la verticale (écran « Tourne ton téléphone ») : quand on le tourne, on redémarre
+// proprement en paysage (sinon la carte et les fenêtres gardent les dimensions de l'écran vertical)
+const bootPortrait = window.innerHeight > window.innerWidth && matchMedia('(pointer: coarse)').matches;
+if (bootPortrait) {
+  const check = () => { if (window.innerWidth > window.innerHeight) location.reload(); };
+  window.addEventListener('resize', () => setTimeout(check, 300));
+  window.addEventListener('orientationchange', () => setTimeout(check, 500));
+}
 
 // 2b. La ville en 3D (Three.js) : elle remplace le dessin 2D de la carte (la scène Phaser continue de faire
 // tourner la simulation, les intérieurs et la météo). ⚙️ → Batterie → « Ville en 3D » pour revenir à la 2D.
