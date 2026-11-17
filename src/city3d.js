@@ -15,7 +15,9 @@ import { Safety } from './sim/safety.js';
 import { Justice } from './sim/justice.js';
 import { Bank } from './sim/bank.js';
 import { Festivals } from './sim/festivals.js';
-import { phase, carMayGo } from './sim/traffic.js';
+import { phase, carMayGo, walkMayGo } from './sim/traffic.js';
+import { findPath } from './sim/pathfinding.js';
+import { cityPulse } from './city/render.js';
 
 import { TYPES } from './map/types.js';
 import { freeUnits, isClosed } from './sim/city.js';
@@ -504,6 +506,7 @@ add(roofGeos, mats.roof);
 
 // ---------- Arbres, lampadaires, bancs, fontaines, statue ----------
 const trees = [];
+const binSpots = []; // poubelles de rue (pour les sacs qui débordent)
 const lamps = [];
 for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
   const t = T(x, y);
@@ -527,6 +530,7 @@ for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     // poubelles de rue (mêmes places que la vue 2D : on peut les toucher)
     else if (side && t.ground === 'pave' && along % 8 === 5) {
       const bx = x + side[0] * 0.8, bz = y + side[1] * 0.8;
+      binSpots.push([bx, bz]);
       solidGeos.push(paint(box(0.03, 0.42, 0.03, bx, 0.08, bz), 0x2e6b4a));
       solidGeos.push(paint(new THREE.CylinderGeometry(0.08, 0.07, 0.2, 10).translate(bx, 0.32, bz), 0xd5dde2));
       solidGeos.push(paint(new THREE.CylinderGeometry(0.095, 0.095, 0.03, 12).translate(bx, 0.43, bz), 0x3f9a5c));
@@ -556,6 +560,7 @@ const trunks = new THREE.InstancedMesh(trunkGeo, new THREE.MeshStandardMaterial(
 const leaves = new THREE.InstancedMesh(leafGeo, new THREE.MeshStandardMaterial({ roughness: 0.8, flatShading: true }), trees.length);
 const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), v3 = new THREE.Vector3();
 const LEAF = [0x4caf50, 0x5cb85c, 0x3f9a4a, 0x6cc070, 0xe98fb5];
+const treeRnd = trees.map(() => rnd());
 trees.forEach(([x, y, s], i) => {
   const k = s * (0.85 + rnd() * 0.35);
   q.setFromEuler(new THREE.Euler(0, rnd() * Math.PI, 0));
@@ -882,6 +887,213 @@ function updateGame(dt) {
   }
 }
 
+// ---------- Décor vivant : saisons, neige, déchets, passants, pigeons, stands des fêtes ----------
+const quality = opts.saver ? 0 : mobile ? 1 : 2; // nombre de passants / pigeons selon l'appareil
+// Silhouette d'une personne en un seul maillage (1 appel de dessin par personne)
+function figureGeo(look) {
+  const parts = [
+    paint(new THREE.CylinderGeometry(0.035, 0.035, 0.1, 6).translate(0, 0.05, 0), look.legs),
+    paint(new THREE.CapsuleGeometry(0.06, 0.12, 3, 8).translate(0, 0.17, 0), look.body),
+    paint(new THREE.SphereGeometry(0.055, 10, 8).translate(0, 0.33, 0), look.skin),
+  ];
+  if (look.hair != null) parts.push(paint(new THREE.SphereGeometry(0.058, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2).translate(0, 0.345, 0), look.hair));
+  return mergeGeometries(parts.map(g => g.index ? g : g));
+}
+const pickC = a => a[Math.floor(Math.random() * a.length)];
+const LOOKS = {
+  body: [0xf2c94c, 0xe86a8c, 0x5b8def, 0x4bbf8b, 0x9b6ee8, 0xf08a3c, 0x3cb5c9, 0xffffff, 0x333a4a, 0xd8504d],
+  legs: [0x3a4766, 0x2a2f3d, 0x6b4a2f, 0x8a8f99, 0x2e6b4a],
+  skin: [0xf6d7c3, 0xf1c7a3, 0xd9a77e, 0xb57a52, 0x8a5634, 0x5e3a24],
+  hair: [0x1c1410, 0x4a3020, 0x7a4a2a, 0xb5651d, 0xd9a441, 0xdddddd, null],
+};
+
+// Saisons : couleur du feuillage (arbres nus l'hiver)
+const SEASON_LEAF = {
+  printemps: [0x5cb85c, 0x6cc070, 0x4caf50, 0xe98fb5, 0xf4a9c8],
+  ete: [0x2f8a3a, 0x3f9a4a, 0x358f40, 0x4caf50],
+  automne: [0xe08a2e, 0xd9622b, 0xf2b33d, 0xb8452a, 0xc9a227],
+  hiver: [0x8a8f99],
+};
+let shownSeason = null;
+function applySeason() {
+  const s = world.season || 'printemps';
+  if (s === shownSeason) return;
+  shownSeason = s;
+  leaves.visible = s !== 'hiver';
+  const pal = SEASON_LEAF[s] || SEASON_LEAF.printemps;
+  for (let i = 0; i < trees.length; i++) leaves.setColorAt(i, C(pal[Math.floor(treeRnd[i] * pal.length)]));
+  if (leaves.instanceColor) leaves.instanceColor.needsUpdate = true;
+}
+
+// Neige au sol : elle tient quand il neige et fond ensuite (plus vite au soleil)
+const snowMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, transparent: true, opacity: 0, depthWrite: false });
+const snowPlane = new THREE.Mesh(new THREE.PlaneGeometry(W, H - 2).rotateX(-Math.PI / 2).translate(CX - 0.5, 0.115, (H - 2) / 2 + 1.5), snowMat);
+snowPlane.receiveShadow = true; snowPlane.userData.noTap = true; scene.add(snowPlane);
+let snowCover = world.weather === 'snow' ? 0.5 : 0, lastMin = world.minutes;
+function updateSnow() {
+  const gm = Math.max(0, Math.min(120, world.minutes - lastMin)); lastMin = world.minutes;
+  if (world.weather === 'snow') snowCover = Math.min(1, snowCover + gm / 90);
+  else snowCover = Math.max(0, snowCover - gm / (world.weather === 'sun' ? 120 : 360));
+  snowMat.opacity = snowCover * 0.78;
+  snowPlane.visible = snowCover > 0.01;
+  mats.roof.emissive.setRGB(1, 1, 1).multiplyScalar(snowCover * 0.32); // toits blanchis
+}
+
+// Déchets : papiers sur les trottoirs et sacs au pied des poubelles quand la propreté baisse (world.city.cleanliness)
+const litterSpots = [];
+for (const [bx, bz] of binSpots) for (const [dx, dz, th] of [[0.15, 0.12, 45], [-0.14, 0.16, 30], [0.2, -0.1, 55]]) litterSpots.push({ x: bx + dx, z: bz + dz, th, bag: true });
+for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+  const t = T(x, y);
+  if (t.walk && (t.ground === 'pave' || t.ground === 'cobble') && Math.random() < 0.2) litterSpots.push({ x: x + Math.random() - 0.5, z: y + Math.random() - 0.5, th: 25 + Math.random() * 50, bag: false });
+}
+const bagSpots = litterSpots.filter(l => l.bag), paperSpots = litterSpots.filter(l => !l.bag);
+const bags = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(0.1, 0).scale(1, 0.85, 1), new THREE.MeshStandardMaterial({ color: 0x2b2e36, roughness: 0.4, flatShading: true }), Math.max(1, bagSpots.length));
+const papers = new THREE.InstancedMesh(new THREE.BoxGeometry(0.11, 0.01, 0.075), new THREE.MeshStandardMaterial({ roughness: 0.8 }), Math.max(1, paperSpots.length));
+paperSpots.forEach((l, i) => papers.setColorAt(i, C(pickC([0xf4f1e8, 0x7fb8e0, 0xe8504d, 0xf2c94c]))));
+for (const im of [bags, papers]) { im.userData.noTap = true; im.frustumCulled = false; scene.add(im); } // (positions changées après coup)
+const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
+let litterLevel = null;
+function updateLitter() {
+  const c = world.city ? world.city.cleanliness : 100;
+  if (litterLevel != null && Math.abs(litterLevel - c) < 0.5) return;
+  litterLevel = c;
+  const put = (im, list, y) => list.forEach((l, i) => {
+    if (c < l.th) { q.setFromEuler(new THREE.Euler(0, (i * 1.7) % 6.28, 0)); m4.compose(v3.set(l.x, y, l.z), q, new THREE.Vector3(1, 1, 1)); im.setMatrixAt(i, m4); } else im.setMatrixAt(i, ZERO);
+  });
+  put(bags, bagSpots, 0.13); put(papers, paperSpots, 0.09);
+  bags.instanceMatrix.needsUpdate = true; papers.instanceMatrix.needsUpdate = true;
+}
+
+// Passants de décor : ils traversent le quartier (plus nombreux aux heures de pointe, moins sous la pluie)
+const footGates = map.footpaths.filter(p => p.x === 0 || p.y === H - 1 || p.x === W - 1);
+const metroB = map.buildings.find(b => b.type === 'metro');
+if (metroB) footGates.push(...metroB.entrances, ...metroB.entrances);
+const mainWalk = map.footpaths.filter(p => [-1, 1].some(dd => T(p.x, p.y + dd) && T(p.x, p.y + dd).avenue));
+const walkers = [];
+const MAX_WALKERS = [3, 8, 14][quality];
+function spawnWalker() {
+  if (!footGates.length) return;
+  const g = pickC(footGates), to = pickC(footGates);
+  const via = Math.random() < 0.6 ? (Math.random() < 0.5 && mainWalk.length ? pickC(mainWalk) : map.randomFootpath()) : null;
+  const leg1 = findPath(map, g, (x, y) => (via ? x === via.x && y === via.y : x === to.x && y === to.y));
+  if (!leg1) return;
+  let path = leg1.path;
+  if (via) { const leg2 = findPath(map, via, (x, y) => x === to.x && y === to.y); if (!leg2) return; path = path.concat(leg2.path); }
+  if (path.length < 6) return;
+  const look = { body: pickC(LOOKS.body), legs: pickC(LOOKS.legs), skin: pickC(LOOKS.skin), hair: pickC(LOOKS.hair) };
+  const mesh = new THREE.Mesh(figureGeo(look), mats.solid);
+  mesh.castShadow = quality > 0; mesh.userData.noTap = true;
+  mesh.position.set(g.x, 0.08, g.y); scene.add(mesh);
+  walkers.push({ mesh, x: g.x, y: g.y, path, speed: 1.1 + Math.random() * 0.5, ph: Math.random() * 6 });
+}
+function updateWalkers(dt, gameRate) {
+  const pulse = cityPulse(world.hour) * (world.weather === 'rain' || world.weather === 'snow' ? 0.4 : 1);
+  if (walkers.length < Math.round(MAX_WALKERS * pulse) && Math.random() < dt * 0.8) spawnWalker();
+  for (const p of walkers) {
+    let budget = p.speed * dt * Math.min(gameRate, 3);
+    let moving = false;
+    while (budget > 0 && p.path.length) {
+      const t = p.path[0];
+      const nt = T(t.x, t.y), ct = T(Math.round(p.x), Math.round(p.y));
+      if (nt.crossing && ct.ground !== 'road' && !walkMayGo(world, nt.crossing)) break; // feu rouge : on attend
+      const dx = t.x - p.x, dy = t.y - p.y, d = Math.hypot(dx, dy);
+      moving = true;
+      p.mesh.rotation.y = Math.atan2(dx, dy);
+      if (d <= budget) { p.x = t.x; p.y = t.y; p.path.shift(); budget -= d; } else { p.x += dx / d * budget; p.y += dy / d * budget; budget = 0; }
+    }
+    p.ph += dt * (moving ? 14 : 2);
+    p.mesh.position.set(p.x, 0.08 + (moving ? Math.abs(Math.sin(p.ph)) * 0.02 : 0), p.y);
+  }
+  for (let i = walkers.length - 1; i >= 0; i--) if (!walkers[i].path.length) { scene.remove(walkers[i].mesh); walkers[i].mesh.geometry.dispose(); walkers.splice(i, 1); }
+}
+
+// Pigeons : ils picorent sur les places et s'envolent quand quelqu'un approche
+const pigeonGeo = mergeGeometries([
+  paint(new THREE.SphereGeometry(0.05, 8, 6).scale(1.3, 0.8, 0.9).translate(0, 0.05, 0), 0x8a8f99),
+  paint(new THREE.SphereGeometry(0.028, 8, 6).translate(0.06, 0.09, 0), 0x6f7480),
+  paint(new THREE.ConeGeometry(0.01, 0.03, 4).rotateZ(-Math.PI / 2).translate(0.095, 0.088, 0), 0xe0a050),
+]);
+const plaza = map.footpaths.filter(p => T(p.x, p.y).ground === 'cobble' || (T(p.x, p.y).ground === 'pave' && !roadAt(p.x, p.y + 1) && !roadAt(p.x, p.y - 1) && !roadAt(p.x + 1, p.y) && !roadAt(p.x - 1, p.y)));
+const pigeons = [];
+for (let i = 0; i < [3, 8, 12][quality] && plaza.length; i++) {
+  const s = pickC(plaza);
+  const mesh = new THREE.Mesh(pigeonGeo, mats.solid); mesh.userData.noTap = true; scene.add(mesh);
+  pigeons.push({ mesh, x: s.x + Math.random() - 0.5, z: s.y + Math.random() - 0.5, y: 0.08, fly: 0, ph: Math.random() * 6, rot: Math.random() * 6.28 });
+}
+function updatePigeons(dt) {
+  const near = (x, z) => world.actors.some(a => a.outdoors && Math.abs(a.px - x) + Math.abs(a.py - z) < 0.9) || walkers.some(w2 => Math.abs(w2.x - x) + Math.abs(w2.y - z) < 0.8);
+  for (const p of pigeons) {
+    p.ph += dt;
+    if (p.fly > 0) { // en vol vers une autre place
+      p.fly -= dt;
+      const k = 1 - Math.max(0, p.fly) / p.flyT;
+      p.x = p.fx + (p.tx - p.fx) * k; p.z = p.fz + (p.tz - p.fz) * k;
+      p.y = 0.08 + Math.sin(k * Math.PI) * 2.2;
+      p.mesh.rotation.y = Math.atan2(p.tx - p.fx, p.tz - p.fz) - Math.PI / 2;
+      if (p.fly <= 0) p.y = 0.08;
+    } else {
+      if (Math.random() < dt * 0.3) p.rot += (Math.random() - 0.5) * 2;
+      p.mesh.rotation.y = p.rot;
+      if (near(p.x, p.z)) { const s = pickC(plaza); Object.assign(p, { fx: p.x, fz: p.z, tx: s.x + Math.random() - 0.5, tz: s.y + Math.random() - 0.5, flyT: 2.5, fly: 2.5 }); }
+    }
+    const peck = p.fly > 0 ? 0 : Math.max(0, Math.sin(p.ph * 6)) * 0.015;
+    p.mesh.position.set(p.x, p.y - peck, p.z);
+  }
+}
+
+// Stands des fêtes (marché, brocante, concert, musiciens) : mêmes emplacements que la vue 2D (state.scene.fest)
+const stands = new Map();
+function standMesh(spot) {
+  const g = new THREE.Group();
+  const add3 = (geo, color) => { const m = new THREE.Mesh(paint(geo, color), mats.solid); m.castShadow = true; g.add(m); return m; };
+  if (/marché/.test(spot.name)) {
+    add3(new THREE.BoxGeometry(0.7, 0.05, 0.4).translate(0, 0.32, 0), 0xb98458);
+    for (const [dx, dz] of [[-0.32, -0.18], [0.32, -0.18], [-0.32, 0.18], [0.32, 0.18]]) add3(new THREE.CylinderGeometry(0.015, 0.015, 0.7, 5).translate(dx, 0.35, dz), 0xdddddd);
+    const roofCols = [0xd8504d, 0xffffff];
+    for (let k = 0; k < 4; k++) add3(new THREE.BoxGeometry(0.19, 0.03, 0.5).rotateX(0.18).translate(-0.28 + k * 0.19, 0.72, 0), roofCols[k % 2]);
+    for (let k = 0; k < 5; k++) add3(new THREE.SphereGeometry(0.04, 6, 5).translate(-0.24 + k * 0.12, 0.38, 0.05), pickC([0xe8504d, 0xf2c94c, 0x4bbf8b, 0xf08a3c]));
+  } else if (/brocante/.test(spot.name)) {
+    add3(new THREE.BoxGeometry(0.6, 0.04, 0.35).translate(0, 0.28, 0), 0x8a5a3c);
+    add3(new THREE.BoxGeometry(0.12, 0.12, 0.1).translate(-0.15, 0.36, 0), 0x9b6ee8);
+    add3(new THREE.CylinderGeometry(0.04, 0.05, 0.14, 8).translate(0.05, 0.37, 0.02), 0x3cb5c9);
+    add3(new THREE.BoxGeometry(0.14, 0.03, 0.1).translate(0.18, 0.32, -0.04), 0xf2c94c);
+  } else if (/Concert/.test(spot.name)) {
+    add3(new THREE.BoxGeometry(1.6, 0.2, 1.0).translate(0, 0.1, 0), 0x3a3d46);
+    add3(new THREE.BoxGeometry(1.6, 0.9, 0.06).translate(0, 0.65, -0.47), 0x2b2f45);
+    for (let k = 0; k < 7; k++) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 5), mats.bulb); b.position.set(-0.7 + k * 0.233, 1.1 - Math.abs(k - 3) * 0.04, -0.4); g.add(b); }
+    add3(new THREE.BoxGeometry(0.12, 0.3, 0.12).translate(-0.6, 0.35, 0.3), 0x1c1c22);
+    add3(new THREE.BoxGeometry(0.12, 0.3, 0.12).translate(0.6, 0.35, 0.3), 0x1c1c22);
+  } else { // musiciens de rue
+    for (const dx of [-0.15, 0.15]) {
+      const f = new THREE.Mesh(figureGeo({ body: pickC(LOOKS.body), legs: pickC(LOOKS.legs), skin: pickC(LOOKS.skin), hair: pickC(LOOKS.hair) }), mats.solid);
+      f.position.set(dx, 0, 0); g.add(f);
+    }
+    add3(new THREE.BoxGeometry(0.06, 0.12, 0.03).translate(0.2, 0.22, 0.06), 0x8a5a3c);
+  }
+  g.position.set(spot.x, 0.08, spot.y);
+  g.userData.noTap = true;
+  return g;
+}
+function updateStands() {
+  const list = (opts.festSpots && opts.festSpots()) || [];
+  const keep = new Set();
+  for (const s of list) {
+    const k = `${s.fest}:${s.x},${s.y}`;
+    keep.add(k);
+    if (!stands.has(k)) { const m = standMesh(s); scene.add(m); stands.set(k, m); }
+  }
+  for (const [k, m] of stands) if (!keep.has(k)) { scene.remove(m); stands.delete(k); }
+}
+
+let aliveTick = 0;
+function updateAlive(dt) {
+  const rate = opts.demo ? speed : (world.paused ? 0 : (world.speed || 1));
+  updateWalkers(dt, rate);
+  if (rate > 0) updatePigeons(dt);
+  aliveTick -= dt;
+  if (aliveTick <= 0) { aliveTick = 1; applySeason(); updateSnow(); updateLitter(); updateStands(); }
+}
+
 const clock = new THREE.Clock();
 let speed = 1, frames = 0, fpsT = 0;
 const $ = id => document.getElementById(id);
@@ -928,6 +1140,7 @@ function loop() {
   frames++; fpsT += dt;
   if (fpsT > 1) { $('fps').textContent = `${Math.round(frames / fpsT)} img/s · ${renderer.info.render.calls} dessins`; frames = 0; fpsT = 0; }
   }
+  updateAlive(dt);
   updateGame(dt);
   requestAnimationFrame(loop);
 }

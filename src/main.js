@@ -93,6 +93,7 @@ if (want3D) {
       onPerson: a => state.ui.showPerson(a),
       // sol, objets de la rue, stands des fêtes : mêmes réactions que la vue 2D
       onTile: (x, y, tile) => sc() && sc().tapTile(x, y, tile),
+      festSpots: () => (sc() && sc().fest ? sc().fest.spots : []), // stands des fêtes (mêmes places que la 2D)
     });
     document.body.classList.add('v3d');
     if (sc()) { sc().shownInterior = undefined; for (const id of Object.keys(world.safety ? world.safety.fires : {})) state.city3d.showFire(world.building(+id)); }
