@@ -8,7 +8,7 @@ import { TUTORIAL, TUT_REWARD, TUT_FINAL, DREAMS, tutReady, dreamDone, dailyFor,
 import { isPolice } from './safety.js';
 import { isLawyer, LAWYER_FEE } from './justice.js';
 import { LOAN_STEP, LOAN_MAX, LOAN_RATE } from './bank.js';
-import { debit } from './budget.js';
+import { debit, isPublicJob } from './budget.js';
 
 // RÈGLE D'OR : toutes les actions du jeu sont ici, et le joueur comme les PNJ
 // passent par world.perform(acteur, id, params). Un futur joueur en ligne
@@ -71,6 +71,8 @@ export const ACTIONS = {
       if (isClosed(w, b.id)) return 'Fermé (le local cherche un repreneur)';
       if (w.safety && w.safety.burning(b.id)) return '🔥 Le bâtiment est en feu !';
       if (a.inside === b.id) return 'Tu es déjà ici';
+      // Commerces et guichets : porte close quand personne n'est en service (sauf pour ceux qui y travaillent)
+      if (OPEN_HOURS_TYPES.has(b.type) && !(a.job && a.job.building === b.id) && !sellerAt(w, b, a)) return 'Fermé : personne en service';
       return true;
     },
   },
@@ -759,6 +761,24 @@ export const ACTIONS = {
       return p.verdict === 'guilty' ? `Ton avis : ${t.name} est coupable.` : `Ton avis : ${t.name} est innocent·e.`;
     },
   },
+  // Corruption : un·e agent·e public en service accepte une enveloppe. Ça rapporte… et ça peut coûter la place et la liberté.
+  take_bribe: {
+    icon: '💰', label: 'Accepter un pot-de-vin', instant: true, custom: true,
+    can: (a, w) => (!a.job || !isPublicJob(w, a.job) ? 'Réservé aux agents publics' : !shiftNow(a.job, w) ? 'Seulement pendant le service' : true),
+    effect: (a, w) => {
+      const n = Math.round(60 + Math.random() * 90);
+      a.money += n; a.karma = (a.karma || 0) - 3;
+      if (Math.random() < 0.3) { // quelqu'un a tout vu : enquête, renvoi, et la police te cherche
+        a.wanted = (a.wanted || 0) + 1;
+        if (w.city) w.city.post('🕵️', `Enquête pour corruption : ${a.name} est soupçonné·e d’avoir touché des pots-de-vin.`);
+        const b = w.building(a.job.building);
+        a.job = null; a.firedDay = w.day;
+        w.emit('fired', { actor: a, building: b, reason: 'corruption' });
+        return `+${n} €… mais quelqu’un t’a vu·e ! Renvoi et enquête.`;
+      }
+      return `+${n} € glissés discrètement dans ta poche.`;
+    },
+  },
   attend_trial: {
     icon: '🏛️', label: 'Assister à une audience', place: { type: 'court' }, duration: 45, skip: 4, seller: true,
     effect: a => { a.mood += 3; a.karma += 0.2; return 'Une audience passionnante. La justice est rendue au nom du peuple français.'; },
@@ -922,6 +942,9 @@ export const ACTIONS = {
     effect: a => { a.mood += 5; a.karma += 0.2; return 'Marianne veille sur le quartier.'; },
   },
 };
+
+// Lieux qui ne se visitent qu'ouverts (quelqu'un en service à l'intérieur)
+const OPEN_HOURS_TYPES = new Set(['cafe', 'bakery', 'shop', 'fashion', 'garage', 'bank', 'court', 'cityhall', 'school', 'office']);
 
 // Montant d'une opération bancaire : params.amount (nombre ou 'all'), sinon le geste par défaut
 function bankAmount(a, kind, p = {}) {

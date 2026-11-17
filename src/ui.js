@@ -86,7 +86,10 @@ export class UI {
     });
     $('b-look').onclick = () => openCustomizer();
     $('b-center').onclick = () => state.scene && state.scene.centerOnPlayer();
-    $('b-routine').onclick = () => { player.routine = !player.routine; player.thinkIn = 0; this.syncControls(); this.refresh(true); };
+    $('b-routine').onclick = () => {
+      player.routine = !player.routine; player.thinkIn = 0; this.syncControls(); this.refresh(true);
+      if (player.routine) this.floatNote(t('⚠️ Routine : livré à lui-même, ton personnage peut mal tourner (vols, pots-de-vin, jeux, absences)…'));
+    };
     $('b-pause').onclick = () => { world.paused = !world.paused; this.syncControls(); };
     $('b-play').onclick = () => { world.paused = false; world.speed = 1; this.syncControls(); };
     $('b-fast').onclick = () => { world.paused = false; world.speed = 4; this.syncControls(); };
@@ -424,7 +427,9 @@ export class UI {
     }
     if (this.place) shownPlace = this.place;
     // Fiche d'un lieu : fenêtre élargie en paysage (boutons en grille), couleur du type de lieu
-    box.classList.toggle('wide', !!shownPlace);
+    const mini = !!shownPlace && !this.place && shownPlace.type !== 'home' && !this.placeMore; // petite fiche dans un commerce
+    box.classList.toggle('wide', !!shownPlace && !mini);
+    box.classList.toggle('mini', mini);
     document.body.classList.toggle('wide-box', !!shownPlace); // la barre du bas à gauche se resserre
     box.dataset.theme = shownPlace ? shownPlace.type
       : this.life ? 'life' : this.panel ? this.panel : this.person ? 'person' : this.object ? 'object' : this.director.active ? 'event' : 'idle';
@@ -574,7 +579,28 @@ export class UI {
       leave = `<div class="leave">${this.choiceHTML('data-leave class="c-civic"', '🚶', b.type === 'home' ? 'Sortir dans la rue' : ['cafe', 'bakery', 'shop', 'fashion', 'garage'].includes(b.type) ? 'Sortir de la boutique' : 'Sortir', '', true)}</div>`;
     }
     const icon = b.type === 'home' && b.id === p.home ? (p.housing === 'own' ? '🔑' : '🏠') : TYPES[b.type].icon;
+    // À l'intérieur d'un commerce ou d'un service : petite fiche (nom, emploi, qui travaille) pour bien voir la pièce ;
+    // les gestes se font en touchant les meubles, ou via « ⋯ Plus » qui déplie la fiche complète
+    if (inside && b.type !== 'home') {
+      const more = this.choiceHTML('data-more class="c-misc"', this.placeMore ? '▴' : '⋯', this.placeMore ? 'Moins' : L(`Plus (${buttons.length} actions)`, `More (${buttons.length} actions)`), '', true);
+      if (!this.placeMore) return `${this.head(icon, b.name, false)}${this.miniPlaceHTML(b)}<div class="mini-row">${more}${leave}</div>`;
+      return `${this.head(icon, b.name, false)}${jobTop}${note}<div class="choices">${buttons.join('')}</div>${this.shopHTML(b, inside)}${b.type === 'cityhall' ? this.govHTML(b, inside) : ''}<div class="mini-row">${more}${leave}</div>`;
+    }
     return `${this.head(icon, b.name, !inside)}${jobTop}${note}<div class="choices">${buttons.join('')}</div>${this.shopHTML(b, inside)}${b.type === 'cityhall' ? this.govHTML(b, inside) : ''}${leave}`;
+  }
+
+  // Petite fiche d'un lieu vu de l'intérieur : l'emploi et qui travaille ici
+  miniPlaceHTML(b) {
+    const p = this.player, w = this.world;
+    const lines = [];
+    if (p.job && p.job.building === b.id) lines.push(`💼 ${L('Ton travail', 'Your job')} · ${fmtShift(p.job)}`);
+    else if (b.jobs) {
+      const n = openings(w, b);
+      lines.push(`<span class="mini-job">💼 ${esc(t(JOB_TITLES[b.type] || 'Poste'))} · ${L(`${b.jobs.wage} €/h`, `€${b.jobs.wage}/h`)} · ${n ? L(`${n} poste${n > 1 ? 's' : ''}`, `${n} opening${n > 1 ? 's' : ''}`) : t('complet')}${n ? this.actBtn('apply', { building: b.id }, 'Postuler') : ''}</span>`);
+    }
+    const staff = w.actors.filter(o => o !== p && o.inside === b.id && (o.doing === 'work' || o.doing === 'overtime'));
+    lines.push(staff.length ? `👤 ${staff.map(o => esc(o.name)).join(', ')} ${L('en service', 'on duty')}` : `🔴 ${L('Personne en service', 'Nobody on duty')}`);
+    return `<div class="mini-place">${lines.map(l => `<p>${l}</p>`).join('')}</div>`;
   }
 
   // Mairie : le maire, la politique, les caisses, les élections (vote, candidature), les décisions du maire
@@ -671,7 +697,7 @@ export class UI {
     const cash = `<div class="sec"><b>${t('🏦 Mon argent')}</b><p>${L(`En poche : ${money(Math.round(p.money))} € · épargne à la banque : ${money(Math.round(p.bank || 0))} €`, `Cash: €${money(Math.round(p.money))} · bank savings: €${money(Math.round(p.bank || 0))}`)}${p.loan > 0 ? `<br>${L(`Prêt à rembourser : ${money(Math.round(p.loan))} € (prélevé le lundi)`, `Loan to repay: €${money(Math.round(p.loan))} (taken on Monday)`)}` : ''}
       <br>${L(`🗑️ Propreté du quartier : ${clean} %`, `🗑️ Neighbourhood cleanliness: ${clean}%`)}${p.trial ? `<br><span class="bad">${L(`⚖️ Procès jour ${Math.floor(p.trial.at / 1440) + 1} à 10h${p.trial.lawyer != null ? ' · avocat·e engagé·e' : ''}`, `⚖️ Trial on day ${Math.floor(p.trial.at / 1440) + 1} at 10:00${p.trial.lawyer != null ? ' · lawyer hired' : ''}`)}</span>` : ''}</p>
       ${p.trial && p.trial.lawyer == null ? `<div class="choices">${this.actBtn('hire_lawyer')}</div>` : ''}</div>`;
-    const routine = `<div class="sec"><b>${t('🔁 Routine automatique')}</b><p>${t('Ton personnage mange, dort et va travailler tout seul. Tu peux toujours reprendre la main.')}</p>
+    const routine = `<div class="sec"><b>${t('🔁 Routine automatique')}</b><p>${t('Ton personnage mange, dort et va travailler tout seul. Tu peux toujours reprendre la main.')}<br><span class="bad">${t('⚠️ Mais livré à lui-même, il peut mal tourner : vols, pots-de-vin, jeux d’argent, jours d’absence… Plus souvent mal que bien !')}</span></p>
       <div class="choices">${this.choiceHTML('data-routine', p.routine ? '⏹️' : '▶️', p.routine ? 'Désactiver la routine' : 'Activer la routine', '', true)}</div></div>`;
     return `${this.head('📋', 'Ma vie')}${this.dreamsHTML()}${job}${home}${cash}${ride}${routine}`;
   }
@@ -770,6 +796,8 @@ export class UI {
     let b = null;
     if (kind === 'job' && p.job) b = w.building(p.job.building);
     else if (kind === 'home' && p.home != null) b = w.building(p.home);
+    else if (kind === 'vacant') b = w.map.buildings.filter(x => freeUnits(w, x) > 0).sort((x, y) => weeklyRent(x) - weeklyRent(y) || dist(x) - dist(y))[0];
+    else if (kind === 'hiring') b = w.map.buildings.filter(x => openings(w, x) > 0 && (x.jobs.edu || 0) <= (p.education ?? 1)).sort((x, y) => dist(x) - dist(y))[0];
     else if (kind === 'people') {
       const t = w.actors.filter(o => o !== p && o.outdoors && o.doing !== 'work').sort((x, y) => Math.hypot(x.px - p.px, x.py - p.py) - Math.hypot(y.px - p.px, y.py - p.py))[0];
       if (t) { if (p.inside != null) w.perform(p, 'leave'); if (sc) sc.focusActor(t); return this.showPerson(t); }
@@ -926,7 +954,7 @@ export class UI {
 
     // Fil de la conversation
     const log = chatLog(t).slice(-8).map(m => m.from === 'player'
-      ? `<div class="msg me">${esc(m.text)}</div>`
+      ? `<div class="msg me">${esc(tr(m.text))}</div>`
       : m.from === 'npc' ? `<div class="msg them"><b>${esc(t.name)}</b> ${esc(tr(m.text))}</div>` : `<div class="msg note">${esc(tr(m.text))}</div>`).join('');
     const offers = (this.chatOffers || []).map((o, i) => this.choiceHTML(`data-offer="${i}"`, o.icon, o.label, '', this.world.check(p, o.action, o.params))).join('');
     // Réponses proposées après la dernière réplique, puis les thèmes
@@ -1010,7 +1038,8 @@ export class UI {
     if (btn.dataset.setk) { const v = btn.dataset.setv; setSetting(btn.dataset.setk, /^\d+$/.test(v) ? Number(v) : v); return this.render(); }
     if (btn.hasAttribute('data-resettips')) { p.tips = []; this.tipAt = -1e9; this.floatNote(t('Les astuces réapparaîtront.')); return; }
     if (btn.hasAttribute('data-cancel')) { w.cancel(p); return this.render(); }
-    if (btn.hasAttribute('data-leave')) { w.perform(p, 'leave'); return this.render(); }
+    if (btn.hasAttribute('data-leave')) { w.perform(p, 'leave'); this.placeMore = false; return this.render(); }
+    if (btn.hasAttribute('data-more')) { this.placeMore = !this.placeMore; return this.render(); }
     if (btn.hasAttribute('data-routine')) { $('b-routine').click(); return; }
     if (btn.hasAttribute('data-look')) { openCustomizer(); return; }
     if (btn.hasAttribute('data-join')) { this.join(this.person); return; }

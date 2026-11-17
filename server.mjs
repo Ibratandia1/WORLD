@@ -41,7 +41,7 @@ Règles :
 const SCHEMA = {
   type: 'object',
   properties: {
-    reply: { type: 'string', description: 'Ce que dit le PNJ, en français.' },
+    reply: { type: 'string', description: 'Ce que dit le PNJ, dans la langue demandée (français par défaut).' },
     emotion: { type: 'string', enum: ['joyeux', 'neutre', 'triste', 'agace', 'surpris', 'gene'] },
     suggestions: {
       type: 'array',
@@ -69,7 +69,8 @@ const SCHEMA = {
   additionalProperties: false,
 };
 
-function buildPrompt({ card, history, message }) {
+function buildPrompt(body) {
+  const { card, history, message } = body;
   const lines = (history || []).slice(-10).map(h => `${h.from === 'player' ? card.joueur : card.nom} : ${h.text}`);
   return `FICHE DE TON PERSONNAGE
 ${JSON.stringify(card, null, 2)}
@@ -79,7 +80,9 @@ ${lines.length ? lines.join('\n') : '(début de la conversation)'}
 
 ${card.joueur} te dit maintenant : « ${message} »
 
-Réponds en tant que ${card.nom}.`;
+Réponds en tant que ${card.nom}.
+
+LANGUE : ${body.lang === 'en' ? 'le joueur joue en ANGLAIS : écris reply et suggestions en anglais naturel (tu restes un habitant du Marais, à Paris).' : 'réponds en français.'}`;
 }
 
 async function chat(body) {
@@ -93,7 +96,7 @@ async function chat(body) {
     messages: [{ role: 'user', content: buildPrompt(body) }],
   });
   if (response.stop_reason === 'refusal') {
-    return { reply: 'Euh… je préfère qu’on parle d’autre chose.', emotion: 'gene', actions: [] };
+    return { reply: body.lang === 'en' ? 'Uh… I’d rather talk about something else.' : 'Euh… je préfère qu’on parle d’autre chose.', emotion: 'gene', actions: [] };
   }
   const text = response.content.find(b => b.type === 'text');
   if (!text) throw new Error('Réponse vide');

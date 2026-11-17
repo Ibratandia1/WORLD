@@ -3,6 +3,7 @@ import { rel, addRel, level, near, canPause, reply as smallTalk, tip as jobTip, 
 import { jobTitle, openings } from './sim/jobs.js';
 import { itemById } from './sim/catalog.js';
 import { state } from './state.js';
+import { settings } from './settings.js';
 
 // Conversation libre avec un PNJ.
 // Le PNJ répond grâce à Claude (via /api/chat sur le serveur local) ; sans clé API,
@@ -67,7 +68,7 @@ function card(npc) {
 }
 
 // ---------- Réponses intégrées (sans clé API) ----------
-function localReply(npc, text) {
+export function localReply(npc, text) {
   const t = text.toLowerCase();
   const w = state.world, p = state.player;
   const r = rel(npc, p);
@@ -175,7 +176,7 @@ const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 const END = [];
 
 // Réponse d'un PNJ à un thème (mode intégré) : texte, actions, et réponses possibles pour le joueur
-function topicReply(npc, id) {
+export function topicReply(npc, id) {
   const w = state.world, p = state.player;
   const r = rel(npc, p);
   const friend = r >= 30;
@@ -304,7 +305,7 @@ export async function sendChat(npc, text, topic = null) {
       if (topic) c.sujet_choisi_par_le_joueur = TOPICS.find(t => t.id === topic).label;
       const r = await fetch('/api/chat', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ card: c, history: log.slice(0, -1), message: text }),
+        body: JSON.stringify({ card: c, history: log.slice(0, -1), message: text, lang: settings().lang }),
       });
       // sans serveur (jeu en ligne sur GitHub Pages) ou sans clé : réponses intégrées
       if (r.ok) { res = await r.json(); aiAvailable = true; } else aiAvailable = false;

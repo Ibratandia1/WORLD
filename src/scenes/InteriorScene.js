@@ -629,11 +629,18 @@ export class InteriorScene extends Phaser.Scene {
     const floors = rect('floors');
     let left = (floors && floors.width ? floors.right : 0) + 10, right = W - 52, top = Math.max(hud ? hud.bottom : 40, quest && quest.height ? quest.bottom : 0) + 6;
     let bottom = (dock && dock.top > H / 2 ? dock.top : H) - 8;
-    if (box && box.width && box.left - 10 - left > 220) right = box.left - 10;
-    if (right - left < 200) { left = 10; right = W - 52; }
-    if (bottom - top < 150) top = Math.max(10, bottom - 150);
-    const availW = (right - left) * d, availH = (bottom - top) * d;
-    const z = Math.min(availW / (b.maxX - b.minX), availH / (b.maxY - b.minY));
+    // Deux placements possibles : à gauche de la fenêtre du bas, ou au-dessus d'elle (toute la largeur) ;
+    // on garde celui qui montre la pièce le plus grand (la petite fiche des commerces libère beaucoup de place)
+    const zOf = (l, r, t2, bt) => Math.min((r - l) * d / (b.maxX - b.minX), (bt - t2) * d / (b.maxY - b.minY));
+    let best = null;
+    const tryFit = (l, r, t2, bt) => { if (r - l < 200 || bt - t2 < 150) return; const z = zOf(l, r, t2, bt); if (!best || z > best.z) best = { z, l, r, t: t2, bt }; };
+    if (box && box.width) {
+      tryFit(left, box.left - 10, top, bottom);           // à gauche de la fenêtre
+      tryFit(left, right, top, Math.min(bottom, box.top - 8)); // au-dessus de la fenêtre
+    } else tryFit(left, right, top, bottom);
+    if (!best) best = { z: zOf(10, W - 52, Math.max(10, bottom - 150), bottom), l: 10, r: W - 52, t: Math.max(10, bottom - 150), bt: bottom };
+    left = best.l; right = best.r; top = best.t; bottom = best.bt;
+    const z = best.z;
     this.minZoom = z * 0.7;
     this.maxZoom = Math.max(z * 3, 2.5 * d);
     cam.setZoom(z);

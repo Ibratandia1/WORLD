@@ -248,6 +248,14 @@ export const EN_EXTRA = {
   'Le coffre-fort. Il paraît qu’il est inviolable.': 'The safe. They say it’s unbreakable.', 'Le guichet, derrière sa vitre.': 'The counter, behind its glass.',
   'Le distributeur de billets.': 'The cash machine.', 'L’estrade du juge, et son marteau.': 'The judge’s bench, and the gavel.', 'La barre, où l’on témoigne.': 'The stand, where witnesses testify.',
   'Une poubelle bien vidée.': 'A freshly emptied bin.',
+  'Fermé : personne en service': 'Closed: nobody on duty', 'Accepter un pot-de-vin': 'Accept a bribe', 'Réservé aux agents publics': 'Public servants only',
+  'Seulement pendant le service': 'Only during your shift', 'Moins': 'Less',
+  '⚠️ Routine : livré à lui-même, ton personnage peut mal tourner (vols, pots-de-vin, jeux, absences)…': '⚠️ Routine: left to themselves, your character may go astray (theft, bribes, gambling, absences)…',
+  '⚠️ Mais livré à lui-même, il peut mal tourner : vols, pots-de-vin, jeux d’argent, jours d’absence… Plus souvent mal que bien !': '⚠️ But left alone, they may go astray: theft, bribes, gambling, missed days… More often bad than good!',
+  'Trouve un logement': 'Find a home', 'Trouve un travail': 'Find a job',
+  'Touche une épingle 🔑 (logement libre) : compare les loyers, puis « Louer ». Le loyer se paie chaque lundi.': 'Tap a 🔑 pin (free home): compare rents, then “Rent”. Rent is paid every Monday.',
+  'Les épingles avec 💼 recrutent : touche un commerce ou un bureau, puis « Postuler ». Certains postes demandent un diplôme (école).': 'Pins with 💼 are hiring: tap a shop or office, then “Apply”. Some jobs need a diploma (school).',
+  'vélo de ville': 'city bike', 'trottinette': 'scooter', 'scooter': 'moped', 'petite citadine': 'small car',
   '🏙️ Affichage de la ville': '🏙️ City display', 'Affichage de la ville': 'City display', 'Ville en 3D': 'City in 3D',
   '3D moderne (ombres, jour et nuit) ou ancienne vue 2D. Le jeu redémarre, ta partie est gardée.': 'Modern 3D (shadows, day and night) or the old 2D view. The game restarts, your save is kept.',
   // --- Budget, feux tricolores ---
@@ -262,7 +270,10 @@ export const EN_EXTRA = {
 
 // Modèles : [expression, remplacement] — $1, $2… = morceaux repris ; ⟦…⟧ = morceau traduit à son tour
 export const EN_PATTERNS = [
-  [/^(.+) : « On traverse sur les passages piétons, au feu rouge pour les voitures ! » Amende de (\d+) €\.$/, '$1: “You cross at pedestrian crossings, when cars have a red light!” €$2 fine.'],
+  [/^(.+) Et en tant que responsable, je dois tout surveiller !$/, '⟦$1⟧ And as the manager, I have to keep an eye on everything!'],
+  [/^\+(\d+) € glissés discrètement dans ta poche\.$/, '+€$1 slipped discreetly into your pocket.'],
+  [/^\+(\d+) €… mais quelqu’un t’a vu·e ! Renvoi et enquête\.$/, '+€$1… but someone saw you! Fired and investigated.'],
+  [/^Enquête pour corruption : (.+) est soupçonné·e d’avoir touché des pots-de-vin\.$/, 'Corruption inquiry: $1 is suspected of taking bribes.'],  [/^(.+) : « On traverse sur les passages piétons, au feu rouge pour les voitures ! » Amende de (\d+) €\.$/, '$1: “You cross at pedestrian crossings, when cars have a red light!” €$2 fine.'],
   [/^Budget de la semaine : (\d+) € de recettes \(impôts, TVA, amendes…\), (\d+) € de dépenses \(services publics\)\. (Excédent|Déficit) : (\d+) €\.$/,
     (m, i, s, k, n) => `Weekly budget: €${i} income (taxes, VAT, fines…), €${s} spending (public services). ${k === 'Excédent' ? 'Surplus' : 'Deficit'}: €${n}.`],
   [/^Le jury a voté (\d+) contre (\d+) en ta faveur : merci (.+) ! Tu es libre\.$/, 'The jury voted $1 to $2 in your favour: thank you $3! You’re free.'],

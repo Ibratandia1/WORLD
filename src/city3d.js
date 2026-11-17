@@ -282,6 +282,144 @@ function rects(tiles) {
   return out;
 }
 
+// ---------- Bâtiments reconnaissables au premier coup d'œil (enseignes, colonnes, croix, camion…) ----------
+const signCache = {};
+function signMat(text, bg, fg = '#ffffff') {
+  const k = text + bg + fg;
+  if (signCache[k]) return signCache[k];
+  const cv = document.createElement('canvas'); cv.width = 512; cv.height = 128;
+  const g = cv.getContext('2d');
+  g.fillStyle = bg; g.fillRect(0, 0, 512, 128);
+  g.strokeStyle = 'rgba(255,255,255,0.4)'; g.lineWidth = 6; g.strokeRect(8, 8, 496, 112);
+  g.fillStyle = fg; g.textAlign = 'center'; g.textBaseline = 'middle';
+  let size = 70; g.font = `800 ${size}px system-ui, sans-serif`;
+  while (g.measureText(text).width > 460 && size > 30) { size -= 4; g.font = `800 ${size}px system-ui, sans-serif`; }
+  g.fillText(text, 256, 68);
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  return (signCache[k] = new THREE.MeshBasicMaterial({ map: t, toneMapped: false }));
+}
+// Façade principale : le côté qui donne sur la rue (de préférence vers la caméra)
+function frontOf(r) {
+  const walk = (x, y) => T(x, y) && T(x, y).walk;
+  const sides = [
+    { n: [0, 1], bonus: 0.6, tiles: Array.from({ length: r.w }, (_, k) => [r.x0 + k, r.y0 + r.h]) },
+    { n: [1, 0], bonus: 0.6, tiles: Array.from({ length: r.h }, (_, k) => [r.x0 + r.w, r.y0 + k]) },
+    { n: [0, -1], bonus: 0, tiles: Array.from({ length: r.w }, (_, k) => [r.x0 + k, r.y0 - 1]) },
+    { n: [-1, 0], bonus: 0, tiles: Array.from({ length: r.h }, (_, k) => [r.x0 - 1, r.y0 + k]) },
+  ];
+  let best = sides[0], bs = -1;
+  for (const sd of sides) { const s = sd.tiles.filter(([x, y]) => walk(x, y)).length + sd.bonus; if (s > bs) { bs = s; best = sd; } }
+  return best.n;
+}
+const SIGNS = {
+  cafe: ['CAFÉ', '#8e2b28'], bakery: ['BOULANGERIE', '#7a4a12', '#f6d48a'], shop: ['SUPÉRETTE', '#1f6a3f'], fashion: ['MODE', '#8a2a5e'],
+  garage: ['GARAGE', '#1d4f58'], police: ['POLICE', '#1d3f8f'], hospital: ['HÔPITAL', '#c62f42'], firestation: ['POMPIERS', '#a32a1c'],
+  school: ['ÉCOLE', '#2b4ea2'], bank: ['BANQUE', '#1b5a3c', '#f2d27a'], court: ['TRIBUNAL', '#3a4152', '#f2d27a'], cityhall: ['MAIRIE', '#2b4ea2'],
+  prison: ['MAISON D’ARRÊT', '#4a4b50'], office: ['BUREAUX', '#2d3e5c'], metro: ['MÉTRO', '#2f7352', '#f6d860'],
+};
+const extraMeshes = [];
+const ROOF_BY_TYPE = { hospital: 0xeceff3, police: 0x2d4f9a, firestation: 0xb8392b, court: 0x3a4152, bank: 0x2f6a4c, school: 0xb5654a, cityhall: 0x2b4ea2, prison: 0x55565b };
+const ROOF_SIGN = new Set(['cityhall', 'court', 'bank', 'police', 'firestation', 'school', 'prison']); // (hôpital : la grande croix rouge suffit)
+function landmark(type, r, cx, cz, w, d, base, top) {
+  if (!SIGNS[type]) return;
+  const n = frontOf(r);
+  const half = n[0] ? w / 2 : d / 2, span = n[0] ? d : w;
+  const rotY = Math.atan2(n[0], n[1]);
+  const px = (o, along = 0) => cx + n[0] * (half + o) + (n[0] ? 0 : along);
+  const pz = (o, along = 0) => cz + n[1] * (half + o) + (n[1] ? 0 : along);
+  // boîte alignée sur la façade : longueur le long de la façade, profondeur vers la rue
+  const fbox = (len, h, dep, o, along, y, c, top2 = null) => solidGeos.push(paint(n[0] ? box(dep, h, len, px(o, along), y, pz(o, along)) : box(len, h, dep, px(o, along), y, pz(o, along)), c, top2));
+  const add2 = (geo, mat) => { const m = new THREE.Mesh(geo, mat); m.castShadow = true; scene.add(m); extraMeshes.push(m); return m; };
+  const S = SIGNS[type];
+  // Enseigne lumineuse au-dessus du rez-de-chaussée
+  const sy = type === 'metro' ? base + 1.05 : type === 'office' ? base + 0.35 : base + FLOOR + 0.13;
+  const sw = Math.min(span * 0.8, type === 'metro' ? 0.7 : 1.7);
+  const sg = add2(new THREE.PlaneGeometry(sw, 0.24), signMat(S[0], S[1], S[2] || '#ffffff'));
+  sg.castShadow = false; sg.position.set(px(type === 'metro' ? -half + 0.02 : 0.035), sy, pz(type === 'metro' ? -half + 0.02 : 0.035)); sg.rotation.y = rotY;
+
+  // Enseigne sur le toit, tournée vers la caméra : on reconnaît le lieu d'un coup d'œil, même de loin
+  if (ROOF_SIGN.has(type)) {
+    const ry = top + 0.62;
+    const rs = add2(new THREE.PlaneGeometry(1.25, 0.3), signMat(S[0], S[1], S[2] || '#ffffff'));
+    rs.castShadow = false; rs.position.set(cx, ry + 0.2, cz); rs.rotation.y = Math.PI / 4;
+    for (const k of [-0.45, 0.45]) solidGeos.push(paint(box(0.03, 0.22, 0.03, cx + k * 0.707, ry - 0.05, cz - k * 0.707), 0x3a3d46));
+  }
+  if (type === 'cityhall' || type === 'court' || type === 'bank') {
+    // Colonnes, entablement et fronton : l'allure d'un monument
+    const nC = type === 'bank' ? 4 : Math.max(4, Math.round(span * 2.4));
+    const h = type === 'bank' ? FLOOR * 1.8 : FLOOR * 2.3;
+    const stone = type === 'bank' ? 0xeee6d6 : 0xf3eee2;
+    if (type === 'court') for (let k = 0; k < 4; k++) fbox(span * 0.95, 0.04, 0.55 - k * 0.12, 0.27 - k * 0.06, 0, base - 0.02 + k * 0.04, 0xe6e1d6);
+    for (let k = 0; k < nC; k++) {
+      const al = (k / (nC - 1) - 0.5) * span * 0.82;
+      solidGeos.push(paint(new THREE.CylinderGeometry(0.055, 0.065, h, 10).translate(px(0.22, al), base + h / 2, pz(0.22, al)), stone));
+    }
+    fbox(span * 0.92, 0.09, 0.5, 0.2, 0, base + h, stone);
+    const shape = new THREE.Shape([new THREE.Vector2(-span * 0.46, 0), new THREE.Vector2(span * 0.46, 0), new THREE.Vector2(0, 0.38)]);
+    const ped = new THREE.ExtrudeGeometry(shape, { depth: 0.12, bevelEnabled: false }).translate(0, 0, -0.06).rotateY(rotY).translate(px(0.4), base + h + 0.09, pz(0.4));
+    add2(paint(ped, stone), mats.solid);
+    if (type === 'court') { // balance dorée sur le fronton
+      const gold = new THREE.MeshStandardMaterial({ color: 0xd9b04c, metalness: 0.7, roughness: 0.3 });
+      const g = new THREE.Group();
+      g.add(new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.18, 0.02).translate(0, 0.09, 0), gold));
+      g.add(new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.015, 0.015).translate(0, 0.17, 0), gold));
+      for (const dx of [-0.1, 0.1]) g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.01, 12).translate(dx, 0.1, 0), gold));
+      g.position.set(px(0.49), base + h + 0.12, pz(0.49)); g.rotation.y = rotY; scene.add(g);
+    }
+  }
+  if (type === 'hospital') { // grande croix rouge sur le toit + auvent des urgences
+    const y = top + 0.56;
+    solidGeos.push(paint(box(0.9, 0.03, 0.9, cx, y, cz), 0xffffff));
+    solidGeos.push(paint(box(0.62, 0.04, 0.18, cx, y + 0.03, cz), 0xd8283c));
+    solidGeos.push(paint(box(0.18, 0.04, 0.62, cx, y + 0.03, cz), 0xd8283c));
+    fbox(0.8, 0.05, 0.45, 0.22, 0, base + FLOOR * 0.75, 0xd8283c);
+    for (const al of [-0.36, 0.36]) solidGeos.push(paint(new THREE.CylinderGeometry(0.02, 0.02, FLOOR * 0.75, 6).translate(px(0.4, al), base + FLOOR * 0.375, pz(0.4, al)), 0xdddddd));
+  }
+  if (type === 'police') { // bandeau bleu et gyrophare sur le toit
+    fbox(span * 0.98, 0.07, 0.03, 0.02, 0, base + FLOOR * 0.98, 0x1d3f8f);
+    const giro = add2(new THREE.CylinderGeometry(0.07, 0.07, 0.1, 12), new THREE.MeshStandardMaterial({ color: 0x3d7bff, emissive: 0x2a5bff, emissiveIntensity: 2.5 }));
+    giro.position.set(cx + w * 0.3, top + 0.6, cz - d * 0.3); giro.userData.blink = true;
+  }
+  if (type === 'firestation') { // grandes portes rouges et camion de pompiers devant
+    for (const al of [-span * 0.22, span * 0.22]) {
+      fbox(span * 0.36, FLOOR * 0.85, 0.03, 0.015, al, base, 0xc0392b);
+      for (let k = 1; k < 4; k++) fbox(span * 0.36, 0.012, 0.035, 0.016, al, base + k * FLOOR * 0.21, 0x8e2a1f);
+    }
+    const truck = [paint(box(0.85, 0.2, 0.32, 0, 0.06, 0), 0xd62f24), paint(box(0.28, 0.16, 0.3, 0.3, 0.26, 0), 0xd62f24),
+      paint(box(0.24, 0.08, 0.31, 0.31, 0.3, 0), 0x2a3a50), paint(box(0.55, 0.03, 0.12, -0.12, 0.3, 0), 0xc8c8c8)];
+    for (const [dx, dz] of [[0.28, 0.16], [-0.28, 0.16], [0.28, -0.16], [-0.28, -0.16]]) truck.push(paint(new THREE.CylinderGeometry(0.06, 0.06, 0.05, 10).rotateX(Math.PI / 2).translate(dx, 0.06, dz), 0x1c1c22));
+    const tg = mergeGeometries(truck).rotateY(rotY + Math.PI / 2).translate(px(0.75), 0.005, pz(0.75));
+    add2(tg, mats.solid);
+  }
+  if (type === 'school') { // horloge sur la façade
+    const clock = add2(new THREE.CylinderGeometry(0.16, 0.16, 0.03, 20).rotateX(Math.PI / 2).rotateY(rotY), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 }));
+    clock.position.set(px(0.03), base + FLOOR * 2.4, pz(0.03));
+    const hand = add2(new THREE.BoxGeometry(0.015, 0.11, 0.01).translate(0, 0.04, 0).rotateY(rotY), new THREE.MeshStandardMaterial({ color: 0x222222 }));
+    hand.position.set(px(0.05), base + FLOOR * 2.4, pz(0.05));
+  }
+  if (type === 'metro') { // entourage vert et globes orangés, à la parisienne
+    const g = 0x2f7352;
+    for (const al of [-0.3, 0.3]) {
+      solidGeos.push(paint(new THREE.CylinderGeometry(0.025, 0.03, 0.95, 8).translate(cx + (n[0] ? 0 : al), base + 0.47, cz + (n[1] ? 0 : al)), g));
+      const glob = add2(new THREE.SphereGeometry(0.06, 10, 8), new THREE.MeshStandardMaterial({ color: 0xffb347, emissive: 0xff9a2a, emissiveIntensity: 1.6 }));
+      glob.position.set(cx + (n[0] ? 0 : al), base + 1.0, cz + (n[1] ? 0 : al));
+    }
+  }
+  if (type === 'cafe') { // terrasse : tables et parasols sur le trottoir
+    for (const al of [-span * 0.25, span * 0.25]) {
+      const x = px(0.6, al), z = pz(0.6, al);
+      solidGeos.push(paint(new THREE.CylinderGeometry(0.1, 0.1, 0.02, 12).translate(x, 0.26, z), 0xf4f1e8));
+      solidGeos.push(paint(new THREE.CylinderGeometry(0.012, 0.012, 0.6, 6).translate(x, 0.38, z), 0x34323d));
+      solidGeos.push(paint(new THREE.ConeGeometry(0.28, 0.14, 8).translate(x, 0.72, z), 0xd8504d));
+    }
+  }
+  if (type === 'garage') for (let k = 0; k < 3; k++) solidGeos.push(paint(new THREE.CylinderGeometry(0.1, 0.1, 0.07, 12).translate(px(0.4, span * 0.3), 0.12 + k * 0.07, pz(0.4, span * 0.3)), 0x1f1f24));
+  if (type === 'prison') { // mur d'enceinte et mirador
+    fbox(span, 0.5, 0.06, 0.25, 0, base, 0xa7a59e);
+    solidGeos.push(paint(box(0.3, 1.5, 0.3, px(0.1, span * 0.4), base, pz(0.1, span * 0.4)), 0x8f8d86));
+    solidGeos.push(paint(box(0.42, 0.05, 0.42, px(0.1, span * 0.4), base + 1.5, pz(0.1, span * 0.4)), 0x5f6066));
+  }
+}
 const tops = {}; // hauteur du toit de chaque lieu (pour les épingles)
 function building(r, type, seed, bid = null) {
   const x = r.x0 + r.w / 2 - 0.5, z = r.y0 + r.h / 2 - 0.5;
@@ -292,6 +430,7 @@ function building(r, type, seed, bid = null) {
     solidGeos.push(paint(box(w * 0.8, 0.12, d * 0.8, x, base, z), 0x2f7352));
     solidGeos.push(paint(box(0.06, 0.9, 0.06, x - w * 0.35, base, z), 0x2f7352));
     solidGeos.push(paint(box(0.3, 0.22, 0.06, x - w * 0.35, base + 0.9, z), 0xf2c94c));
+    landmark(type, r, x, z, w, d, base, base + 1);
     if (bid != null) tops[bid] = 1.3;
     return;
   }
@@ -299,6 +438,7 @@ function building(r, type, seed, bid = null) {
     const h = floors * FLOOR;
     glassGeos.push(wallUV(box(w, h, d, x, base, z), w, h, d));
     solidGeos.push(paint(box(w + 0.04, 0.08, d + 0.04, x, base + h, z), 0x3d4556));
+    landmark(type, r, x, z, w, d, base, base + h);
     if (bid != null) tops[bid] = base + h + 0.1;
     return;
   }
@@ -322,9 +462,10 @@ function building(r, type, seed, bid = null) {
   solidGeos.push(paint(box(w + 0.08, 0.06, d + 0.08, x, y, z), 0xd8cfbd));
   y += 0.06;
   const roofH = type === 'firestation' || type === 'prison' ? 0.12 : 0.5;
-  const rcol = type === 'firestation' ? 0x5a4a48 : ROOFS[seed % ROOFS.length];
+  const rcol = ROOF_BY_TYPE[type] ?? ROOFS[seed % ROOFS.length]; // les lieux importants ont un toit de couleur reconnaissable
   roofGeos.push(paint(mansard(w + 0.02, d + 0.02, roofH, Math.min(0.32, Math.min(w, d) * 0.3), x, y, z), rcol));
   if (bid != null) tops[bid] = Math.max(tops[bid] || 0, y + roofH);
+  if (bid != null) landmark(type, r, x, z, w, d, base, y);
   if (roofH > 0.2) {
     const n = 1 + (seed % 2);
     for (let k = 0; k < n; k++) {
@@ -679,6 +820,7 @@ let pinTick = 0;
 function updateGame(dt) {
   if (opts.demo) return;
   const now = performance.now() / 1000;
+  for (const m of extraMeshes) if (m.userData.blink) m.material.emissiveIntensity = Math.sin(now * 8) > 0 ? 3 : 0.3;
   for (const g of Object.values(fires)) for (const c of g.children) { const k = 0.8 + Math.sin(now * 9 + c.userData.phase) * 0.25; c.scale.set(1, k, 1); }
   // la caméra glisse vers sa cible
   if (camGoal.t) {
@@ -790,7 +932,7 @@ function loop() {
   requestAnimationFrame(loop);
 }
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
-window.three = { scene, sun, hemi, renderer, mats, camera }; // débogage (console)
+window.three = { scene, sun, hemi, renderer, mats, camera, controls }; // débogage (console)
 loop();
 return api;
 }

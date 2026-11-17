@@ -8,7 +8,9 @@ import { CATALOG } from './catalog.js';
 // Premiers pas : `done` regarde les actions déjà faites (flags), `target` sert au bouton « Montrer »
 export const TUTORIAL = [
   // ui = élément de l'interface qui s'illumine pendant l'étape
+  { id: 'tut_home', icon: '🔑', text: 'Trouve un logement', hint: 'Touche une épingle 🔑 (logement libre) : compare les loyers, puis « Louer ». Le loyer se paie chaque lundi.', done: f => f.rent_home || f.buy_home, target: 'vacant', ui: 'p-home' },
   { id: 'tut_eat', icon: '🥐', text: 'Prends un petit-déjeuner', hint: 'Dans un café ☕ ou une boulangerie 🥐 ouverts (les boulangeries ferment le lundi), ou cuisine chez toi.', done: f => f.eat_bakery || f.eat_cafe || f.eat_home || f.coffee, target: 'breakfast' },
+  { id: 'tut_job', icon: '📝', text: 'Trouve un travail', hint: 'Les épingles avec 💼 recrutent : touche un commerce ou un bureau, puis « Postuler ». Certains postes demandent un diplôme (école).', done: f => f.hired, target: 'hiring', ui: 'p-job' },
   { id: 'tut_work', icon: '💼', text: 'Va travailler', hint: 'Ton service commence à l’heure indiquée sur 💼 en bas à gauche. Touche ton lieu de travail, puis « Travailler ».', done: f => f.work, target: 'job', ui: 'p-job' },
   { id: 'tut_shop', icon: '🛒', text: 'Fais des courses', hint: 'À la supérette 🛒 : 4 repas pour ton frigo (🥫 en bas à gauche).', done: f => f.groceries, target: 'shop', ui: 'v-food' },
   { id: 'tut_cook', icon: '🍝', text: 'Cuisine chez toi', hint: 'Rentre chez toi 🏠 et touche la cuisinière, ou « Cuisiner » dans la fiche.', done: f => f.eat_home, target: 'home', ui: 'p-home' },
@@ -77,6 +79,13 @@ export const XP = { tut: 15, dream: 60 };
 export function ensureGoals(a, finished = false) {
   if (!a.goals) a.goals = { tut: finished ? TUTORIAL.length : 0, flags: {}, claimed: {} };
   if (a.goals.xp == null) a.goals.xp = 0;
+  // Tutoriel v2 (8 étapes : logement et travail ajoutés) : on recale les anciennes parties (6 étapes)
+  if (a.goals.tutV !== 2) {
+    const OLD_TO_NEW = [1, 3, 4, 5, 6, 7];
+    if (a.goals.tut > 0) a.goals.tut = a.goals.tut >= 6 ? TUTORIAL.length : OLD_TO_NEW[a.goals.tut];
+    a.goals.tutV = 2;
+  }
+  if (finished && a.goals.tut < TUTORIAL.length) a.goals.tut = TUTORIAL.length; // partie reprise après le 3e jour
   return a.goals;
 }
 
@@ -99,6 +108,10 @@ export function nextDream(a, w) {
 export function trackGoals(world, actor) {
   ensureGoals(actor);
   const mark = id => { actor.goals.flags[id] = true; };
+  // (vieilles parties : logement et travail déjà là comptent comme faits)
+  if (actor.home != null) mark('rent_home');
+  if (actor.job) mark('hired');
+  world.on('hired', e => { if (e.actor === actor) mark('hired'); });
   world.on('start', e => { if (e.actor === actor) mark(e.id); });
   world.on('done', e => {
     if (e.actor !== actor) return;

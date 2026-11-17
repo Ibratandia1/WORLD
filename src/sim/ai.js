@@ -6,6 +6,11 @@ import { festById } from './festivals.js';
 import { isPolice, onDuty, jailed } from './safety.js';
 
 // Heure du coucher : assez tôt pour 8 h de sommeil avant le service du lendemain
+// Routine automatique du joueur : probabilité d'une tentation à chaque décision, part de mauvais choix, jours « sans »
+const ROUTINE_TEMPT = 0.016;
+const ROUTINE_BAD = 0.65;
+const ROUTINE_SLACK = 0.12;
+
 const bedtimeOf = a => (a.job ? (a.job.start + 24 - 8.75) % 24 : 23);
 const isBedtime = (h, bt) => ((h - bt + 24) % 24) < 6;
 
@@ -86,6 +91,33 @@ export function decide(a, w, opts = {}) {
     }
   }
 
+  // 1g. Routine automatique du joueur : pratique, mais pas sans risque. Laissé à lui-même, ton personnage
+  // peut mal tourner (plus souvent que bien) : vol, vol à l'étalage, cambriolage la nuit, pot-de-vin, jeux d'argent…
+  // et certains jours il ne se lève pas pour aller travailler. Mêmes actions que tout le monde (world.perform).
+  if (player && a.routine && sf && !jailed(w, a)) {
+    if (a.slackDay !== w.day) { a.slackDay = w.day; a.slacking = Math.random() < ROUTINE_SLACK; }
+    if (Math.random() < ROUTINE_TEMPT) {
+      const night = w.hour >= 23 || w.hour < 5;
+      const tryAct = (id, params = {}) => (w.check(a, id, params) === true ? { id, params } : null);
+      let pick = null;
+      if (Math.random() < ROUTINE_BAD) { // le côté sombre
+        const v = nearby(w, a).find(o => !isPolice(o) && o.money > 20);
+        const homes = w.map.buildings.filter(b => b.type === 'home' && b.id !== a.home);
+        const options = [
+          () => tryAct('take_bribe'),
+          () => (v ? tryAct('steal', { who: v.id }) : null),
+          () => tryAct('shoplift'),
+          () => (night && homes.length ? tryAct('burgle', { building: homes[Math.floor(Math.random() * homes.length)].id }) : null),
+          () => (a.money > 10 ? shop(a, w, 'scratch') : null),
+        ].sort(() => Math.random() - 0.5);
+        for (const f of options) { pick = f(); if (pick) break; }
+      } else { // un bon geste
+        pick = tryAct('pick_litter');
+      }
+      if (pick) { a.routineDeeds = (a.routineDeeds || 0) + 1; return pick; }
+    }
+  }
+
   // 2a. Métiers de rue (facteur, police) : tournée dans le quartier pendant le service
   if (a.job && a.job.street && shiftNow(a.job, w)) {
     if (a.hunger > 80 && a.money >= 4) { const c = shop(a, w, 'eat_bakery'); if (c) return c; }
@@ -94,7 +126,7 @@ export function decide(a, w, opts = {}) {
 
   // 2b. Aller travailler : on part en avance, on mange vite si besoin
   const s = a.job && !a.job.street && shiftNow(a.job, w);
-  if (s && w.minutes < s.end - 30 && a.energy > 8) {
+  if (s && w.minutes < s.end - 30 && a.energy > 8 && !(player && a.routine && a.slacking)) { // (routine : jours « sans »)
     if (a.hunger > 45 && a.money >= 4 && w.minutes < s.start - 35) { const c = shop(a, w, 'eat_bakery'); if (c) return c; }
     if (w.minutes >= s.start - 45) return { id: 'work' };
     return null; // trop tôt : on attend, sans se lancer dans une longue activité

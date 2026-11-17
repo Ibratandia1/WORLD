@@ -7,7 +7,8 @@ import { makeJob, makeStreetJob } from './jobs.js';
 // En multijoueur, un vrai joueur pourra prendre la place de n'importe lequel.
 // ⚠ Toujours ajouter les nouveaux habitants À LA FIN (les sauvegardes retrouvent les gens par leur ordre).
 export const PEOPLE = [
-  { name: 'Toi', controller: 'player', home: 'A', job: { at: 'O', wage: 15 }, money: 300,
+  // Le joueur arrive dans le quartier sans logement ni travail, avec un peu d'argent : à lui de choisir où vivre et de trouver un emploi
+  { name: 'Toi', controller: 'player', home: null, job: null, money: 450,
     look: { body: 0xf2c94c, hairColor: 0x4a3020, hairStyle: 'court', skin: 0xf1c7a3, legs: 0x3a4766, accessory: 'aucun' } },
   { name: 'Inès', home: 'B', job: { at: 'C', wage: 12 }, money: 220, role: 'manager',
     look: { body: 0xe86a8c, hairColor: 0x2b1d16, hairStyle: 'long', skin: 0xc98e6a, legs: 0x2e3550, accessory: 'aucun' } },
@@ -114,8 +115,9 @@ export function spawnPeople(world, profile = null) {
   const map = world.map;
   const staff = {}; // un employé sur deux prend l'équipe du soir
   for (const p of PEOPLE) {
-    const home = map.byLetter[p.home];
-    const start = home.entrances[Math.floor(Math.random() * home.entrances.length)];
+    const home = p.home ? map.byLetter[p.home] : null;
+    const from = home || map.buildings.find(b => b.type === 'metro'); // sans logement : on arrive par le métro
+    const start = from.entrances[Math.floor(Math.random() * from.entrances.length)];
     const isPlayer = p.controller === 'player';
     let job = null;
     if (p.job) {
@@ -128,10 +130,10 @@ export function spawnPeople(world, profile = null) {
       name: isPlayer && profile ? profile.name : p.name,
       controller: p.controller,
       look: isPlayer && profile ? { ...p.look, ...profile.look } : p.look,
-      home: home.id,
+      home: home ? home.id : null,
       job,
       role: p.role,
-      housing: p.role === 'landlord' ? 'own' : 'rent',
+      housing: !home ? null : p.role === 'landlord' ? 'own' : 'rent',
       owned: p.owned ? [...p.owned] : [],
       vehicle: p.vehicle,
       money: p.money,
