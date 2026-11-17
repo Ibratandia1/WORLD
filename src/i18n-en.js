@@ -271,6 +271,7 @@ export const EN_EXTRA = {
   'Bœuf bourguignon': 'Beef bourguignon', 'Soupe à l’oignon': 'French onion soup', 'Omelette aux champignons': 'Mushroom omelette', 'Salade niçoise': 'Niçoise salad',
   'Tarte aux pommes': 'Apple tart', 'Pain aux raisins': 'Raisin swirl', 'Éclair au chocolat': 'Chocolate éclair', 'Chausson aux pommes': 'Apple turnover',
   'Flan pâtissier': 'Custard tart', 'Paris-brest': 'Paris-brest', 'Pain de campagne': 'Country loaf',
+  'Le Marais, Paris': 'Le Marais, Paris', 'Jour': 'Day', 'Sans logement': 'Homeless', 'Volume général': 'Master volume', 'Tester le son': 'Test the sound',
   'Réfectoire': 'Canteen', '👆 Touche le comptoir ou un meuble pour agir': '👆 Tap the counter or a piece of furniture to act', 'Fermé : personne en service': 'Closed: nobody on duty', 'Accepter un pot-de-vin': 'Accept a bribe', 'Réservé aux agents publics': 'Public servants only',
   'Seulement pendant le service': 'Only during your shift', 'Moins': 'Less',
   '⚠️ Routine : livré à lui-même, ton personnage peut mal tourner (vols, pots-de-vin, jeux, absences)…': '⚠️ Routine: left to themselves, your character may go astray (theft, bribes, gambling, absences)…',

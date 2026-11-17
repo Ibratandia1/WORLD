@@ -5,6 +5,7 @@ import { newGame } from './save.js';
 import { state } from './state.js';
 import { t } from './i18n.js';
 import { setSetting } from './settings.js';
+import { SEASON_INFO } from './sim/world.js';
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -33,10 +34,18 @@ export function showStart() {
       <canvas width="${CHAR_W * 6}" height="${CHAR_H * 6}"></canvas>
       <div>
         <h1>World</h1>
-        <p>${esc(p.name)} · ${w.dayShort} ${w.clock} · ${Math.round(p.money)} €</p>
+        <p class="sub">${t('Le Marais, Paris')}</p>
+        <p class="who"><b>${esc(p.name)}</b> · ${t('Jour')} ${w.day} · ${w.dayShort} ${w.clock}</p>
+        <div class="stchips">
+          <span>💶 ${Math.round(p.money)} €</span>
+          <span>${p.home != null ? '🏠 ' + esc(t('Chez toi')) : '🔑 ' + esc(t('Sans logement'))}</span>
+          <span>${p.job ? '💼 ' + esc(t('Ton travail')) : '📝 ' + esc(t('Sans emploi'))}</span>
+          <span>🗓️ ${esc(t((SEASON_INFO[w.season] || {}).label || ''))}</span>
+        </div>
         <div class="btns">
           <button class="main" data-go>▶ ${t('Continuer')}</button>
           <button data-look>👕 ${t('Modifier mon personnage')}</button>
+          <button data-settings>⚙️ ${t('Paramètres')}</button>
           <button class="danger" data-new>🔄 ${t('Nouvelle partie')}</button>
         </div>
       </div>
@@ -50,6 +59,7 @@ export function showStart() {
     const b = e.target.closest('button');
     if (!b) return;
     if (b.hasAttribute('data-go')) { close(); w.paused = false; state.ui.syncControls(); }
+    if (b.hasAttribute('data-settings')) { state.ui.openSettings('general'); return; }
     else if (b.hasAttribute('data-look')) { close(); w.paused = false; openCustomizer(); }
     else if (b.hasAttribute('data-new')) {
       if (confirm(t('Recommencer une nouvelle partie ? Ton argent et ta progression seront effacés.'))) newGame();

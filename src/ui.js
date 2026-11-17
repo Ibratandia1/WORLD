@@ -116,6 +116,9 @@ export class UI {
     this.watchLayout();
     document.addEventListener('click', e => { if (e.target.closest('button')) snd.click(); }, true);
     world.on('event', () => snd.chime());
+    // Sons propres aux grands moments (en plus du carillon de l'événement)
+    const SFX = { hired: 'hired', loyalty: 'sparkle', jaywalk: 'whistle', custody: 'whistle', verdict: 'gavel', released: 'unlock', raise: 'fanfare' };
+    for (const [ev, fx] of Object.entries(SFX)) world.on(ev, e => { if (mine(e) && snd[fx]) setTimeout(() => snd[fx](), 180); });
     world.on('fail', e => { if (mine(e)) snd.error(); });
     world.on('done', e => {
       if (!mine(e)) return;
@@ -238,6 +241,7 @@ export class UI {
     if (btn.hasAttribute('data-sclose')) return this.closeSettings();
     if (btn.hasAttribute('data-rewelcome')) { this.closeSettings(); return this.showWelcome(true); }
     if (btn.dataset.tab) return this.openSettings(btn.dataset.tab);
+    if (btn.hasAttribute('data-sndtest')) { this.sound.start(); setTimeout(() => this.sound.fanfare(), 120); setTimeout(() => this.sound.sparkle(), 700); return; }
     if (btn.dataset.set) { setSetting(btn.dataset.set, !settings()[btn.dataset.set]); if (btn.dataset.set === 'sound' && settings().sound) this.sound.start(); }
     else if (btn.dataset.setk) { const v = btn.dataset.setv; setSetting(btn.dataset.setk, /^\d+$/.test(v) ? Number(v) : v); }
     else if (btn.hasAttribute('data-resettips')) { p.tips = []; this.tipAt = -1e9; this.floatNote(t('Les astuces réapparaîtront.')); }
@@ -256,8 +260,12 @@ export class UI {
         
         <h3>🔠 ${t('Taille du texte')}</h3>${chips('textSize', [['small', 'Petit'], ['normal', 'Normal'], ['large', 'Grand']])}`,
       sound: `<div class="choices">${sw('sound', 'Son', '🔊')}</div>
-        <label class="range">${t('Volume')} <input type="range" min="0" max="1" step="0.05" value="${s.volume}" data-range="volume"></label>
-        <div class="choices two">${sw('music', 'Musique', '🎻')}${sw('ambience', 'Ambiances (ville, pluie, café)', '🌧️')}${sw('uiSounds', 'Sons de l’interface', '🔔')}</div>`,
+        <div class="sliders">
+          ${[['volume', '🔊', 'Volume général'], ['musVol', '🎻', 'Musique'], ['ambVol', '🌧️', 'Ambiances (ville, pluie, café)'], ['uiVol', '🔔', 'Sons de l’interface']].map(([k, ic, l]) =>
+            `<label class="range"><span>${ic} ${esc(t(l))}</span><input type="range" min="0" max="1" step="0.05" value="${s[k] ?? 1}" data-range="${k}" oninput="this.nextElementSibling.textContent=Math.round(this.value*100)+' %'"><b>${Math.round((s[k] ?? 1) * 100)} %</b></label>`).join('')}
+        </div>
+        <div class="choices two">${sw('music', 'Musique', '🎻')}${sw('ambience', 'Ambiances (ville, pluie, café)', '🌧️')}${sw('uiSounds', 'Sons de l’interface', '🔔')}</div>
+        <div class="choices">${this.choiceHTML('data-sndtest class="c-rest"', '🎵', 'Tester le son', '', true)}</div>`,
       comfort: `<div class="choices two">${sw('vibrate', 'Vibrations', '📳')}${sw('tips', 'Astuces', '💡')}</div>
         <h3>⏱️ ${t('Les événements s’effacent après')}</h3>${chips('eventTimer', [[8, '8 s'], [12, '12 s'], [25, '25 s'], [0, 'jamais']])}
         <div class="choices">${this.choiceHTML('data-resettips', '💡', 'Revoir les astuces', '', true)}</div>`,

@@ -680,3 +680,25 @@ body.v3d #game, body.v3d #game canvas { pointer-events: none; } /* la couche 2D 
 .mp-chip { font: 700 10.5px system-ui, sans-serif; padding: 2px 8px; border-radius: 999px; background: #f2eefc; color: #4a3d7a; }
 .mp-chip.promo { background: #ffe9c2; color: #9a5a00; } .mp-chip.dish { background: #fff3e6; color: #8a4b1a; }
 .mp-chip.loyal { background: #fff8d6; color: #8a6d00; letter-spacing: 1px; }
+
+/* Écran d'accueil v2 */
+#start .card { background: linear-gradient(160deg, #ffffff 0%, #f4efff 100%); box-shadow: 0 20px 60px rgba(40,25,90,.35); border: 1px solid rgba(255,255,255,.8); }
+#start h1 { margin: 0; font-size: 34px; letter-spacing: 1px; background: linear-gradient(90deg, #6c4ee0, #d94f9c); -webkit-background-clip: text; background-clip: text; color: transparent; }
+#start .sub { margin: 0 0 6px; color: #8a7fb0; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 2px; }
+#start .who { margin: 4px 0; color: #3d3357; }
+#start .stchips { display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0 10px; }
+#start .stchips span { background: #efe9ff; color: #4a3d7a; border-radius: 999px; padding: 3px 10px; font: 700 11.5px system-ui, sans-serif; }
+#start .btns button { transition: transform .12s ease, box-shadow .12s ease; }
+#start .btns button:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(60,40,140,.2); }
+#start .btns .main { background: linear-gradient(90deg, #6c4ee0, #8b6cf0); color: #fff; }
+
+/* Paramètres v2 : curseurs de volume avec pourcentage */
+#settings .sliders { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+#settings label.range { display: grid; grid-template-columns: minmax(120px, 1fr) 2fr 48px; align-items: center; gap: 10px; font-size: 12.5px; color: #3d3357;
+  background: #f7f4ff; border: 1px solid #ebe4ff; border-radius: 12px; padding: 8px 12px; }
+#settings label.range b { text-align: right; color: #6c4ee0; font-size: 12px; }
+#settings input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border-radius: 6px; background: linear-gradient(90deg, #8b6cf0, #d94f9c); outline: none; }
+#settings input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 3px solid #6c4ee0; box-shadow: 0 2px 6px rgba(60,40,140,.3); cursor: pointer; }
+#settings input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 3px solid #6c4ee0; cursor: pointer; }
+#settings nav button { transition: background .12s ease; }
+#settings nav button.on { box-shadow: inset 3px 0 0 #6c4ee0; }

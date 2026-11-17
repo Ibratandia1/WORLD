@@ -27,9 +27,9 @@ export class Sound {
     if (!this.ctx) return;
     const s = settings(), t = this.ctx.currentTime;
     this.master.gain.setTargetAtTime(s.sound ? s.volume : 0, t, 0.1);
-    this.ambGate.gain.setTargetAtTime(s.ambience ? 1 : 0, t, 0.1);
-    this.mus.gain.setTargetAtTime(s.music ? 1 : 0, t, 0.1);
-    this.ui.gain.setTargetAtTime(s.uiSounds ? 0.5 : 0, t, 0.1);
+    this.ambGate.gain.setTargetAtTime(s.ambience ? (s.ambVol ?? 1) : 0, t, 0.1);
+    this.mus.gain.setTargetAtTime(s.music ? (s.musVol ?? 1) : 0, t, 0.1);
+    this.ui.gain.setTargetAtTime(s.uiSounds ? 0.5 * (s.uiVol ?? 1) : 0, t, 0.1);
   }
   start() {
     if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
@@ -147,5 +147,11 @@ export class Sound {
   coin() { this.tone(1320, 0.08, { type: 'square', vol: 0.05 }); this.tone(1760, 0.18, { type: 'square', vol: 0.05, delay: 0.07 }); }
   error() { this.tone(220, 0.18, { type: 'sawtooth', vol: 0.06, to: 160 }); }
   door() { this.noise(0.25, { freq: 400, to: 180, q: 2, vol: 0.12 }); this.tone(140, 0.15, { vol: 0.08, delay: 0.18 }); }
+  // Sons des moments importants (synthétisés, comme le reste)
+  sparkle() { [1568, 2093, 2637].forEach((f, i) => this.tone(f, 0.18, { vol: 0.07, delay: i * 0.07 })); }          // fidélité, cadeau
+  hired() { [523, 784, 1047, 1319].forEach((f, i) => this.tone(f, 0.28, { type: 'triangle', vol: 0.09, delay: i * 0.09 })); } // embauche
+  whistle() { this.tone(1900, 0.12, { vol: 0.08 }); this.tone(1900, 0.3, { vol: 0.08, delay: 0.16 }); }               // amende, police
+  gavel() { this.noise(0.06, { freq: 900, q: 3, vol: 0.2 }); this.noise(0.06, { freq: 900, q: 3, vol: 0.2, delay: 0.22 }); } // verdict
+  unlock() { this.tone(660, 0.1, { type: 'triangle', vol: 0.08 }); this.tone(990, 0.25, { type: 'triangle', vol: 0.08, delay: 0.1 }); } // libération
   fanfare() { [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.22, { type: 'triangle', vol: 0.1, delay: i * 0.1 })); }
 }
