@@ -746,8 +746,16 @@ const $ = id => document.getElementById(id);
 if (opts.demo) $('speed').onclick = () => { speed = speed === 1 ? 4 : speed === 4 ? 16 : 1; $('speed').textContent = `⏩ ×${speed}`; };
 if (opts.demo) $('night').onclick = () => { forceNight = !forceNight; if (forceNight) { while (world.hour < 21 || world.hour > 22) world.step(1); } $('night').textContent = forceNight ? '☀️ Jour' : '🌙 Nuit'; if (!forceNight) while (world.hour < 10 || world.hour > 11) world.step(1); };
 
+let dirty = true, acc = 0;
+controls.addEventListener('change', () => { dirty = true; });
 function loop() {
-  const dt = Math.min(clock.getDelta(), 0.1);
+  // Économie de batterie : 30 images/s au plus ; en pause, on ne redessine que si la caméra bouge
+  const raw = clock.getDelta();
+  acc += raw;
+  if (!opts.demo && opts.saver && acc < 1 / 30) { requestAnimationFrame(loop); return; }
+  const dt = Math.min(acc, 0.1); acc = 0;
+  if (!opts.demo && world.paused && !dirty && !camGoal.t) { controls.update(); requestAnimationFrame(loop); return; }
+  dirty = false;
   if (opts.demo) world.update(dt * 1000 * speed);
   const inside = !opts.demo && opts.player && opts.player.inside != null;
   renderer.domElement.style.display = inside ? 'none' : '';
