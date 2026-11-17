@@ -262,9 +262,7 @@ export class UI {
         <h3>⏱️ ${t('Les événements s’effacent après')}</h3>${chips('eventTimer', [[8, '8 s'], [12, '12 s'], [25, '25 s'], [0, 'jamais']])}
         <div class="choices">${this.choiceHTML('data-resettips', '💡', 'Revoir les astuces', '', true)}</div>`,
       battery: `<p>${t('Moins de passants et de voitures ; résolution réduite au prochain lancement.')}</p>
-        <div class="choices">${sw('saver', 'Économie de batterie', '🔋')}</div>
-        <h3>🏙️ ${t('Affichage de la ville')}</h3><p>${t('3D moderne (ombres, jour et nuit) ou ancienne vue 2D. Le jeu redémarre, ta partie est gardée.')}</p>
-        <div class="choices">${sw('view3d', 'Ville en 3D', '🏙️')}</div>`,
+        <div class="choices">${sw('saver', 'Économie de batterie', '🔋')}</div>`,
     };
     const tab = PAGES[this.setTab] ? this.setTab : 'general';
     return `<div class="card">

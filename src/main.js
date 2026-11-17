@@ -60,7 +60,7 @@ state.ui = new UI(world, player, director);
 // Rendu à la résolution réelle de l'écran (sinon l'image est étirée et floue sur téléphone / écran haute définition)
 // (plafonné à 2 : au-delà, un téléphone dessine 2,25× plus de pixels pour une différence à peine visible)
 const qs = new URLSearchParams(location.search);
-const want3D = (settings().view3d !== false || qs.has('3d')) && !qs.has('2d'); // ?3d / ?2d : forcer une vue (tests)
+const want3D = !qs.has('2d'); // la ville est en 3D pour tout le monde ; ?2d = ancienne vue (secours, tests)
 state.want3D = want3D; // GameScene ne construit pas la carte 2D quand la ville est en 3D
 const DPR = settings().saver ? 1 : Math.min(window.devicePixelRatio || 1, 2); // économie de batterie : résolution simple
 state.dpr = DPR;
@@ -109,6 +109,14 @@ if (want3D) {
       onLeave: () => { world.perform(player, 'leave'); state.ui.render(); },
     });
     document.body.classList.add('v3d');
+    // L'ancienne 2D (Phaser) n'est plus dessinée du tout : elle ne garde que la logique (simulation, intérieurs, toucher)
+    const hide2D = () => {
+      const g = state.scene && state.scene.game;
+      if (!g) return setTimeout(hide2D, 200);
+      for (const k of ['game', 'interior', 'fx']) { const s = g.scene.getScene(k); if (s) s.sys.setVisible(false); }
+      g.canvas.style.display = 'none';
+    };
+    hide2D();
     if (sc()) { sc().shownInterior = undefined; for (const id of Object.keys(world.safety ? world.safety.fires : {})) state.city3d.showFire(world.building(+id)); }
     world.on('fire', e => state.city3d.showFire(e.building));
     world.on('fireOut', e => state.city3d.hideFire(e.building));
@@ -120,7 +128,7 @@ if (want3D) {
   });
 }
 // Changer de vue redémarre le jeu (la partie est sauvegardée en quittant)
-onSettings((k, v) => { if (k === 'view3d' && (v !== false) !== want3D && !new URLSearchParams(location.search).has('2d')) location.reload(); });
+// (le réglage 2D / 3D a été retiré : la 3D est la seule vue)
 
 // 3. Accueil : nouvelle partie → création du personnage ; sinon écran « Continuer »
 if (TEST) { document.title = 'World (test)'; state.ui.showWelcome(); }

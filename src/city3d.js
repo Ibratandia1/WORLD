@@ -36,14 +36,16 @@ const map = world.map;
 
 // ---------- Moteur ----------
 const mobile = matchMedia('(pointer: coarse)').matches;
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(devicePixelRatio, mobile ? 1.5 : 2));
+const renderer = new THREE.WebGLRenderer({ antialias: !mobile, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, mobile ? 1.25 : 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.95;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.autoUpdate = false;
+renderer.shadowMap.needsUpdate = true;
 if (opts.demo) document.body.appendChild(renderer.domElement);
 else { const cv = renderer.domElement; cv.id = 'city3d'; document.body.insertBefore(cv, document.getElementById('game')); }
 if (opts.saver) { renderer.shadowMap.enabled = false; renderer.setPixelRatio(1); }
@@ -660,7 +662,7 @@ function personView(a) {
   const head = new THREE.Mesh(headG, matOf(lk.skin ?? 0xf1c7a3));
   const parts = [legs, body, head];
   if (lk.hairStyle !== 'chauve') parts.push(new THREE.Mesh(hairG, matOf(lk.hairColor ?? 0x2b1d16)));
-  for (const p of parts) { p.castShadow = true; g.add(p); }
+  for (const p of parts) { g.add(p); }
   if (a.demoMe || a.isPlayer) { // toi : plus grand, flèche dorée qui rebondit au-dessus de la tête
     g.scale.setScalar(1.35);
     const arrowM = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.14, 4).rotateX(Math.PI), new THREE.MeshStandardMaterial({ color: 0xffc83d, emissive: 0xffa800, emissiveIntensity: 0.9 }));
@@ -706,7 +708,7 @@ function pickNext(c) {
 function spawnCar() {
   const gt = gates[Math.floor(rnd() * gates.length)];
   const mesh = new THREE.Mesh(carGeos[Math.floor(rnd() * carGeos.length)], mats.solid);
-  mesh.castShadow = true; scene.add(mesh);
+  scene.add(mesh);
   const c = { mesh, x: gt.x, y: gt.y, dir: gt.dir, t: 0, speed: 1.4 + rnd(), alive: true };
   c.next = pickNext(c);
   cars.push(c);
@@ -1068,7 +1070,7 @@ function spawnWalker() {
   if (path.length < 6) return;
   const look = { body: pickC(LOOKS.body), legs: pickC(LOOKS.legs), skin: pickC(LOOKS.skin), hair: pickC(LOOKS.hair) };
   const mesh = new THREE.Mesh(figureGeo(look), mats.solid);
-  mesh.castShadow = quality > 0; mesh.userData.noTap = true;
+  mesh.userData.noTap = true;
   mesh.position.set(g.x, 0.08, g.y); scene.add(mesh);
   walkers.push({ mesh, x: g.x, y: g.y, path, speed: 1.1 + Math.random() * 0.5, ph: Math.random() * 6 });
 }
@@ -1171,10 +1173,34 @@ function updateStands() {
   for (const [k, m] of stands) if (!keep.has(k)) { scene.remove(m); stands.delete(k); }
 }
 
+const WN = [250, 600, 1000][quality];
+const wPos = new Float32Array(WN * 3);
+for (let i = 0; i < WN; i++) { wPos[i * 3] = (Math.random() - 0.5) * 26; wPos[i * 3 + 1] = Math.random() * 10; wPos[i * 3 + 2] = (Math.random() - 0.5) * 26; }
+const wGeo = new THREE.BufferGeometry(); wGeo.setAttribute('position', new THREE.BufferAttribute(wPos, 3));
+const wMat = new THREE.PointsMaterial({ color: 0xb8d4f0, size: 0.07, transparent: true, opacity: 0.75, depthWrite: false });
+const weatherPts = new THREE.Points(wGeo, wMat);
+weatherPts.frustumCulled = false; weatherPts.userData.noTap = true; weatherPts.visible = false; scene.add(weatherPts);
+function updateWeather(dt) {
+  const kind = world.weather;
+  weatherPts.visible = kind === 'rain' || kind === 'snow';
+  if (!weatherPts.visible) return;
+  const snow = kind === 'snow';
+  wMat.color.set(snow ? 0xffffff : 0xb8d4f0); wMat.size = snow ? 0.11 : 0.06;
+  weatherPts.position.set(controls.target.x, 0, controls.target.z);
+  const t = performance.now() / 1000;
+  for (let i = 0; i < WN; i++) {
+    let y = wPos[i * 3 + 1] - dt * (snow ? 1.1 : 11);
+    if (snow) wPos[i * 3] += Math.sin(t + i) * dt * 0.3;
+    if (y < 0) { y = 10; wPos[i * 3] = (Math.random() - 0.5) * 26; wPos[i * 3 + 2] = (Math.random() - 0.5) * 26; }
+    wPos[i * 3 + 1] = y;
+  }
+  wGeo.attributes.position.needsUpdate = true;
+}
 let aliveTick = 0;
 function updateAlive(dt) {
   const rate = opts.demo ? speed : (world.paused ? 0 : (world.speed || 1));
   updateWalkers(dt, rate);
+  updateWeather(dt);
   if (rate > 0) updatePigeons(dt);
   aliveTick -= dt;
   if (aliveTick <= 0) { aliveTick = 1; applySeason(); updateSnow(); updateLitter(); updateStands(); }
@@ -1197,7 +1223,11 @@ if (opts.demo) $('night').onclick = () => { forceNight = !forceNight; if (forceN
 
 let dirty = true, acc = 0;
 controls.addEventListener('change', () => { dirty = true; });
+let loopErrors = 0, shadowT = 0;
 function loop() {
+  try { frame(); } catch (err) { if (loopErrors++ < 3) console.error('Image 3D :', err); requestAnimationFrame(loop); }
+}
+function frame() {
   // Économie de batterie : 30 images/s au plus ; en pause, on ne redessine que si la caméra bouge
   const raw = clock.getDelta();
   acc += raw;
@@ -1205,6 +1235,8 @@ function loop() {
   const dt = Math.min(acc, 0.1); acc = 0;
   if (!opts.demo && world.paused && !dirty && !camGoal.t && !(opts.player && opts.player.inside != null)) { controls.update(); requestAnimationFrame(loop); return; }
   dirty = false;
+  shadowT -= dt;
+  if (shadowT <= 0) { shadowT = 1; renderer.shadowMap.needsUpdate = true; }
   if (opts.demo) world.update(dt * 1000 * speed);
   const inside = !opts.demo && opts.player && opts.player.inside != null;
   const ictx = inside && interior && opts.interiorCtx ? opts.interiorCtx() : null;
@@ -1221,6 +1253,7 @@ function loop() {
       controls.target.set(info.cx, 0.35, info.cz);
       camera.position.set(info.cx + d * 0.72, d * 0.78, info.cz + d * 0.72);
       controls.minDistance = 2.2; controls.maxDistance = d * 2.2; controls.minPolarAngle = 0.3; controls.maxPolarAngle = 1.25;
+      renderer.shadowMap.needsUpdate = true;
     }
     controls.update();
     renderer.render(interior.scene, camera);
