@@ -8,6 +8,7 @@ import { TUTORIAL, TUT_REWARD, TUT_FINAL, DREAMS, tutReady, dreamDone, dailyFor,
 import { isPolice } from './safety.js';
 import { isLawyer, LAWYER_FEE } from './justice.js';
 import { LOAN_STEP, LOAN_MAX, LOAN_RATE } from './bank.js';
+import { debit } from './budget.js';
 
 // RÈGLE D'OR : toutes les actions du jeu sont ici, et le joueur comme les PNJ
 // passent par world.perform(acteur, id, params). Un futur joueur en ligne
@@ -508,7 +509,7 @@ export const ACTIONS = {
     effect: (a, w) => {
       const n = w.gov.aidAmount;
       if ((w.treasury || 0) < n) return 'Les caisses de la ville sont vides…';
-      w.treasury -= n; a.money += n; a.aidDay = w.day; a.mood += 4;
+      debit(w, 'aid', n); a.money += n; a.aidDay = w.day; a.mood += 4;
       w.gov.aidPaid += n;
       return `Aide sociale accordée : +${n} €`;
     },

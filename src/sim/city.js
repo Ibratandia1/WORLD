@@ -1,10 +1,11 @@
 import { Actor } from './actor.js';
 import { weeklyRent, occupants } from './housing.js';
 import { openings, shiftNow } from './jobs.js';
+import { credit } from './budget.js';
 
 // Propreté des rues
 const DIRT_PER_ACTOR = 0.0005; // points perdus par minute et par habitant (~40 / jour pour 60 habitants)
-const BINMAN_CLEAN = 0.13;     // par minute et par éboueur en tournée, × la saleté (plus c'est sale, plus il y a à ramasser)
+const BINMAN_CLEAN = 0.15;    // par minute et par éboueur en tournée, × la saleté (plus c'est sale, plus il y a à ramasser)
 export const isBinman = a => !!(a.job && a.job.street && /^Éboueur/.test(a.job.title || ''));
 
 // La ville vivante : les commerces vivent de leurs clients (prix qui bougent, faillites, reprises),
@@ -77,7 +78,7 @@ export class CityLife {
     s.today.sales += e.cost;
     // TVA : une part de chaque vente revient au Trésor de la ville
     const vat = e.cost * VAT;
-    this.w.treasury = (this.w.treasury || 0) + vat;
+    credit(this.w, 'vat', vat);
     this.vatWeek = (this.vatWeek || 0) + vat;
   }
 
@@ -147,7 +148,7 @@ export class CityLife {
     const before = this.cleanliness;
     let rate = -DIRT_PER_ACTOR * w.actors.length;
     if (w.festivals && w.festivals.active && w.festivals.active.size) rate *= 2; // les fêtes, ça salit
-    for (const a of w.actors) if (isBinman(a) && a.outdoors && shiftNow(a.job, w)) rate += BINMAN_CLEAN * (1 - this.cleanliness / 100);
+    for (const a of w.actors) if (isBinman(a) && a.outdoors && shiftNow(a.job, w)) rate += BINMAN_CLEAN * (1 - this.cleanliness / 100) * (w.gov && w.gov.austerity ? 0.5 : 1); // austérité : tournées réduites
     this.cleanliness = Math.max(0, Math.min(100, this.cleanliness + rate * dt));
     // Rues sales : le moral de ceux qui sont dehors en pâtit
     if (this.cleanliness < 35) for (const a of w.actors) if (a.outdoors) a.mood = Math.max(0, a.mood - 0.006 * dt);

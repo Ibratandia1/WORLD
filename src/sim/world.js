@@ -7,6 +7,9 @@ import { vehicleOf, itemById } from './catalog.js';
 import { newDayHousing } from './housing.js';
 import { chatterLine } from './social.js';
 import { priceMul, isClosed } from './city.js';
+import { walkMayGo, JAYWALK_FINE } from './traffic.js';
+import { credit } from './budget.js';
+import { isPolice, onDuty } from './safety.js';
 
 export const MIN_PER_SEC = 1;    // minutes de jeu par seconde réelle (vitesse x1) : une journée ≈ 24 min
 const WALK = 1.6;                // cases parcourues par minute de jeu
@@ -149,7 +152,7 @@ export class World extends Emitter {
         if (a.housing === 'own' && a.home != null) {
           property = Math.round(this.building(a.home).price * PROPERTY_TAX);
           a.money -= property;
-          this.treasury = (this.treasury || 0) + property;
+          credit(this, 'property', property);
         }
         const income = Math.round(a.taxWeek || 0);
         if (income || property) this.emit('taxBill', { actor: a, income, property, rate: a.job ? taxRate(a.job.wage) : 0 });
@@ -240,6 +243,13 @@ export class World extends Emitter {
     let budget = WALK * dt * (v ? v.vehicle.speed : 1);
     while (budget > 0 && a.path.length) {
       const t = a.path[0];
+      // Code de la route : au bord du trottoir, on attend que les voitures aient le rouge
+      const nt = this.map.tiles[t.y][t.x], ct = this.map.tiles[Math.round(a.py)][Math.round(a.px)];
+      if (nt.ground === 'road' && ct.ground !== 'road') {
+        if (nt.crossing && !walkMayGo(this, nt.crossing)) { a.waitLight = true; break; }
+        if (!nt.crossing && !v) this.jaywalk(a); // traverser hors des passages piétons
+      }
+      a.waitLight = false;
       const dx = t.x - a.px, dy = t.y - a.py;
       const d = Math.hypot(dx, dy);
       const sdx = dx - dy; // direction horizontale à l'écran
@@ -256,6 +266,19 @@ export class World extends Emitter {
       }
     }
     if (!a.path.length) this.arrive(a);
+  }
+
+  // Traversée hors des passages piétons : amende si un·e agent·e de police en service le voit
+  jaywalk(a) {
+    if (a.jayAt != null && this.minutes - a.jayAt < 30) return;
+    a.jayAt = this.minutes;
+    const cop = this.actors.find(o => o !== a && isPolice(o) && o.outdoors && onDuty(this, o, 'police')
+      && Math.abs(o.px - a.px) + Math.abs(o.py - a.py) <= 8);
+    if (!cop) { a.karma = (a.karma || 0) - 0.1; return; }
+    const fine = Math.min(JAYWALK_FINE, Math.max(0, Math.round(a.money)));
+    a.money -= fine;
+    credit(this, 'fines', fine);
+    this.emit('jaywalk', { actor: a, cop, fine });
   }
 
   // ---------- Actions (même porte d'entrée pour joueur et PNJ) ----------

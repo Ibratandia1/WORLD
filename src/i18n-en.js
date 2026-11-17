@@ -247,11 +247,22 @@ export const EN_EXTRA = {
   'Table de la défense': 'Defence table', 'Bancs du public': 'Public benches', 'Bureau du conseiller': 'Advisor’s desk', 'Coffre-fort': 'Safe', 'Distributeur de billets': 'Cash machine',
   'Le coffre-fort. Il paraît qu’il est inviolable.': 'The safe. They say it’s unbreakable.', 'Le guichet, derrière sa vitre.': 'The counter, behind its glass.',
   'Le distributeur de billets.': 'The cash machine.', 'L’estrade du juge, et son marteau.': 'The judge’s bench, and the gavel.', 'La barre, où l’on témoigne.': 'The stand, where witnesses testify.',
-  'Une poubelle bien vidée.': 'A freshly emptied bin.', 'Tribunal du Marais': 'Marais Courthouse', 'Banque Pavé d’Or': 'Golden Cobble Bank',
+  'Une poubelle bien vidée.': 'A freshly emptied bin.',
+  // --- Budget, feux tricolores ---
+  'Impôt sur le revenu': 'Income tax', 'Cotisations des entreprises': 'Business contributions', 'TVA des commerces': 'Shop VAT', 'Taxe foncière': 'Property tax',
+  'Amendes': 'Fines', 'Dotation de l’État': 'State grant', 'Salaires des services publics': 'Public service wages',
+  'Entretien des rues et de l’éclairage': 'Street and lighting upkeep', 'Aides sociales': 'Welfare', 'Indemnité du maire': 'Mayor’s allowance',
+  'Indemnités des jurés': 'Juror allowances', 'Projets du maire': 'Mayor’s projects', 'Amende : traversée interdite': 'Fine: illegal crossing',
+  '🚦 Feu rouge : on attend pour traverser': '🚦 Red light: waiting to cross',
+  'Les caisses de la ville sont vides : budget d’austérité. Les services publics tournent au ralenti.': 'The city’s coffers are empty: austerity budget. Public services are slowed down.',
+  'Les comptes de la ville sont rétablis : les services publics reprennent normalement.': 'The city’s accounts are back in balance: public services resume normally.', 'Tribunal du Marais': 'Marais Courthouse', 'Banque Pavé d’Or': 'Golden Cobble Bank',
 };
 
 // Modèles : [expression, remplacement] — $1, $2… = morceaux repris ; ⟦…⟧ = morceau traduit à son tour
 export const EN_PATTERNS = [
+  [/^(.+) : « On traverse sur les passages piétons, au feu rouge pour les voitures ! » Amende de (\d+) €\.$/, '$1: “You cross at pedestrian crossings, when cars have a red light!” €$2 fine.'],
+  [/^Budget de la semaine : (\d+) € de recettes \(impôts, TVA, amendes…\), (\d+) € de dépenses \(services publics\)\. (Excédent|Déficit) : (\d+) €\.$/,
+    (m, i, s, k, n) => `Weekly budget: €${i} income (taxes, VAT, fines…), €${s} spending (public services). ${k === 'Excédent' ? 'Surplus' : 'Deficit'}: €${n}.`],
   [/^Le jury a voté (\d+) contre (\d+) en ta faveur : merci (.+) ! Tu es libre\.$/, 'The jury voted $1 to $2 in your favour: thank you $3! You’re free.'],
   [/^Le jury a voté (\d+) contre (\d+) en ta faveur\. Tu es libre\.$/, 'The jury voted $1 to $2 in your favour. You’re free.'],
   [/^(.+?) : « (.+) »$/, '$1: “⟦$2⟧”'],

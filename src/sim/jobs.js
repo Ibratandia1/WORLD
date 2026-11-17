@@ -1,5 +1,6 @@
 // Emploi : contrats, horaires, semaine, avertissements, augmentations, renvoi.
 // Mêmes règles pour le joueur et les PNJ.
+import { credit, debit, isPublicJob } from './budget.js';
 
 export const DAY_NAMES = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 export const DAY_SHORT = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
@@ -38,6 +39,7 @@ export function roleTitle(type, rank) {
 // ---------- Impôts ----------
 // Impôt sur le revenu prélevé à la source : barème simplifié et progressif selon le salaire horaire
 export const taxRate = wage => (wage < 13 ? 0.05 : wage < 17 ? 0.1 : wage < 21 ? 0.14 : 0.18);
+export const PAYROLL_RATE = 0.3;   // cotisations des employeurs privés : 30 % des salaires versés, pour le Trésor
 export const PROPERTY_TAX = 0.002; // taxe foncière : 0,2 % du prix du logement par semaine (propriétaires)
 
 // Verse un salaire brut : l'impôt part au Trésor public, le reste sur le compte. Renvoie le net.
@@ -46,9 +48,12 @@ export function incomeTax(w, a, gross) {
   const tax = gross * taxRate(a.job ? a.job.wage : 0) * (w.gov ? w.gov.taxMul : 1);
   a.money += gross - tax;
   a.taxWeek = (a.taxWeek || 0) + tax;
-  w.treasury = (w.treasury || 0) + tax;
-  // Les agents de la mairie sont payés par le Trésor de la ville (police et facteur : par l'État)
-  if (a.job && !a.job.street && w.building(a.job.building) && w.building(a.job.building).type === 'cityhall') w.treasury -= gross;
+  credit(w, 'tax', tax);
+  // Les agents des services publics (mairie, police, hôpital, pompiers, école, prison, tribunal, facteur, éboueurs)
+  // sont payés par le Trésor : c'est l'impôt qui fait tourner la ville
+  if (isPublicJob(w, a.job)) debit(w, 'wages', gross);
+  // Les entreprises privées paient des cotisations sur les salaires qu'elles versent (elles aussi selon la politique du maire)
+  else credit(w, 'payroll', gross * PAYROLL_RATE * (w.gov ? w.gov.taxMul : 1));
   return gross - tax;
 }
 

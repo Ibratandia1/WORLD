@@ -1,4 +1,5 @@
 import { PRISON_DAYS } from './safety.js';
+import { debit } from './budget.js';
 
 // Justice : après une arrestation, garde à vue au commissariat puis procès au Tribunal du Marais
 // (le lendemain à 10 h, en semaine). Un jury de 3 habitants tirés au sort vote ; un·e avocat·e engagé·e
@@ -79,7 +80,7 @@ export class Justice {
       const g = t.votes[id] != null ? t.votes[id] : this.npcVote(j, a, t);
       if (g) yes++; else no++;
       // indemnité de juré (Trésor de la ville)
-      j.money += JUROR_PAY; w.treasury = (w.treasury || 0) - JUROR_PAY;
+      j.money += JUROR_PAY; debit(w, 'jurors', JUROR_PAY);
     }
     const guilty = yes > no || (yes === no && t.flagrant && !t.lawyer);
     a.trial = null;

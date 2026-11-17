@@ -23,6 +23,7 @@ import { TUTORIAL, TUT_REWARD, TUT_FINAL, DREAMS, tutStep, tutReady, dreamClaima
 import { TAX_POLICIES, AID_POLICIES, CAMPAIGN_FEE, PROJECTS } from './sim/gov.js';
 import { CATALOG } from './sim/catalog.js';
 import { SAVINGS_RATE } from './sim/bank.js';
+import { INCOME, SPEND } from './sim/budget.js';
 import { canReach } from './sim/actions.js';
 import { ROLE_TITLES } from './sim/social.js';
 import { jobTitle, sellerAt, nextOpening, weekdayOf, taxRate, PROPERTY_TAX, nextShift } from './sim/jobs.js';
@@ -584,6 +585,21 @@ export class UI {
       `${TAX_POLICIES[g.tax].icon} ${t(TAX_POLICIES[g.tax].label)} · ${AID_POLICIES[g.aid].icon} ${t(AID_POLICIES[g.aid].label)} (${L(`${g.aidAmount} €/semaine`, `€${g.aidAmount}/week`)})`,
       L(`🏦 Trésor public : ${money(Math.round(w.treasury || 0))} € · aides versées : ${money(g.aidPaid)} €`, `🏦 Treasury: €${money(Math.round(w.treasury || 0))} · welfare paid: €${money(g.aidPaid)}`),
     ];
+    // Où vont les impôts : le budget de la semaine dernière (recettes / dépenses)
+    const bl = w.budget && w.budget.last;
+    if (bl) {
+      const part = (dict, k) => (bl[k] ? `${t(dict[k])} : ${money(Math.round(bl[k]))} €` : null);
+      const inc = Object.keys(INCOME).map(k => part(INCOME, k)).filter(Boolean);
+      const out = Object.keys(SPEND).map(k => part(SPEND, k)).filter(Boolean);
+      const bal = bl.income - bl.spend;
+      lines.push(`<b>${L('📊 Budget de la semaine dernière', '📊 Last week’s budget')}</b>`,
+        `➕ ${L('Recettes', 'Income')} ${money(bl.income)} € · ${inc.join(' · ')}`,
+        `➖ ${L('Dépenses', 'Spending')} ${money(bl.spend)} € · ${out.join(' · ')}`,
+        bal >= 0 ? L(`✅ Excédent : ${money(bal)} €`, `✅ Surplus: €${money(bal)}`) : `<span class="bad">${L(`⚠️ Déficit : ${money(-bal)} €`, `⚠️ Deficit: €${money(-bal)}`)}</span>`);
+    } else {
+      lines.push(L('📊 Premier bilan du budget lundi prochain.', '📊 First budget report next Monday.'));
+    }
+    if (g.austerity) lines.push(`<span class="bad">${L('⚠️ Austérité : caisses vides, services publics au ralenti', '⚠️ Austerity: empty coffers, public services slowed down')}</span>`);
     const rows = [];
     if (g.campaignOpen && g.candidates.length) {
       lines.push(g.votingOpen ? L(`🗳️ <b>Vote en cours</b> jusqu’au jour ${g.election}`, `🗳️ <b>Voting in progress</b> until day ${g.election}`) : L(`🗳️ Campagne : vote du jour ${g.election - 2} au jour ${g.election}`, `🗳️ Campaign: voting from day ${g.election - 2} to day ${g.election}`));
@@ -923,7 +939,7 @@ export class UI {
       <form class="say-form" data-chat><input id="chat-in" maxlength="300" autocomplete="off" placeholder="${tr(reach ? 'Ou écris librement…' : 'Trop loin pour parler')}" ${reach && !this.chatWaiting ? '' : 'disabled'}><button type="submit" ${reach ? '' : 'disabled'}>➤</button></form>${mode}</div>`;
 
     return `${this.head('🧑', t.name)}<p>${licon} ${tr(lname)} · <span class="hearts">${hearts(r)}</span><br>${job}${now}</p>
-      <div class="sec"><b>${t('✨ Interagir')}</b><div class="choices">${extra.join('')}</div></div>${chat}`;
+      <div class="sec"><b>${tr('✨ Interagir')}</b><div class="choices">${extra.join('')}</div></div>${chat}`;
   }
 
   // Envoi commun (texte libre, thème ou réponse proposée)

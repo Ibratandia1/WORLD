@@ -318,6 +318,11 @@ const PUSHED = {
     text: `${e.cop ? `${e.cop.name} t’a passé les menottes. ` : ''}${e.days} jour${e.days > 1 ? 's' : ''} à la Maison d’arrêt et ${e.fine} € d’amende. Ton travail risque d’en souffrir…`,
     choices: OK,
   }),
+  jaywalk: (a, w, e) => ({
+    icon: '🚦', title: 'Amende : traversée interdite',
+    text: `${e.cop.name} : « On traverse sur les passages piétons, au feu rouge pour les voitures ! » Amende de ${e.fine} €.`,
+    choices: OK,
+  }),
   custody: (a, w, e) => ({
     icon: '🚔', title: 'Garde à vue',
     text: `${e.cop ? `${e.cop.name} t’a passé les menottes. ` : ''}Tu passes la nuit au commissariat. Procès au Tribunal ${dayWord(w, e.at)} à 10h : un jury de 3 habitants décidera. Un·e avocat·e augmente beaucoup tes chances.`,

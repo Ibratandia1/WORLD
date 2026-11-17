@@ -1,4 +1,5 @@
 import { near } from './social.js';
+import { credit } from './budget.js';
 
 // Sécurité du quartier : délits (vol à la tire, vol à l'étalage, cambriolage), police, prison ; incendies et pompiers ;
 // maladies. Les gestes eux-mêmes sont des actions (actions.js) : steal, shoplift, burgle, arrest, report, extinguish,
@@ -71,7 +72,7 @@ export class Safety {
     const w = this.w;
     const prison = w.map.buildings.find(b => b.type === 'prison');
     a.money -= fine;
-    w.treasury = (w.treasury || 0) + fine;
+    credit(w, 'fines', fine);
     a.wanted = 0;
     a.jailUntil = null;
     w.cancel(a, true);

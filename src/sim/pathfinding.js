@@ -1,8 +1,13 @@
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
-// Coût d'une case : on préfère les trottoirs et les ruelles, on traverse la rue au plus court.
-const ROAD_COST = 4;
-const costOf = (map, x, y) => (map.tiles[y][x].ground === 'road' ? ROAD_COST : 1);
+// Coût d'une case : on préfère les trottoirs et les ruelles, on traverse sur les passages piétons.
+// Traverser ailleurs est interdit (amende si la police voit) : très coûteux, donc presque jamais choisi.
+const CROSSING_COST = 2;
+const JAYWALK_COST = 60;
+const costOf = (map, x, y) => {
+  const t = map.tiles[y][x];
+  return t.ground !== 'road' ? 1 : t.crossing ? CROSSING_COST : JAYWALK_COST;
+};
 
 // Plus court chemin (Dijkstra) vers la première case qui satisfait isGoal(x, y).
 // Renvoie { path, goal } (path sans la case de départ) ou null.

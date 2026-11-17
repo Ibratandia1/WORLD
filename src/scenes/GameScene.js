@@ -7,13 +7,20 @@ import { ensureCharTexture, randomLook } from '../look.js';
 import { attachControls } from '../camera.js';
 import { findPath } from '../sim/pathfinding.js';
 import { freeUnits, isClosed } from '../sim/city.js';
+import { sellerAt, openings } from '../sim/jobs.js';
 import { shade } from '../color.js';
 import { FestDecor } from '../city/festdecor.js';
 import { settings } from '../settings.js';
 import { festById } from '../sim/festivals.js';
-import { drawTree, drawBuildingTile, drawShadow, drawGroundDetails, drawStreetDecor, makeCarTextures, Traffic, Crowd, rng, makeBirdTextures, Birds, twin, NIGHT, NIGHT_MAX } from '../city/render.js';
+import { drawTree, drawBuildingTile, drawShadow, drawGroundDetails, drawStreetDecor, makeCarTextures, Traffic, Crowd, rng, makeBirdTextures, Birds, twin, NIGHT, NIGHT_MAX, TrafficLights } from '../city/render.js';
 
 const EMOJI_FONT = '"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
+// Couleur des épingles au-dessus des lieux (même code couleur que les fiches)
+const PIN_COLORS = {
+  home: 0x9b6ee8, cafe: 0xd8504d, bakery: 0xe58a1f, shop: 0x2f9e5f, fashion: 0xd94f9c, garage: 0x2f7d8b, office: 0x4a7fd8,
+  metro: 0x2a9d8f, cityhall: 0x2b4ea2, police: 0x2b3a6b, hospital: 0xe2475b, firestation: 0xc0392b, prison: 0x5f6066,
+  school: 0xd9962b, court: 0x4a5266, bank: 0x1f7a52,
+};
 const GROUND = {
   pave: [0xefe3cc, 0xe6d8bd],
   road: [0x9aa0b4, 0x9399ad],
@@ -56,6 +63,7 @@ export class GameScene extends Phaser.Scene {
     this.spots = drawStreetDecor(this, this.map, this.lights, this.darks, this.season);
     this.makeSnowLayer();
     this.makeLitter();
+    this.tlights = new TrafficLights(this, this.map); // feux tricolores aux carrefours
     this.world.on('season', s => this.setSeason(s));
     // Fêtes du quartier : décors créés au début, retirés à la fin
     this.fest = new FestDecor(this);
@@ -92,6 +100,13 @@ export class GameScene extends Phaser.Scene {
     this.crowd.update(delta, this.world.hour, findPath, this.world.paused, this.world.weather);
     this.updateSnow(delta);
     if ((this.litterTick = (this.litterTick || 0) + delta) > 1500) { this.litterTick = 0; this.updateLitter(); }
+    if ((this.tlTick = (this.tlTick || 0) + delta) > 200) {
+      this.tlTick = 0; this.tlights.update();
+      // Le joueur attend au feu rouge : on le lui dit (une fois par attente)
+      const pw = state.player && state.player.waitLight;
+      if (pw && !this.saidWait) this.floatText(t('🚦 Feu rouge : on attend pour traverser'), '#e2475b');
+      this.saidWait = pw;
+    }
     if (!this.world.paused) this.fest.update(delta);
     if ((this.lightTick = (this.lightTick || 0) + delta) > 400) { this.lightTick = 0; this.syncLights(); }
     this.syncViews(time);
@@ -266,7 +281,7 @@ export class GameScene extends Phaser.Scene {
     const prio = b => (b.id === p.home || (p.job && p.job.building === b.id) ? 3 : b.type === 'home' ? 1 : 2);
     const list = this.bubbles.filter(x => x.c.base !== false).sort((a, b) => prio(b.b) - prio(a.b) || a.c.y - b.c.y);
     const placed = [];
-    const W = 34 * z, H = 30 * z;
+    const W = 34 * z, H = 38 * z;
     for (const x of this.bubbles) if (x.c.base === false) x.c.setVisible(false);
     for (const x of list) {
       const sx = x.c.x * z, sy = x.c.y * z;
@@ -526,33 +541,68 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  // Repère d'un lieu : une épingle ronde de la couleur de son métier (café rouge, boulangerie dorée, banque verte…),
+  // l'icône au centre sur fond blanc, une pastille ouvert / fermé et un badge 💼 quand on y recrute.
   addBubble(b, x, y, icon) {
     const c = this.add.container(x, y).setDepth(100000);
     const bg = this.add.graphics();
-    bg.fillStyle(0xffffff, 0.94); bg.fillRoundedRect(-16, -28, 32, 26, 9);
-    bg.fillTriangle(-5, -3, 5, -3, 0, 4);
-    const t = this.add.text(0, -15, icon, { fontFamily: EMOJI_FONT, fontSize: '17px' }).setOrigin(0.5).setResolution(4);
-    c.add([bg, t]);
+    const t = this.add.text(0, -19, icon, { fontFamily: EMOJI_FONT, fontSize: '15px' }).setOrigin(0.5).setResolution(4);
+    const dot = this.add.graphics();
+    const job = this.add.text(13, -32, '💼', { fontFamily: EMOJI_FONT, fontSize: '9px' }).setOrigin(0.5).setResolution(4).setVisible(false);
+    c.add([bg, t, dot, job]);
+    const bub = { b, c, t, bg, dot, job, color: null, status: null };
+    this.paintPin(bub, PIN_COLORS[b.type] || 0x7a6f96);
     this.tweens.add({ targets: c, y: y - 3, duration: 1400 + Math.random() * 600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-    this.bubbles.push({ b, c, t });
+    this.bubbles.push(bub);
+  }
+
+  paintPin(bub, color) {
+    if (bub.color === color) return;
+    bub.color = color;
+    const g = bub.bg;
+    g.clear();
+    g.fillStyle(0x000000, 0.18); g.fillEllipse(0, 5, 14, 5);           // ombre au sol
+    g.fillStyle(color, 1); g.fillTriangle(-7, -9, 7, -9, 0, 3);         // pointe
+    g.fillCircle(0, -19, 15);                                          // pastille de couleur
+    g.lineStyle(2, 0xffffff, 1); g.strokeCircle(0, -19, 15);
+    g.fillStyle(0xffffff, 1); g.fillCircle(0, -19, 11);                // fond blanc de l'icône
+  }
+
+  // Pastille d'état en haut à gauche : vert = ouvert, rouge = fermé (null = pas de pastille)
+  paintStatus(bub, open) {
+    if (bub.status === open) return;
+    bub.status = open;
+    bub.dot.clear();
+    if (open == null) return;
+    bub.dot.fillStyle(0xffffff, 1); bub.dot.fillCircle(-12, -31, 4.5);
+    bub.dot.fillStyle(open ? 0x34c759 : 0xe2475b, 1); bub.dot.fillCircle(-12, -31, 3.2);
   }
 
   // Icônes des logements : 🏠 chez toi, 🔑 libre (à louer / vendre), rien chez les PNJ
   syncHomeBubbles() {
     const p = state.player;
-    for (const { b, c, t } of this.bubbles) {
+    const w = this.world;
+    for (const bub of this.bubbles) {
+      const { b, c, t } = bub;
       if (b.type !== 'home') continue;
       const mine = b.id === p.home;
-      const vacant = freeUnits(this.world, b) > 0;
+      const vacant = freeUnits(w, b) > 0;
       c.base = mine || vacant; // visibilité « de base » ; declutter() masque ensuite les bulles qui se chevauchent
       const icon = mine ? (p.housing === 'own' ? '🔑' : '🏠') : '🔑';
       if (t.text !== icon) t.setText(icon);
+      this.paintPin(bub, mine ? 0xf2b705 : PIN_COLORS.home); // chez toi : épingle dorée
     }
-    // Commerces fermés (faillite) : une pancarte à la place de l'icône
-    for (const { b, t } of this.bubbles) {
+    // Commerces et services : fermé (faillite) = cadenas gris ; pastille ouvert / fermé ; badge 💼 s'il y a un poste
+    for (const bub of this.bubbles) {
+      const { b, t } = bub;
       if (b.type === 'home') continue;
-      const icon = isClosed(this.world, b.id) ? '🔒' : TYPES[b.type].icon;
+      const closed = isClosed(w, b.id);
+      const icon = closed ? '🔒' : TYPES[b.type].icon;
       if (t.text !== icon) t.setText(icon);
+      this.paintPin(bub, closed ? 0x8a8f99 : p.job && p.job.building === b.id ? 0xf2b705 : PIN_COLORS[b.type] || 0x7a6f96);
+      const staffed = b.jobs && b.type !== 'office' && !['police', 'firestation', 'prison'].includes(b.type);
+      this.paintStatus(bub, closed ? false : staffed ? !!sellerAt(w, b) : null);
+      bub.job.setVisible(!closed && openings(w, b) > 0);
     }
   }
 
@@ -698,7 +748,7 @@ export class GameScene extends Phaser.Scene {
 
     for (const { b, c } of this.bubbles) {
       if (!c.visible) continue;
-      if (Math.abs(wp.x - c.x) < 18 && wp.y > c.y - 30 && wp.y < c.y + 4) return state.ui.showPlace(b);
+      if (Math.abs(wp.x - c.x) < 18 && wp.y > c.y - 36 && wp.y < c.y + 4) return state.ui.showPlace(b);
     }
     for (const hl of this.hulls) {
       // (immeuble de décor : rien à faire, mais le toucher ne doit pas ouvrir le lieu caché derrière)

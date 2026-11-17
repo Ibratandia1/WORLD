@@ -1,5 +1,6 @@
 import { TW, TH, toScreen } from '../iso.js';
 import { shade } from '../color.js';
+import { walkMayGo, carMayGo, phase } from '../sim/traffic.js';
 
 // Rendu détaillé de la ville (dessiné par le code) : façades, toits, rue, mobilier urbain, voitures.
 const HW = TW / 2, HH = TH / 2;
@@ -350,6 +351,13 @@ export function drawGroundDetails(scene, map) {
               const b = alongX ? P(x + 0.32, y + v) : P(x + v, y + 0.32);
               g.lineBetween(a.x, a.y, b.x, b.y);
             }
+          } else if (tiles[y][x].avenue) {
+            // Rue principale : double ligne continue au milieu
+            for (const off of [-0.05, 0.05]) {
+              const a = alongX ? P(x - 0.5, y + off) : P(x + off, y - 0.5);
+              const b = alongX ? P(x + 0.5, y + off) : P(x + off, y + 0.5);
+              g.lineStyle(1.5, 0xf2e6a0, 0.85); g.lineBetween(a.x, a.y, b.x, b.y);
+            }
           } else if ((x + y) % 2 === 0) {
             const a = alongX ? P(x - 0.22, y) : P(x, y - 0.22);
             const b = alongX ? P(x + 0.22, y) : P(x, y + 0.22);
@@ -450,6 +458,27 @@ export function drawStreetDecor(scene, map, lights, darks, season = 'printemps')
         for (const dx of [-8, 0, 8]) jets.fillEllipse(s.x + dx, s.y - 16 - (dx ? 0 : 6), 4, dx ? 14 : 22);
         // (on n'anime que la transparence : changer l'échelle déplaçait les jets loin du bassin)
         scene.tweens.add({ targets: jets, alpha: 0.55, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      }
+
+      if (t.deco === 'avtree') {
+        // Arbre d'alignement de la rue principale, planté côté chaussée (on marche à côté)
+        const sd = ground(x, y + 1) === 'road' ? [0, 1] : ground(x, y - 1) === 'road' ? [0, -1] : [0, 0];
+        const px = x + sd[0] * 0.3, py = y + sd[1] * 0.3;
+        const ps = toScreen(px, py);
+        const tree = { x: ps.x, y: ps.y, blossom: r() < 0.3 };
+        drawAvTree(add(px, py, 2, [-22, -48, 24, 10]), tree.x, tree.y, tree.blossom, season);
+        tree.item = pending[pending.length - 1];
+        tree.redraw = sea => {
+          const it = tree.item;
+          const rec = bakeRecorder(scene, it.rec.ox, it.rec.oy, it.rec.w, it.rec.h);
+          drawAvTree(rec.g, tree.x, tree.y, tree.blossom, sea);
+          const key = rec.bake();
+          it.img.setTexture(key); it.dark.setTexture(key);
+          if (it.key && scene.textures.exists(it.key)) scene.textures.remove(it.key);
+          it.key = key;
+        };
+        spots.trees.push(tree);
+        continue;
       }
 
       if (!t.walk || (t.ground !== 'pave' && t.ground !== 'cobble')) continue;
@@ -593,6 +622,13 @@ const SEASON_LEAVES = {
   ete: () => [0x2f8a3e, 0x3f9a4a, 0x63c25c],
   automne: k => [[0xc8562b, 0xe07a35, 0xf2b84a], [0xd99a2b, 0xe8b83a, 0xf6d36b], [0xa8442a, 0xc9603a, 0xe89a52]][((k % 3) + 3) % 3],
 };
+// Arbre d'alignement : grille en fonte au pied, comme sur les boulevards
+function drawAvTree(g, x, y, blossom, season) {
+  g.fillStyle(0x4a4f5a); g.fillEllipse(x, y + 1, 20, 9);
+  g.fillStyle(0x6b7180); g.fillEllipse(x, y + 1, 14, 6);
+  drawTree(g, x, y, blossom, season);
+}
+
 export function drawTree(g, x, y, blossom = false, season = 'printemps') {
   g.fillStyle(0x000000, 0.18); g.fillEllipse(x + 4, y + 3, 30, 11);
   g.fillStyle(0x7a4b2a); g.fillRect(x - 2, y - 16, 4, 17);
@@ -763,14 +799,16 @@ export class Traffic {
     this.map = map;
     this.cars = [];
     this.road = (x, y) => x >= 0 && y >= 0 && x < map.w && y < map.h && map.tiles[y][x].ground === 'road';
+    this.jset = new Set((map.junctions || []).map(j => `${j.x},${j.y}`)); // carrefours à feux
     // Entrées : rues qui touchent le bord de la carte
     this.gates = [];
     for (let y = 0; y < map.h; y++) for (let x = 0; x < map.w; x++) {
       if (!this.road(x, y)) continue;
       const dir = x === 0 ? [1, 0] : x === map.w - 1 ? [-1, 0] : y === map.h - 1 ? [0, -1] : y === 0 ? [0, 1] : null;
       if (dir) this.gates.push({ x, y, dir });
+      if (dir && map.tiles[y][x].avenue) this.gates.push({ x, y, dir }, { x, y, dir }); // la rue principale est la plus passante
     }
-    this.max = 18;
+    this.max = 22;
     this.spawnIn = 0;
     this.r = rng(4242);
     // Quelques voitures déjà en route au chargement
@@ -832,7 +870,12 @@ export class Traffic {
         const side = Math.abs((q.x - p.x) * c.dir[1] - (q.y - p.y) * c.dir[0]);
         return ax > 0 && ax < 0.85 && side < 0.3;
       })());
-      if (!blocked || c.leaving) c.t += c.speed * dt / 1000;
+      // Feu rouge au prochain carrefour : on s'arrête avant le passage piéton
+      const w = this.scene.world;
+      const red = w && c.next && !c.leaving && this.jset.has(`${c.next.x},${c.next.y}`) && !this.jset.has(`${c.x},${c.y}`)
+        && !carMayGo(w, c.next.x, c.next.y, c.dir[0] !== 0 ? 'x' : 'y');
+      if (red && c.t <= 0.32) c.t = Math.min(0.3, c.t + c.speed * dt / 1000);
+      else if (!blocked || c.leaving) c.t += c.speed * dt / 1000;
       while (c.t >= 1 && !c.leaving) {
         if (c.next) this.advance(c);
         if (!c.next) { c.leaving = true; c.t = 0; } // bord de la carte : la voiture sort en s'effaçant
@@ -874,7 +917,9 @@ export class Crowd {
     const g = this.gates[Math.floor(Math.random() * this.gates.length)];
     let to = this.gates[Math.floor(Math.random() * this.gates.length)];
     // un détour par le quartier (place, parc, vitrine) de temps en temps
-    const via = Math.random() < 0.6 ? this.map.randomFootpath() : null;
+    // (la moitié du temps : flâner le long de la rue principale, devant les vitrines)
+    this.mainWalk = this.mainWalk || this.map.footpaths.filter(p => [-1, 1].some(d => this.map.tiles[p.y + d] && this.map.tiles[p.y + d][p.x].avenue));
+    const via = Math.random() < 0.6 ? (Math.random() < 0.5 && this.mainWalk.length ? this.mainWalk[Math.floor(Math.random() * this.mainWalk.length)] : this.map.randomFootpath()) : null;
     const leg1 = findPath(this.map, g, (x, y) => (via ? x === via.x && y === via.y : x === to.x && y === to.y));
     if (!leg1) return;
     let path = leg1.path;
@@ -912,6 +957,9 @@ export class Crowd {
           let budget = p.speed * dt / 1000;
           while (budget > 0 && p.path.length) {
             const t = p.path[0];
+            // Feu rouge pour les piétons : on attend au bord du trottoir
+            const nt = this.map.tiles[t.y][t.x], ct = this.map.tiles[Math.round(p.y)][Math.round(p.x)];
+            if (nt.crossing && ct.ground !== 'road' && this.scene.world && !walkMayGo(this.scene.world, nt.crossing)) break;
             const dx = t.x - p.x, dy = t.y - p.y, d = Math.hypot(dx, dy);
             if (Math.abs(dx - dy) > 0.01) p.facing = dx - dy > 0 ? 1 : -1;
             if (Math.abs(dx + dy) > 0.01) p.away = dx + dy < 0;
@@ -929,5 +977,57 @@ export class Crowd {
         .setDepth(depthAt(p.x, p.y) + 5).setFlipX(p.facing < 0).setAlpha(fade).setTint(tint);
     }
     this.people = this.people.filter(p => { if (!p.path.length) { p.spr.destroy(); return false; } return true; });
+  }
+}
+
+// ---------- Feux tricolores aux carrefours (l'état vient de sim/traffic.js) ----------
+// Un poteau à chaque coin : les coins nord-ouest / sud-est règlent les voitures du sens x, les deux autres le sens y.
+export class TrafficLights {
+  constructor(scene, map) {
+    this.scene = scene;
+    this.poles = [];
+    const ok = (x, y) => map.tiles[y] && map.tiles[y][x] && map.tiles[y][x].ground !== 'road' && map.tiles[y][x].ground !== 'water' && !map.tiles[y][x].building;
+    for (const j of map.junctions || []) {
+      for (const [dx, dy] of [[-1, -1], [1, 1], [1, -1], [-1, 1]]) {
+        if (!ok(j.x + dx, j.y + dy)) continue;
+        const px = j.x + dx * 0.62, py = j.y + dy * 0.62;
+        const s = toScreen(px, py);
+        const g = scene.add.graphics().setDepth(depthAt(px, py) + 2);
+        g.fillStyle(0x000000, 0.18); g.fillEllipse(s.x, s.y + 1, 7, 3);
+        g.fillStyle(0x2c2f38); g.fillRect(s.x - 1, s.y - 30, 2, 30);
+        g.fillStyle(0x23252c); g.fillRect(s.x - 3.5, s.y - 42, 7, 15);
+        const head = scene.add.graphics().setDepth(depthAt(px, py) + 2.05);
+        const glow = scene.add.image(s.x, s.y - 35, 'lamp_halo').setScale(0.14).setDepth(depthAt(px, py) + 2.1).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0);
+        const pole = { j, axis: (dx === dy) ? 'x' : 'y', s, g, head, glow, state: null };
+        this.poles.push(pole);
+        scene.cullables = scene.cullables || [];
+        scene.cullables.push({ objs: [g, head, glow], x: s.x, y: s.y });
+      }
+    }
+    this.update(true);
+  }
+
+  // couleur du feu pour ce poteau : 'g', 'a' (orange) ou 'r'
+  colorOf(p) {
+    const ph = phase(this.scene.world, p.j.x, p.j.y);
+    return ph.green !== p.axis ? 'r' : ph.amber ? 'a' : 'g';
+  }
+
+  update(force = false) {
+    const night = (this.scene.night || 0) > 0.4;
+    for (const p of this.poles) {
+      const c = this.colorOf(p);
+      if (!force && c === p.state && p.night === night) continue;
+      p.state = c; p.night = night;
+      const { x, y } = p.s;
+      const h = p.head;
+      h.clear();
+      const lamps = [['r', 0xff3b30, y - 39], ['a', 0xffb020, y - 35], ['g', 0x34d058, y - 31]];
+      for (const [k, col, ly] of lamps) {
+        h.fillStyle(k === c ? col : 0x3a3d46); h.fillCircle(x, ly, 1.8);
+      }
+      const col = c === 'r' ? 0xff3b30 : c === 'a' ? 0xffb020 : 0x34d058;
+      p.glow.setPosition(x, c === 'r' ? y - 39 : c === 'a' ? y - 35 : y - 31).setTint(col).setAlpha(night ? 0.9 : 0.35);
+    }
   }
 }

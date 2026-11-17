@@ -3,6 +3,7 @@
 //
 // Légende du sol :
 //   w  Seine (eau)     .  trottoir     =  rue (voitures)     :  ruelle / place pavée (piétons)
+//   #  rue principale  a  trottoir avec arbre d'alignement
 //   g  herbe           T  arbre        o  fontaine         x  statue        X  immeuble de décor
 // Lettres majuscules : un bâtiment (toutes les cases d'une même lettre forment un seul lieu).
 // Chaque ligne doit avoir la même longueur.
@@ -11,20 +12,24 @@
 
 export const QUARTIER = {
   name: 'Le Marais',
-  layout: 3, // version du tracé : quand elle change, les sauvegardes replacent les passants sur le nouveau plan
+  layout: 4, // version du tracé : quand elle change, les sauvegardes replacent les passants sur le nouveau plan
+  // Tracé 4 : quadrillage de rues droites ; la rue principale (#, rang 13) traverse le centre-ville,
+  // bordée d'arbres d'alignement (a) et des commerces (cafés, boulangeries, banque, supérette, brasserie).
 
   order: 'ACKOSBMDGEPRFLYV' + 'HNUIJQ' + 'Z' + '12345' + '67',
 
   // Lieux des fêtes du quartier (centre de la place)
   places: {
     marche: { x: 18, y: 17, name: 'place du Marché' },
-    vosges: { x: 31, y: 18, name: 'place des Vosges' },
+    vosges: { x: 31, y: 17, name: 'place des Vosges' },
   },
 
   legend: {
     w: { ground: 'water', walk: false },
     '.': { ground: 'pave', walk: true },
     '=': { ground: 'road', walk: true },
+    '#': { ground: 'road', walk: true, avenue: true },  // rue principale du centre-ville
+    a: { ground: 'pave', walk: true, deco: 'avtree' },  // trottoir avec un arbre d'alignement (côté rue)
     ':': { ground: 'cobble', walk: true },
     g: { ground: 'grass', walk: true },
     T: { ground: 'grass', walk: false, deco: 'tree' },
@@ -79,31 +84,31 @@ export const QUARTIER = {
     'wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww',
     'wwwwgTgg.gTggg.ggTgg..gTggTg.ggwwwww',
     'ww..................................',
-    '=====================...............',
-    '.........=..........================',
-    'XAA.:CCX.=.OOOO.:BB.......=.........',
-    'XAA.:CCX.=.OOOO.:BBXSSS66.=.GGXXFFXX',
-    'XAX.:.XX.=.OOOO.:..XSSS66.=.GGXXFFXX',
-    'XX.:.XKK.=.7777.:::.SS111.=.GGG.5555',
-    'X.:.33KK.=.HHHXT..:.XX111.=.XX.:.555',
-    '.:.33333.=.HHHX.X.:.PP111.=.DD.:.LLX',
-    '.........=......X.:.PP111.=.DD.:.LLX',
-    '===============...:.......=....:....',
-    '.........=....======================',
-    'XEEEXRRX.=.XX..............=........',
-    'XEEEXRRX.=..NN.:::::::.UUX.=.TgTgTg.',
-    'XE...XX..==.NN.:T:o:T:.UUX.=.gggggg.',
-    '.gggg..:..=.XX.:::::::.XXX.=.TgoggT.',
-    '.goTg.:.X.=.MM.:T:::T:.IIX.=.gggggg.',
-    '.gTgg:.XX.=.XXX......:.II..=.JJ.....',
-    '.....:....=............=============',
-    '========================...=........',
-    '..........=................=.ZZZZX.X',
-    'XYYX.:QQX.=.VVV.:.gTgggTg..=.ZZZZ.TX',
-    'XYYX.:QQX.=.VVV.:.gggogg...=.ZZZZ..X',
-    'X....:.XX.=.X...:.gTgggTg..=.:::::.X',
-    '.gTg.:.X..=..:::::.......4.=T::x::TX',
-    '.ggT.:..T.=..:222222224444.=.:::::.X',
-    '......XX..=...222222224444.=......XX',
+    '====================================',
+    '.........=................=.........',
+    'XAA:333X.=.OOOOX:BBB66111.=.GG:FF555',
+    'XAA:333X.=.OOOOX:BBB66111.=.GG:FF555',
+    'XXX:333X.=.OOOOX:XXX66111.=.GG:XX555',
+    'XXX:XXXX.=.XXXXX:XXXXX111.=.XX:XXXXX',
+    'XCC:KKKX.=.7777X:SSSPPXXX.=.DD:LLXXX',
+    'XCC:KKKX.=.7777X:SSSPPXXX.=.DD:LLXXX',
+    '.a..a..a.=..a..a..a..a..a.=..a..a..a',
+    '####################################',
+    '.a..a..a.=..a..a..a..a..a.=..a..a..a',
+    'XEE:RRRX.=.NNN::::::::UUU.=.TgTgTgTg',
+    'XEE:RRXX.=.NNN::T:::T:UUU.=.gggggggg',
+    'gTg:XXXX.=.XXX::::o:::XXX.=.ggogggTg',
+    'goT:XXXX.=.MMM::T:::T:III.=.ggggggJJ',
+    'ggg:XXXX.=.MMM::::::::III.=.TgTgggJJ',
+    '.........=................=.........',
+    '====================================',
+    '.........=................=.........',
+    'XYY:QQXX.=.VVV:gTgggTgXXX.=.XZZZZXXX',
+    'XYY:QQXX.=.VVV:gggogggXXX.=.XZZZZXXX',
+    'XXX:XXXX.=.XXX:gTgggTgXXX.=.XZZZZXXX',
+    'gTg:XXXX.=.XXX::::::X4444.=.:::::::X',
+    'ggT:HHHX.=.22222222XX4444.=.T::x::TX',
+    'XXX:HHHX.=.22222222XX4444.=.:::::::X',
+    '.........=................=.........',
   ],
 };

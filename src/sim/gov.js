@@ -1,4 +1,5 @@
 import { rel } from './social.js';
+import { credit, debit, closeWeek } from './budget.js';
 
 // L'État dans le quartier : la mairie, son maire, sa politique (impôts, aides) et les élections municipales.
 // Le Trésor public (world.treasury) se remplit avec les impôts et paie les aides et l'indemnité du maire.
@@ -21,6 +22,7 @@ export const PROJECTS = {
   prime: { label: 'Prime aux habitants (30 €)', icon: '🎁', cost: 0, each: 30, mood: 4, news: 'une prime de 30 € est versée à chaque habitant' },
 };
 export const UPKEEP = 6;           // entretien des rues : € par habitant et par semaine
+export const GRANT_PER_HEAD = 110;   // dotation de l'État : € par habitant et par semaine (réglée d'après le bilan mesuré)
 export const MAYOR_PAY = 350;     // indemnité hebdomadaire du maire (payée par le Trésor le lundi)
 export const AID_EVERY = 7;        // une aide par semaine au plus
 export const CAMPAIGN_FEE = 200;   // caution pour se présenter
@@ -71,11 +73,22 @@ export class Government {
     if (w.day === this.election - VOTE_DAYS + 1) this.post('🗳️', 'Les bureaux de vote sont ouverts à la mairie (3 jours).');
 
     if (w.weekday === 0) {
+      // Dotation de l'État (part des impôts nationaux reversée à la commune, selon le nombre d'habitants)
+      credit(w, 'grant', GRANT_PER_HEAD * w.actors.length);
       // Entretien des rues et de l'éclairage, payé par la ville
-      w.treasury = (w.treasury || 0) - UPKEEP * w.actors.length;
+      debit(w, 'upkeep', UPKEEP * w.actors.length);
       // Indemnité du maire
       const m = this.mayorActor;
-      if (m && (w.treasury || 0) >= MAYOR_PAY) { w.treasury -= MAYOR_PAY; m.money += MAYOR_PAY; }
+      if (m && (w.treasury || 0) >= MAYOR_PAY) { debit(w, 'mayor', MAYOR_PAY); m.money += MAYOR_PAY; }
+      // Bilan de la semaine : ce que les impôts ont payé
+      const r = closeWeek(w);
+      const bal = r.income - r.spend;
+      this.post('🏛️', `Budget de la semaine : ${r.income} € de recettes (impôts, TVA, amendes…), ${r.spend} € de dépenses (services publics). ${bal >= 0 ? `Excédent : ${bal} €.` : `Déficit : ${-bal} €.`}`);
+      // Caisses vides : budget d'austérité (moins d'éboueurs, rues moins entretenues, pas d'aides)
+      const was = this.austerity;
+      this.austerity = (w.treasury || 0) < 0;
+      if (this.austerity && !was) this.post('⚠️', 'Les caisses de la ville sont vides : budget d’austérité. Les services publics tournent au ralenti.');
+      if (!this.austerity && was) this.post('✅', 'Les comptes de la ville sont rétablis : les services publics reprennent normalement.');
       // Un maire PNJ ajuste sa politique selon les caisses de la ville
       if (m && !m.isPlayer) this.npcPolicy();
       // Des impôts lourds pèsent sur le moral de tout le monde
@@ -154,7 +167,7 @@ export class Government {
     const w = this.w, pr = PROJECTS[id];
     const cost = pr.cost + (pr.each || 0) * w.actors.length;
     if ((w.treasury || 0) < cost) return 'Pas assez dans les caisses';
-    w.treasury -= cost;
+    debit(w, 'projects', cost);
     for (const a of w.actors) {
       a.mood = Math.min(100, a.mood + pr.mood);
       if (pr.each) a.money += pr.each;
@@ -186,14 +199,16 @@ export class Government {
 
   // ---------- Sauvegarde ----------
   snapshot() {
-    return { mayor: this.mayor, tax: this.tax, aid: this.aid, election: this.election, candidates: this.candidates, votes: this.votes, aidPaid: this.aidPaid, lastProject: this.lastProject ?? null };
+    return { mayor: this.mayor, tax: this.tax, aid: this.aid, election: this.election, candidates: this.candidates, votes: this.votes, aidPaid: this.aidPaid, lastProject: this.lastProject ?? null,
+      budget: this.w.budget || null, austerity: !!this.austerity };
   }
   restore(s, day) {
     if (!s) { // vieille sauvegarde : premières élections dans quelques jours
       this.election = Math.ceil((day + 6) / TERM) * TERM;
       return;
     }
-    Object.assign(this, { mayor: s.mayor ?? this.mayor, tax: s.tax || 'normal', aid: s.aid || 'normale', election: s.election, candidates: s.candidates || [], votes: s.votes || {}, aidPaid: s.aidPaid || 0, lastProject: s.lastProject ?? null });
+    Object.assign(this, { mayor: s.mayor ?? this.mayor, tax: s.tax || 'normal', aid: s.aid || 'normale', election: s.election, candidates: s.candidates || [], votes: s.votes || {}, aidPaid: s.aidPaid || 0, lastProject: s.lastProject ?? null, austerity: !!s.austerity });
+    if (s.budget) this.w.budget = s.budget;
     const m = this.mayorActor;
     if (m && !m.role) m.role = 'mayor';
   }
