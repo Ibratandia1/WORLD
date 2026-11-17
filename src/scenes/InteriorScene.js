@@ -126,11 +126,29 @@ export class InteriorScene extends Phaser.Scene {
     if (L.entrance && tx === L.entrance.x && (ty === L.entrance.y || ty === L.entrance.y + 1)) { w.perform(p, 'leave'); return; }
     const it = this.itemAt.get(`${tx},${ty}`);
     const st = this.stations.find(s => s.floor === this.floorIdx && s.x === tx && s.y === ty);
-    if (it && it.actions && it.actions.length > 1) return state.ui.showObject({ name: it.name || 'Objet', icon: '✨', actions: it.actions, building: this.building });
-    const action = (it && (it.action || (it.actions && it.actions[0]))) || (st && st.a.find(a => a !== 'any'));
-    if (action) return this.tryAction(action);
+    if (it || st) return this.useItem(it, st);
+  }
+
+  // Toucher un meuble : on agit tout de suite (la première action possible), sans passer par un menu.
+  // Rayons et portants d'une boutique : le catalogue s'ouvre dans la fiche.
+  useItem(it, st) {
+    const w = state.world, p = state.player, b = this.building;
     if (it && it.k === 'stairs_up') return this.setFloor((this.floorIdx + 1) % this.floors.length);
-    if (it) return state.ui.showObject({ name: it.name || ITEM_NAMES[it.k] || 'Objet', icon: '✨', actions: genericActions(it.k), params: { what: it.k }, building: this.building });
+    const own = [...(it && it.actions ? it.actions : []), ...(it && it.action ? [it.action] : []), ...(st ? st.a.filter(a => a !== 'any') : [])];
+    if (own.includes('shop')) { state.ui.placeMore = true; return state.ui.render(true); }
+    const cand = own.length ? own : (it ? genericActions(it.k) : []);
+    const paramsOf = id => (own.length ? (ACTIONS[id] && ACTIONS[id].place && ACTIONS[id].place.type ? { at: b.id } : {}) : { what: it.k });
+    const ok = id => ACTIONS[id] && (ACTIONS[id].place ? w.canDoAt(p, id, b) : w.check(p, id, paramsOf(id)) === true);
+    for (const id of cand) {
+      if (!ok(id)) continue;
+      if (p.doing === id) return;
+      return w.perform(p, id, paramsOf(id));
+    }
+    // rien de possible : on dit pourquoi (une seule ligne)
+    const id = cand[0];
+    if (!id) return;
+    const r = w.check(p, id, paramsOf(id));
+    this.floatText(t(typeof r === 'string' ? r : id === 'work' ? 'Tu ne travailles pas ici' : 'Pas possible ici'), '#e2475b');
   }
 
   // Ce que la vue 3D doit dessiner
@@ -713,6 +731,7 @@ export class InteriorScene extends Phaser.Scene {
       const t = toTile(wp.x, wp.y + off);
       const it = this.itemAt.get(`${t.x},${t.y}`);
       const st = this.stations.find(s => s.floor === this.floorIdx && s.x === t.x && s.y === t.y);
+      if (it || st) return this.useItem(it, st); // vue 2D : même règle, action directe
       // Meuble à plusieurs usages : petit menu dans la fenêtre
       if (it && it.actions && it.actions.length > 1) {
         return state.ui.showObject({ name: it.name || 'Objet', icon: '✨', actions: it.actions, building: this.building });

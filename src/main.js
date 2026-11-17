@@ -11,6 +11,7 @@ import { Safety } from './sim/safety.js';
 import { Justice } from './sim/justice.js';
 import { Bank } from './sim/bank.js';
 import { settings, onSettings } from './settings.js';
+import { t } from './i18n.js';
 import { UI } from './ui.js';
 import { GameScene } from './scenes/GameScene.js';
 import { InteriorScene } from './scenes/InteriorScene.js';
@@ -89,7 +90,15 @@ if (want3D) {
     const sc = () => state.scene;
     state.city3d = startCity3D(world, {
       player, saver: settings().saver,
-      onPlace: b => state.ui.showPlace(b),
+      // Toucher un lieu : on y va et on entre directement ; un logement qui n'est pas le tien ouvre sa petite fiche (louer)
+      onPlace: b => {
+        if (b.type === 'home' && b.id !== player.home) return state.ui.showPlace(b);
+        const ok = world.check(player, 'enter', { building: b.id });
+        if (ok === true) { state.ui.closePanels && state.ui.closePanels(); world.perform(player, 'enter', { building: b.id }); return state.ui.render(); }
+        if (player.inside === b.id) return;
+        state.city3d.floatText(t(typeof ok === 'string' ? ok : 'Pas possible'), '#e2475b');
+        state.ui.showPlace(b); // fermé, en feu… : la fiche dit quand ça ouvre
+      },
       onPerson: a => state.ui.showPerson(a),
       // sol, objets de la rue, stands des fêtes : mêmes réactions que la vue 2D
       onTile: (x, y, tile) => sc() && sc().tapTile(x, y, tile),

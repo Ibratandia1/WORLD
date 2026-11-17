@@ -636,3 +636,4 @@ body.v3d #game, body.v3d #game canvas { pointer-events: none; } /* la couche 2D 
 .lab3d.title { background: #3d3357; transform-origin: 0 0; margin: -12px 0 0 -10px; font-size: 12px; }
 .lab3d.zone { margin: -10px 0 0 -10px; opacity: .95; }
 .lab3d.exit { background: #3fae73; margin: -10px 0 0 -30px; cursor: pointer; font-size: 12px; padding: 4px 10px; }
+#box.mini .mini-hint { margin: 5px 0 0; font-size: 10.5px; opacity: .7; text-align: center; }

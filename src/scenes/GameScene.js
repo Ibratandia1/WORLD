@@ -801,18 +801,32 @@ export class GameScene extends Phaser.Scene {
   tapTile(x, y, tile) {
     const at = (s, r = 0.6) => Math.abs(s.x - x) <= r && Math.abs(s.y - y) <= r;
     const fs = this.fest.spots.find(s => at(s, 0.8));
-    if (fs) return state.ui.showObject({ name: fs.name, icon: fs.icon, actions: fs.actions, at: fs });
+    if (fs) return this.useSpot(fs, fs.actions);
     const st = this.spots.statues.find(s => at(s));
-    if (st) return state.ui.showObject({ name: 'Statue de Marianne', icon: '🗽', actions: ['admire_statue'], at: st });
+    if (st) return this.useSpot(st, ['admire_statue']);
     const f = this.spots.fountains.find(s => at(s));
-    if (f) return state.ui.showObject({ name: 'Fontaine', icon: '⛲', actions: ['wish_fountain'], at: f });
+    if (f) return this.useSpot(f, ['wish_fountain']);
     const bench = this.spots.benches.find(s => at(s, 0.5));
-    if (bench) return state.ui.showObject({ name: 'Banc', icon: '🪑', actions: ['sit_bench', 'feed_pigeons'], at: bench });
+    if (bench) return this.useSpot(bench, ['sit_bench', 'feed_pigeons']);
     const bin = this.spots.bins.find(s => at(s, 0.5));
-    if (bin) return state.ui.showObject({ name: 'Poubelle', icon: '🗑️', actions: ['use_bin', 'pick_litter'], at: bin });
+    if (bin) return this.useSpot(bin, ['use_bin', 'pick_litter']);
     if (tile.deco === 'filler') return this.floatText(t('🏢 Immeuble d’habitation privé'), '#7a6f96');
     if (!tile.walk) return;
     this.world.perform(state.player, 'goto', { x, y });
+  }
+
+  // Objet de la rue : on s'en approche si besoin, puis le geste se fait directement (sans menu)
+  useSpot(spot, actions) {
+    const w = this.world, p = state.player;
+    const far = Math.abs(spot.x - p.px) + Math.abs(spot.y - p.py) > 1.6;
+    if (far) {
+      const tgt = this.map.nearestWalkable(spot.x, spot.y);
+      p.afterGoto = { actions, spot }; // le geste se fera à l'arrivée
+      return w.perform(p, 'goto', { x: tgt.x, y: tgt.y });
+    }
+    for (const id of actions) if (w.check(p, id, {}) === true) return w.perform(p, id, {});
+    const r = w.check(p, actions[0], {});
+    this.floatText(t(typeof r === 'string' ? r : 'Pas possible ici'), '#e2475b');
   }
 
   ping(t) {
@@ -838,6 +852,14 @@ export class GameScene extends Phaser.Scene {
     });
     // Un commerce repris change de nom : l'icône reste, le nom suit dans les fiches
     this.world.on('bizOpened', () => this.syncHomeBubbles());
+    // Objet de la rue touché de loin : le geste se fait à l'arrivée (annulé si on fait autre chose entre-temps)
+    this.world.on('arrive', e => {
+      const p = state.player;
+      if (e.actor !== p || !p.afterGoto) return;
+      const q = p.afterGoto; p.afterGoto = null;
+      this.useSpot(q.spot, q.actions);
+    });
+    this.world.on('plan', e => { if (e.actor === state.player && e.id !== 'goto') state.player.afterGoto = null; });
   }
 
   floatDelta(e) {

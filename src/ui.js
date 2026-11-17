@@ -583,7 +583,7 @@ export class UI {
     // les gestes se font en touchant les meubles, ou via « ⋯ Plus » qui déplie la fiche complète
     if (inside && b.type !== 'home') {
       const more = this.choiceHTML('data-more class="c-misc"', this.placeMore ? '▴' : '⋯', this.placeMore ? 'Moins' : L(`Plus (${buttons.length} actions)`, `More (${buttons.length} actions)`), '', true);
-      if (!this.placeMore) return `${this.head(icon, b.name, false)}${this.miniPlaceHTML(b)}<div class="mini-row">${more}${leave}</div>`;
+      if (!this.placeMore) return `${this.head(icon, b.name, false)}${this.miniPlaceHTML(b)}<div class="mini-row">${leave}</div><p class="mini-hint">${t('👆 Touche le comptoir ou un meuble pour agir')}</p>`;
       return `${this.head(icon, b.name, false)}${jobTop}${note}<div class="choices">${buttons.join('')}</div>${this.shopHTML(b, inside)}${b.type === 'cityhall' ? this.govHTML(b, inside) : ''}<div class="mini-row">${more}${leave}</div>`;
     }
     return `${this.head(icon, b.name, !inside)}${jobTop}${note}<div class="choices">${buttons.join('')}</div>${this.shopHTML(b, inside)}${b.type === 'cityhall' ? this.govHTML(b, inside) : ''}${leave}`;

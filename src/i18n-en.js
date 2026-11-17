@@ -248,7 +248,7 @@ export const EN_EXTRA = {
   'Le coffre-fort. Il paraît qu’il est inviolable.': 'The safe. They say it’s unbreakable.', 'Le guichet, derrière sa vitre.': 'The counter, behind its glass.',
   'Le distributeur de billets.': 'The cash machine.', 'L’estrade du juge, et son marteau.': 'The judge’s bench, and the gavel.', 'La barre, où l’on témoigne.': 'The stand, where witnesses testify.',
   'Une poubelle bien vidée.': 'A freshly emptied bin.',
-  'Réfectoire': 'Canteen', 'Fermé : personne en service': 'Closed: nobody on duty', 'Accepter un pot-de-vin': 'Accept a bribe', 'Réservé aux agents publics': 'Public servants only',
+  'Réfectoire': 'Canteen', '👆 Touche le comptoir ou un meuble pour agir': '👆 Tap the counter or a piece of furniture to act', 'Fermé : personne en service': 'Closed: nobody on duty', 'Accepter un pot-de-vin': 'Accept a bribe', 'Réservé aux agents publics': 'Public servants only',
   'Seulement pendant le service': 'Only during your shift', 'Moins': 'Less',
   '⚠️ Routine : livré à lui-même, ton personnage peut mal tourner (vols, pots-de-vin, jeux, absences)…': '⚠️ Routine: left to themselves, your character may go astray (theft, bribes, gambling, absences)…',
   '⚠️ Mais livré à lui-même, il peut mal tourner : vols, pots-de-vin, jeux d’argent, jours d’absence… Plus souvent mal que bien !': '⚠️ But left alone, they may go astray: theft, bribes, gambling, missed days… More often bad than good!',
