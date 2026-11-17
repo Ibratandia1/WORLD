@@ -651,6 +651,8 @@ export class UI {
       pr ? `<span class="mp-chip promo">🏷️ ${esc(t(pr.label))}</span>` : '',
       dish ? `<span class="mp-chip dish">${b.type === 'cafe' ? '🍲' : '🥐'} ${esc(t(b.type === 'cafe' ? 'Plat du jour' : 'Spécialité'))} : ${esc(t(dish))}</span>` : '',
       loyal != null ? `<span class="mp-chip loyal" title="${esc(t('Carte de fidélité'))}">⭐ ${'★'.repeat(loyal)}${'☆'.repeat(LOYALTY_EVERY - 1 - loyal)} 🎁</span>` : '',
+      // santé du commerce (économie) : on voit qui marche et qui est en difficulté
+      (() => { const h = w.economy && w.economy.health(b.id); return h === 'good' ? `<span class="mp-chip biz-good">📈 ${esc(t('Les affaires marchent'))}</span>` : h === 'bad' ? `<span class="mp-chip biz-bad">📉 ${esc(t('En difficulté'))}</span>` : ''; })(),
     ].join('');
     return `<div class="mini-place">${status}${extras ? `<div class="mp-chips">${extras}</div>` : ''}${job}${people}</div>`;
   }
@@ -761,6 +763,15 @@ export class UI {
         <div class="choices">${isWorkday(p.job, w.day) ? this.actBtn('call_sick') : ''}${this.actBtn('quit_job')}</div></div>`;
     } else {
       job = `<div class="sec"><b>${t('💼 Sans emploi')}</b><p>${t('Touche un commerce ou un bureau pour postuler, ou demande des tuyaux à tes connaissances.')}</p></div>`;
+    }
+    // Carrière : diplôme, formations, expérience par métier (ce qui ouvre les postes qualifiés)
+    {
+      const certs = (p.certs || []).map(id => CERTS[id] ? t(CERTS[id].name) : id);
+      const exp = Object.entries(p.exp || {}).filter(([, d]) => d > 0).sort((a, b) => b[1] - a[1])
+        .map(([type, d]) => `${t(JOB_TITLES[type] || type)} : ${L(`${d} j`, `${d} d`)}`);
+      job += `<div class="sec"><b>📈 ${t('Ma carrière')}</b><p>🎓 ${L('Diplôme', 'Diploma')} : ${L(`niveau ${p.education ?? 1}/3`, `level ${p.education ?? 1}/3`)}<br>
+        📜 ${L('Formations', 'Courses')} : ${certs.length ? esc(certs.join(', ')) : t('aucune (à l’école)')}<br>
+        ⏳ ${L('Expérience', 'Experience')} : ${exp.length ? esc(exp.join(' · ')) : t('pas encore')}</p></div>`;
     }
 
     let home;

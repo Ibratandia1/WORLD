@@ -42,8 +42,9 @@ const mobile = matchMedia('(pointer: coarse)').matches;
 // Téléphone : anticrénelage matériel (les bords ne scintillent plus) et résolution qui s'adapte à la fluidité
 // (on commence net, on baisse un peu si l'image rame, on remonte quand ça va mieux)
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-const PR_MAX = Math.min(devicePixelRatio, mobile ? 1.5 : 1.75), PR_MIN = Math.min(devicePixelRatio, 1);
-let pixelRatio = Math.min(devicePixelRatio, mobile ? 1.25 : 1.5); // (l'anticrénelage garde les bords lisses ; on monte si l'appareil suit)
+// Téléphone : résolution fixe et modérée (l'anticrénelage lisse les bords) — c'est elle qui fait chauffer le plus
+const PR_MAX = Math.min(devicePixelRatio, mobile ? 1.15 : 1.75), PR_MIN = Math.min(devicePixelRatio, mobile ? 0.9 : 1);
+let pixelRatio = Math.min(devicePixelRatio, mobile ? 1.15 : 1.5); // (l'anticrénelage garde les bords lisses ; on monte si l'appareil suit)
 renderer.setPixelRatio(pixelRatio);
 renderer.setSize(innerWidth, innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -1057,7 +1058,7 @@ function updateCars(dt) {
   for (let i = cars.length - 1; i >= 0; i--) if (!cars[i].alive) cars.splice(i, 1);
   const day = world.hour > 6 && world.hour < 22;
   const nCar = cars.filter(c => c.kind === 'car').length, nBike = cars.length - nCar;
-  if (nCar < Math.round(14 * (day ? 1 : 0.35)) && rnd() < dt * 1.5) spawnCar('car');
+  if (nCar < Math.round((mobile ? 8 : 14) * (day ? 1 : 0.35)) && rnd() < dt * 1.5) spawnCar('car');
   if (world.weather !== 'rain' && world.weather !== 'snow' && nBike < (day ? 6 : 1) && rnd() < dt) spawnCar('bike');
 }
 
@@ -1636,7 +1637,7 @@ const metroB = map.buildings.find(b => b.type === 'metro');
 if (metroB) footGates.push(...metroB.entrances, ...metroB.entrances);
 const mainWalk = map.footpaths.filter(p => [-1, 1].some(dd => T(p.x, p.y + dd) && T(p.x, p.y + dd).avenue));
 const walkers = [];
-const MAX_WALKERS = [3, 8, 14][quality];
+const MAX_WALKERS = [3, 5, 14][quality];
 function spawnWalker() {
   if (!footGates.length) return;
   const g = pickC(footGates), to = pickC(footGates);
@@ -1845,7 +1846,9 @@ function frame() {
   // Le jeu avance à chaque image, même quand on ne redessine pas (une erreur du jeu ne bloque pas l'image)
   if (opts.onFrame) { try { opts.onFrame(raw * 1000); } catch (err) { if (loopErrors++ < 3) console.error('Jeu :', err); } }
   acc += raw;
-  if (!opts.demo && opts.saver && acc < 1 / 30) { requestAnimationFrame(loop); return; }
+  // Images par seconde plafonnées : 30 au téléphone (deux fois moins de travail → il ne chauffe plus), 20 en économie de batterie
+  const capDt = opts.demo ? 0 : opts.saver ? 1 / 20 : mobile ? 1 / 30 : 0;
+  if (capDt && acc < capDt - 0.003) { requestAnimationFrame(loop); return; }
   const dt = Math.min(acc, 0.1); acc = 0;
   // Résolution adaptative (pas en économie de batterie, déjà plafonnée à 30 images/s)
   if (!opts.saver && !opts.demo) {
@@ -1853,14 +1856,15 @@ function frame() {
     if (adaptive.t >= 2) {
       const fps = adaptive.frames / adaptive.t; adaptive.frames = 0; adaptive.t = 0;
       let pr = pixelRatio;
-      if (fps < 45 && pr > PR_MIN) { pr = Math.max(PR_MIN, pr - 0.15); adaptive.calm = 0; }
-      else if (fps < 40 && pr <= PR_MIN && ++adaptive.slow >= 2 && adaptive.level < 2) {
+      const target = capDt ? 1 / capDt : 60;
+      if (fps < target * 0.75 && pr > PR_MIN) { pr = Math.max(PR_MIN, pr - 0.15); adaptive.calm = 0; }
+      else if (fps < target * 0.68 && pr <= PR_MIN && ++adaptive.slow >= 2 && adaptive.level < 2) {
         // déjà à la résolution minimale : on retire d'abord le halo lumineux, puis on allège les ombres
         adaptive.slow = 0; adaptive.level++;
         if (adaptive.level === 1) composer = null;
         if (adaptive.level === 2 && sun.shadow.mapSize.x > 1024) { sun.shadow.mapSize.set(1024, 1024); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } renderer.shadowMap.needsUpdate = true; }
       }
-      else if (fps > 55) { if (++adaptive.calm >= 3 && pr < PR_MAX) { pr = Math.min(PR_MAX, pr + 0.1); adaptive.calm = 0; } }
+      else if (!mobile && fps > 55) { if (++adaptive.calm >= 3 && pr < PR_MAX) { pr = Math.min(PR_MAX, pr + 0.1); adaptive.calm = 0; } }
       else adaptive.calm = 0;
       if (pr !== pixelRatio) { pixelRatio = pr; renderer.setPixelRatio(pr); if (composer) composer.setPixelRatio(pr); api.pixelRatio = pr; }
     }
@@ -1899,9 +1903,11 @@ function frame() {
   const T0 = performance.now();
   updateCars(dt * Math.min(opts.demo ? speed : (world.paused ? 0 : (world.speed || 1)), 4));
   const T1 = performance.now();
+  let newViews = 0;
   for (const a of world.actors) {
     let v = people.get(a.id);
-    if (!v) { v = personView(a); people.set(a.id, v); }
+    // (personnages préparés peu à peu : 4 par image au plus, et seulement ceux qui sont dehors → démarrage sans à-coup)
+    if (!v) { if (!a.outdoors || (!a.isPlayer && newViews >= 4)) continue; newViews++; v = personView(a); people.set(a.id, v); }
     const show = a.outdoors;
     v.g.visible = show;
     if (!show) continue;

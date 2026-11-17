@@ -734,3 +734,7 @@ body.indoors #b-rotl, body.indoors #b-rotr { display: none; }
 
 /* Rien à afficher (temps libre, marche) : la fenêtre se cache */
 #box.empty { display: none !important; }
+
+/* Santé des commerces */
+.mp-chip.biz-good { background: #d7f3e1; color: #1f7a45; }
+.mp-chip.biz-bad { background: #fde4e7; color: #b8303f; }

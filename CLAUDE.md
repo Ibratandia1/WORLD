@@ -25,6 +25,9 @@ L'utilisateur parle français : répondre en français, textes du jeu en frança
 - **Téléphone** : anticrénelage matériel partout, résolution adaptative (`pixelRatio` entre `PR_MIN` et `PR_MAX`, ajustée toutes les 2 s selon les images/s), ombres recalculées seulement quand le soleil avance (pas de 10 min de jeu, `lastSunH`) ; liserés et gyrophares adoucis. Caméra : `rotateSpeed` 0,45 au doigt (0,6 souris), `zoomSpeed` 0,7, amortissement 0,12.
 - **Sons** : oiseaux synthétisés réalistes (`chirp` avec vibrato, filtre, panoramique : merle, mésange, moineau), rares (chœur le matin, moins l'hiver). Annonces : silence pour le banal (`QUIET` dans ui.js : journal, salut, faim, fatigue, réveil, fête, tuyau), petit `pop` pour une info, carillon pour l'important (`BIG`). Les événements poussés portent `kind`. Erreurs : seulement à ta demande (pas la routine), 1 / 2,5 s ; pièces : gains ≥ 5 €, 1 / 4 s.
 
+- **Chauffe du téléphone (iPhone 12)** : au téléphone, rendu plafonné à 30 images/s (`capDt` dans `frame()` ; 20 en économie de batterie), résolution fixe 1,15× (pas de remontée), 8 voitures et 5 passants au plus ; la simulation avance quand même à chaque `requestAnimationFrame`. Personnages préparés peu à peu (4 par image, seulement ceux dehors). `state.city3d.slow` liste les images de plus de 40 ms (par partie : voitures, gens, rendu, décor, jeu). ⚠ Mesurer les images/s seulement avec le panneau d'aperçu VISIBLE (masqué → 1 image/s).
+- Fiche d'un commerce : pastille 📈 « Les affaires marchent » / 📉 « En difficulté » (`economy.health`). « Ma vie » : section « Ma carrière » (diplôme, formations, expérience par métier).
+
 ## Architecture
 - `src/sim/` : simulation pure JS, **aucune dépendance à Phaser ni au DOM** (pour tourner un jour côté serveur).
   - `actions.js` catalogue des actions · `world.js` temps (jour 1 = lundi), météo, déplacements · `ai.js` choix des PNJ **et** routine auto du joueur
