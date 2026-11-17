@@ -599,7 +599,7 @@ body.wide-box #dock { max-width: calc(100vw - min(480px, 50vw) - 70px); }
 }
 /* ---------- Ville en 3D (src/city3d.js) ---------- */
 #city3d { position: fixed; inset: 0; z-index: 0; }
-body.v3d:not(.indoors) #game canvas { pointer-events: none; }
+body.v3d:not(.indoors) #game, body.v3d:not(.indoors) #game canvas { pointer-events: none; } /* la couche 2D laisse passer les gestes vers la 3D */
 #pins3d { position: fixed; inset: 0; pointer-events: none; } /* sous l'interface (ordre du document) */
 .pin3d { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: auto; cursor: pointer; }
 .pin3d .ic { position: absolute; left: -15px; top: -38px; width: 26px; height: 26px; border-radius: 50%; background: #fff;
