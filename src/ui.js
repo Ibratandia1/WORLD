@@ -18,7 +18,7 @@ import { icon } from './icons.js';
 import { settings, setSetting, onSettings } from './settings.js';
 import { isPolice, jailed } from './sim/safety.js';
 import { SEASON_INFO } from './sim/world.js';
-import { cityPulse } from './city/render.js';
+import { cityPulse } from './city/common.js';
 import { TUTORIAL, TUT_REWARD, TUT_FINAL, DREAMS, tutStep, tutReady, dreamClaimable, nextDream, DAILY, DAILY_REWARD, DAILY_BONUS, dailyFor, levelOf, LEVELS, LEVEL_TITLES } from './sim/goals.js';
 import { TAX_POLICIES, AID_POLICIES, CAMPAIGN_FEE, PROJECTS } from './sim/gov.js';
 import { CATALOG } from './sim/catalog.js';

@@ -6,7 +6,8 @@ Solo d'abord, puis multijoueur où de vrais joueurs remplacent des PNJ (côté j
 L'utilisateur parle français : répondre en français, textes du jeu en français.
 
 ## Décisions fixées
-- Phaser 3 dans le navigateur (CDN, pas de bundler pour l'instant), pensé mobile tactile ; emballage Google Play plus tard (Capacitor).
+- **Plus de moteur 2D (Phaser retiré le 2026-11-17)** : tout l'affichage est en Three.js (`city3d.js` ville, `interior3d.js` intérieurs), sans bundler (importmap CDN), pensé mobile tactile ; emballage Google Play plus tard (Capacitor). Les notes plus bas qui parlent de GameScene / InteriorScene / FxScene / render.js / festdecor / camera.js / iso.js / `?2d` décrivent l'ancienne 2D : ces fichiers n'existent plus.
+- Boucle : `city3d.js` appelle `opts.onFrame(ms)` à chaque image → `GameController.update` (`src/game/game.js` : `world.update`, feu rouge, ouverture des intérieurs, `state.ui.update`). `state.scene` = GameController (tapTile, useSpot, `spots` = `streetSpots`, `fest` = `FestSpots`, floatText / focus → city3d). `state.interior` = `InteriorLogic` (`src/game/interior.js` : étages, boutons `#floors`, places des habitants `views`, `ctx3d()`, `tapTile3d`, `useItem`). Outils partagés : `src/city/common.js` (rng, cityPulse, streetSpots, FestSpots). Three.js introuvable → écran `#nogl` « Réessayer ».
 - Écran paysage, grande carte isométrique, barre d'icônes **sans texte** en haut, événements dans une petite fenêtre en bas à droite.
 - **Règle d'or** : joueur et PNJ utilisent les mêmes actions. Tout passe par `world.perform(actor, id, params)` ; un acteur ne diffère que par `controller` (`player` / `ai` / plus tard `remote`). Ne jamais ajouter d'effet de jeu qui contourne `ACTIONS`.
 - Carte : grille texte (actuel) → Tiled → génération OpenStreetMap. `parseMap` produit le format commun.

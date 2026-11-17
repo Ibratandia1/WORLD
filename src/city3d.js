@@ -21,7 +21,7 @@ import { Bank } from './sim/bank.js';
 import { Festivals } from './sim/festivals.js';
 import { phase, carMayGo, walkMayGo } from './sim/traffic.js';
 import { findPath } from './sim/pathfinding.js';
-import { cityPulse } from './city/render.js';
+import { cityPulse } from './city/common.js';
 import { createInterior3D } from './interior3d.js';
 import { t as tr } from './i18n.js';
 
@@ -1292,6 +1292,8 @@ function loop() {
 function frame() {
   // Économie de batterie : 30 images/s au plus ; en pause, on ne redessine que si la caméra bouge
   const raw = clock.getDelta();
+  // Le jeu avance à chaque image, même quand on ne redessine pas (une erreur du jeu ne bloque pas l'image)
+  if (opts.onFrame) { try { opts.onFrame(raw * 1000); } catch (err) { if (loopErrors++ < 3) console.error('Jeu :', err); } }
   acc += raw;
   if (!opts.demo && opts.saver && acc < 1 / 30) { requestAnimationFrame(loop); return; }
   const dt = Math.min(acc, 0.1); acc = 0;

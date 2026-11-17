@@ -107,7 +107,7 @@ export const EN_EXTRA = {
   'Fermé à cette heure (personne au comptoir)': 'Closed at this hour (nobody at the counter)', 'Impossible d’aller là': 'Can’t go there',
   'Chemin introuvable': 'No path found', 'Fermé : plus personne au comptoir': 'Closed: nobody at the counter anymore', 'Approche-toi d’abord': 'Get closer first',
   'Pas possible ici': 'Not possible here', 'Tu ne travailles pas ici': 'You don’t work here', '🛍️ Les articles sont dans la fenêtre à droite': '🛍️ The items are in the panel on the right',
-  '🏢 Immeuble d’habitation privé': '🏢 Private residential building', 'Statue de Marianne': 'Marianne statue', 'Pigeons': 'Pigeons', 'Fontaine': 'Fountain', 'Banc': 'Bench',
+  '🏢 Immeuble d’habitation privé': '🏢 Private residential building', 'Impossible de charger la ville': 'Could not load the city', 'Vérifie ta connexion internet, puis réessaie.': 'Check your internet connection, then try again.', 'Réessayer': 'Try again', 'Statue de Marianne': 'Marianne statue', 'Pigeons': 'Pigeons', 'Fontaine': 'Fountain', 'Banc': 'Bench',
   'Stand du marché': 'Market stall', 'Table de brocante': 'Flea-market table', 'Concert': 'Concert', 'Musiciens': 'Musicians', 'Objet': 'Object',
   // ---------- Meubles ----------
   'Un bureau bien rangé… presque.': 'A tidy desk… almost.', 'Une chaise solide.': 'A sturdy chair.', 'Un tabouret un peu bancal.': 'A slightly wobbly stool.',

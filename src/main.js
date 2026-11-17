@@ -13,9 +13,7 @@ import { Bank } from './sim/bank.js';
 import { settings, onSettings } from './settings.js';
 import { t } from './i18n.js';
 import { UI } from './ui.js';
-import { GameScene } from './scenes/GameScene.js';
-import { InteriorScene } from './scenes/InteriorScene.js';
-import { FxScene } from './scenes/FxScene.js';
+import { GameController } from './game/game.js';
 import { loadProfile, saveProfile } from './look.js';
 import { openCustomizer } from './customize.js';
 import { loadGame, startAutosave } from './save.js';
@@ -56,26 +54,12 @@ Object.assign(state, { world, player, director });
 world.on('lookChanged', e => { if (e.actor === player && !new URLSearchParams(location.search).has('test')) saveProfile({ name: player.name, look: player.look }); });
 state.ui = new UI(world, player, director);
 
-// 2. L'affichage Phaser (carte, intérieurs, effets)
-// Rendu à la résolution réelle de l'écran (sinon l'image est étirée et floue sur téléphone / écran haute définition)
-// (plafonné à 2 : au-delà, un téléphone dessine 2,25× plus de pixels pour une différence à peine visible)
-const qs = new URLSearchParams(location.search);
-const want3D = !qs.has('2d'); // la ville est en 3D pour tout le monde ; ?2d = ancienne vue (secours, tests)
-state.want3D = want3D; // GameScene ne construit pas la carte 2D quand la ville est en 3D
+// 2. Le jeu (logique : boucle, intérieurs, objets de rue) puis l'affichage en 3D (Three.js)
 const DPR = settings().saver ? 1 : Math.min(window.devicePixelRatio || 1, 2); // économie de batterie : résolution simple
 state.dpr = DPR;
-const game = new Phaser.Game({
-  type: want3D ? Phaser.HEADLESS : Phaser.AUTO, // 3D : moteur 2D sans aucun affichage (logique seulement)
-  parent: 'game',
-  transparent: true,
-  scale: { mode: Phaser.Scale.NONE, width: window.innerWidth * DPR, height: window.innerHeight * DPR, zoom: 1 / DPR },
-  render: { antialias: true, antialiasGL: true },
-  input: { activePointers: 3 },
-  scene: [GameScene, InteriorScene, FxScene],
-});
-window.addEventListener('resize', () => game.scale.resize(window.innerWidth * DPR, window.innerHeight * DPR));
+const game = new GameController(world);
 // Ouvert téléphone à la verticale (écran « Tourne ton téléphone ») : quand on le tourne, on redémarre
-// proprement en paysage (sinon la carte et les fenêtres gardent les dimensions de l'écran vertical)
+// proprement en paysage (sinon la vue et les fenêtres gardent les dimensions de l'écran vertical)
 const bootPortrait = window.innerHeight > window.innerWidth && matchMedia('(pointer: coarse)').matches;
 if (bootPortrait) {
   const check = () => { if (window.innerWidth > window.innerHeight) location.reload(); };
@@ -83,52 +67,41 @@ if (bootPortrait) {
   window.addEventListener('orientationchange', () => setTimeout(check, 500));
 }
 
-// 2b. La ville en 3D (Three.js) : elle remplace le dessin 2D de la carte (la scène Phaser continue de faire
-// tourner la simulation, les intérieurs et la météo). ⚙️ → Batterie → « Ville en 3D » pour revenir à la 2D.
-if (want3D) {
-  import('./city3d.js').then(({ startCity3D }) => {
-    const sc = () => state.scene;
-    state.city3d = startCity3D(world, {
-      player, saver: settings().saver,
-      // Toucher un lieu : on y va et on entre directement ; un logement qui n'est pas le tien ouvre sa petite fiche (louer)
-      onPlace: b => {
-        if (b.type === 'home' && b.id !== player.home) return state.ui.showPlace(b);
-        const ok = world.check(player, 'enter', { building: b.id });
-        if (ok === true) { state.ui.closePanels && state.ui.closePanels(); world.perform(player, 'enter', { building: b.id }); return state.ui.render(); }
-        if (player.inside === b.id) return;
-        state.city3d.floatText(t(typeof ok === 'string' ? ok : 'Pas possible'), '#e2475b');
-        state.ui.showPlace(b); // fermé, en feu… : la fiche dit quand ça ouvre
-      },
-      onPerson: a => state.ui.showPerson(a),
-      // sol, objets de la rue, stands des fêtes : mêmes réactions que la vue 2D
-      onTile: (x, y, tile) => sc() && sc().tapTile(x, y, tile),
-      festSpots: () => (sc() && sc().fest ? sc().fest.spots : []), // stands des fêtes (mêmes places que la 2D)
-      // Intérieurs en 3D : la scène InteriorScene fournit la pièce, les postes et la réponse aux touchers
-      interiorCtx: () => (state.interior ? state.interior.ctx3d() : null),
-      onInteriorTap: (x, y, id) => state.interior && state.interior.tapTile3d(x, y, id),
-      onLeave: () => { world.perform(player, 'leave'); state.ui.render(); },
-    });
-    document.body.classList.add('v3d');
-    // L'ancienne 2D (Phaser) n'est plus dessinée du tout : elle ne garde que la logique (simulation, intérieurs, toucher)
-    const hide2D = () => {
-      const g = state.scene && state.scene.game;
-      if (!g) return setTimeout(hide2D, 200);
-      for (const k of ['game', 'interior', 'fx']) { const s = g.scene.getScene(k); if (s) s.sys.setVisible(false); }
-      if (g.canvas) g.canvas.style.display = 'none'; // (en mode sans affichage, il n'y a même plus de canvas)
-    };
-    hide2D();
-    if (sc()) { sc().shownInterior = undefined; for (const id of Object.keys(world.safety ? world.safety.fires : {})) state.city3d.showFire(world.building(+id)); }
-    world.on('fire', e => state.city3d.showFire(e.building));
-    world.on('fireOut', e => state.city3d.hideFire(e.building));
-    state.city3d.centerOnPlayer();
-  }).catch(err => { // sans réseau (Three.js depuis le CDN) : on relance en 2D
-    console.warn('3D indisponible, vue 2D', err);
-    const q = new URLSearchParams(location.search); q.set('2d', ''); q.delete('3d');
-    location.replace(`${location.pathname}?${q.toString()}`);
+import('./city3d.js').then(({ startCity3D }) => {
+  state.city3d = startCity3D(world, {
+    player, saver: settings().saver,
+    onFrame: ms => game.update(ms), // le monde avance à chaque image
+    // Toucher un lieu : on y va et on entre directement ; un logement qui n'est pas le tien ouvre sa petite fiche (louer)
+    onPlace: b => {
+      if (b.type === 'home' && b.id !== player.home) return state.ui.showPlace(b);
+      const ok = world.check(player, 'enter', { building: b.id });
+      if (ok === true) { state.ui.closePanels && state.ui.closePanels(); world.perform(player, 'enter', { building: b.id }); return state.ui.render(); }
+      if (player.inside === b.id) return;
+      state.city3d.floatText(t(typeof ok === 'string' ? ok : 'Pas possible'), '#e2475b');
+      state.ui.showPlace(b); // fermé, en feu… : la fiche dit quand ça ouvre
+    },
+    onPerson: a => state.ui.showPerson(a),
+    onTile: (x, y, tile) => game.tapTile(x, y, tile), // sol, objets de la rue, stands des fêtes
+    festSpots: () => game.fest.spots,
+    // Intérieurs : la logique fournit la pièce, les postes et la réponse aux touchers
+    interiorCtx: () => game.interior.ctx3d(),
+    onInteriorTap: (x, y, id) => game.interior.tapTile3d(x, y, id),
+    onLeave: () => { world.perform(player, 'leave'); state.ui.render(); },
   });
-}
-// Changer de vue redémarre le jeu (la partie est sauvegardée en quittant)
-// (le réglage 2D / 3D a été retiré : la 3D est la seule vue)
+  document.body.classList.add('v3d');
+  for (const id of Object.keys(world.safety ? world.safety.fires : {})) state.city3d.showFire(world.building(+id));
+  world.on('fire', e => state.city3d.showFire(e.building));
+  world.on('fireOut', e => state.city3d.hideFire(e.building));
+  game.shownInterior = undefined; // (réaffiche l'intérieur si la partie reprend dans un lieu)
+  state.city3d.centerOnPlayer();
+}).catch(err => { // Three.js n'a pas pu se charger (pas de réseau ?) : on le dit simplement
+  console.error('3D indisponible', err);
+  const el = document.createElement('div');
+  el.id = 'nogl';
+  el.innerHTML = `<div><b>🌐 ${t('Impossible de charger la ville')}</b><p>${t('Vérifie ta connexion internet, puis réessaie.')}</p><button>${t('Réessayer')}</button></div>`;
+  el.querySelector('button').onclick = () => location.reload();
+  document.body.appendChild(el);
+});
 
 // 3. Accueil : nouvelle partie → création du personnage ; sinon écran « Continuer »
 if (TEST) { document.title = 'World (test)'; state.ui.showWelcome(); }

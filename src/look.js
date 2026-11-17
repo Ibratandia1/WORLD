@@ -289,40 +289,6 @@ function drawBody(look, rect, opts = {}) {
   if (look.hat === 'chapeau') { H(5, 0, 6, 2, 0x222228); H(5, 1, 6, 1, 0xb8403e); H(3, 2, 10, 1, 0x222228); }
 }
 
-// Crée (si besoin) les textures Phaser du personnage : debout (clé) + 2 pas de marche (clé_1, clé_2).
-// La clé change quand l'apparence change.
-export function ensureCharTexture(scene, actor) {
-  if (!actor.texKey) actor.texKey = `char_${actor.id}_0`;
-  if (scene.textures.exists(actor.texKey)) return actor.texKey;
-  // debout + 2 pas (face) · _i = respiration · _b0 / _b1 / _b2 = de dos (quand on s'éloigne)
-  const FRAMES = [['', 0], ['_1', 1], ['_2', 2], ['_i', { breath: true }], ['_b0', { back: true }], ['_b1', { back: true, frame: 1 }], ['_b2', { back: true, frame: 2 }]];
-  for (const [suffix, pose] of FRAMES) {
-    const key = actor.texKey + suffix;
-    const g = scene.make.graphics({ add: false });
-    g.fillStyle(0x000000, 0.25); g.fillEllipse(9, 28, 13, 3.5);
-    drawCharacter(actor.look, (x, y, w, h, c) => { g.fillStyle(c); g.fillRect(x, y, w, h); }, pose);
-    g.generateTexture(key, CHAR_W, CHAR_H);
-    g.destroy();
-    scene.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
-  }
-  return actor.texKey;
-}
-
-// Texture d'une pose (assis, vu de dos, cuisine…), créée la première fois qu'on en a besoin
-export function ensurePose(scene, actor, name) {
-  ensureCharTexture(scene, actor);
-  if (!name || name === 'stand') return actor.texKey;
-  const key = `${actor.texKey}_${name}`;
-  if (scene.textures.exists(key)) return key;
-  const g = scene.make.graphics({ add: false });
-  g.fillStyle(0x000000, 0.25); g.fillEllipse(9, POSES[name].sit ? 25 : 28, 13, 3.5);
-  drawCharacter(actor.look, (x, y, w, h, c) => { g.fillStyle(c); g.fillRect(x, y, w, h); }, POSES[name]);
-  g.generateTexture(key, CHAR_W, CHAR_H);
-  g.destroy();
-  scene.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
-  return key;
-}
-
 // Profil du joueur gardé sur l'appareil.
 export function loadProfile() {
   try { return JSON.parse(localStorage.getItem('world.profile')); } catch { return null; }
