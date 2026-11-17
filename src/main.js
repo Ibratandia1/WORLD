@@ -94,6 +94,10 @@ if (want3D) {
       // sol, objets de la rue, stands des fêtes : mêmes réactions que la vue 2D
       onTile: (x, y, tile) => sc() && sc().tapTile(x, y, tile),
       festSpots: () => (sc() && sc().fest ? sc().fest.spots : []), // stands des fêtes (mêmes places que la 2D)
+      // Intérieurs en 3D : la scène InteriorScene fournit la pièce, les postes et la réponse aux touchers
+      interiorCtx: () => (state.interior ? state.interior.ctx3d() : null),
+      onInteriorTap: (x, y, id) => state.interior && state.interior.tapTile3d(x, y, id),
+      onLeave: () => { world.perform(player, 'leave'); state.ui.render(); },
     });
     document.body.classList.add('v3d');
     if (sc()) { sc().shownInterior = undefined; for (const id of Object.keys(world.safety ? world.safety.fires : {})) state.city3d.showFire(world.building(+id)); }

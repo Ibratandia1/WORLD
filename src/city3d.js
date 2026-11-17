@@ -22,6 +22,8 @@ import { Festivals } from './sim/festivals.js';
 import { phase, carMayGo, walkMayGo } from './sim/traffic.js';
 import { findPath } from './sim/pathfinding.js';
 import { cityPulse } from './city/render.js';
+import { createInterior3D } from './interior3d.js';
+import { t as tr } from './i18n.js';
 
 import { TYPES } from './map/types.js';
 import { freeUnits, isClosed } from './sim/city.js';
@@ -69,7 +71,9 @@ controls.minDistance = 6; controls.maxDistance = 75;
 controls.minPolarAngle = 0.35; controls.maxPolarAngle = 1.25;
 controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
 controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE };
+let interiorOn = false;
 controls.addEventListener('change', () => { // on reste au-dessus du quartier
+  if (interiorOn) return;
   controls.target.x = THREE.MathUtils.clamp(controls.target.x, 0, W);
   controls.target.z = THREE.MathUtils.clamp(controls.target.z, 2, H);
 });
@@ -824,7 +828,7 @@ api.floatText = (str, color) => {
   const p = opts.player; if (!p) return;
   const el = document.createElement('div');
   el.className = 'float3d'; el.textContent = str; el.style.color = color;
-  const s = project(new THREE.Vector3(p.px, 0.6, p.py));
+  const s = p.inside != null ? { x: innerWidth / 2, y: innerHeight * 0.32 } : project(new THREE.Vector3(p.px, 0.6, p.py)); // dedans : au centre
   api._floatN = ((api._floatN || 0) + 1) % 3;
   el.style.left = `${s.x}px`; el.style.top = `${s.y - api._floatN * 18}px`;
   document.body.appendChild(el);
@@ -857,6 +861,7 @@ if (!opts.demo) {
     if (moved < 8) tap(e.clientX, e.clientY);
   });
   function tap(cx, cy) {
+    if (interior && opts.player && opts.player.inside != null) return interior.tap(cx, cy, camera);
     ndc.set(cx / innerWidth * 2 - 1, -(cy / innerHeight) * 2 + 1);
     ray.setFromCamera(ndc, camera);
     const figs = []; for (const [, pv] of people) if (pv.g.visible) figs.push(pv.g);
@@ -1175,6 +1180,15 @@ function updateAlive(dt) {
   if (aliveTick <= 0) { aliveTick = 1; applySeason(); updateSnow(); updateLitter(); updateStands(); }
 }
 
+let savedCam = null;
+const interior = opts.demo ? null : createInterior3D(renderer, {
+  t: tr,
+  icon: b => (b.type === 'home' ? '🏠' : TYPES[b.type].icon),
+  actorById: id => world.actorById(id),
+  leave: () => opts.onLeave && opts.onLeave(),
+  onTap: (x, y, id) => opts.onInteriorTap && opts.onInteriorTap(x, y, id),
+});
+if (interior) interior.setVisible(false);
 const clock = new THREE.Clock();
 let speed = 1, frames = 0, fpsT = 0;
 const $ = id => document.getElementById(id);
@@ -1189,12 +1203,33 @@ function loop() {
   acc += raw;
   if (!opts.demo && opts.saver && acc < 1 / 30) { requestAnimationFrame(loop); return; }
   const dt = Math.min(acc, 0.1); acc = 0;
-  if (!opts.demo && world.paused && !dirty && !camGoal.t) { controls.update(); requestAnimationFrame(loop); return; }
+  if (!opts.demo && world.paused && !dirty && !camGoal.t && !(opts.player && opts.player.inside != null)) { controls.update(); requestAnimationFrame(loop); return; }
   dirty = false;
   if (opts.demo) world.update(dt * 1000 * speed);
   const inside = !opts.demo && opts.player && opts.player.inside != null;
-  renderer.domElement.style.display = inside ? 'none' : '';
+  const ictx = inside && interior && opts.interiorCtx ? opts.interiorCtx() : null;
   if (pinsEl) pinsEl.style.display = inside ? 'none' : '';
+  if (ictx) {
+    if (!interiorOn) { // on entre : on garde la vue de la ville pour la retrouver en sortant
+      interiorOn = true;
+      savedCam = { pos: camera.position.clone(), tgt: controls.target.clone(), min: controls.minDistance, max: controls.maxDistance, minP: controls.minPolarAngle, maxP: controls.maxPolarAngle };
+      camGoal.t = null; interior.setVisible(true);
+    }
+    const info = interior.update(ictx, camera, performance.now());
+    if (info) { // nouvelle pièce ou nouvel étage : cadrage
+      const d = info.size * (mobile ? 1.75 : 1.5) + 3;
+      controls.target.set(info.cx, 0.35, info.cz);
+      camera.position.set(info.cx + d * 0.72, d * 0.78, info.cz + d * 0.72);
+      controls.minDistance = 2.2; controls.maxDistance = d * 2.2; controls.minPolarAngle = 0.3; controls.maxPolarAngle = 1.25;
+    }
+    controls.update();
+    renderer.render(interior.scene, camera);
+    requestAnimationFrame(loop); return;
+  } else if (interiorOn) { // on sort : retour à la ville, là où on l'avait laissée
+    interiorOn = false; interior.reset(); interior.setVisible(false);
+    if (savedCam) { camera.position.copy(savedCam.pos); controls.target.copy(savedCam.tgt); Object.assign(controls, { minDistance: savedCam.min, maxDistance: savedCam.max, minPolarAngle: savedCam.minP, maxPolarAngle: savedCam.maxP }); }
+    if (api.centerOnPlayer) api.centerOnPlayer();
+  }
   if (inside) { requestAnimationFrame(loop); return; }
   updateCars(dt * Math.min(opts.demo ? speed : (world.paused ? 0 : (world.speed || 1)), 4));
   for (const a of world.actors) {

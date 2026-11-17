@@ -111,9 +111,34 @@ export class InteriorScene extends Phaser.Scene {
     this.playerFloor = null;
     this.buildFloor();
     this.fit();
-    this.cameras.main.setVisible(true);
-    this.uiCam.setVisible(true);
-    this.input.enabled = true;
+    // Ville en 3D : la pièce est dessinée en 3D (src/interior3d.js) ; cette scène garde la logique (postes, toucher, étages)
+    const in3d = !!state.city3d;
+    this.cameras.main.setVisible(!in3d);
+    this.uiCam.setVisible(!in3d);
+    this.input.enabled = !in3d;
+  }
+
+  // Toucher venu de la vue 3D : une case de la pièce (ou une personne)
+  tapTile3d(tx, ty, actorId) {
+    const w = state.world, p = state.player, L = this.L;
+    if (!this.building || !L) return;
+    if (actorId) { if (actorId !== p.id) state.ui.showPerson(w.actorById(actorId)); return; }
+    if (L.entrance && tx === L.entrance.x && (ty === L.entrance.y || ty === L.entrance.y + 1)) { w.perform(p, 'leave'); return; }
+    const it = this.itemAt.get(`${tx},${ty}`);
+    const st = this.stations.find(s => s.floor === this.floorIdx && s.x === tx && s.y === ty);
+    if (it && it.actions && it.actions.length > 1) return state.ui.showObject({ name: it.name || 'Objet', icon: '✨', actions: it.actions, building: this.building });
+    const action = (it && (it.action || (it.actions && it.actions[0]))) || (st && st.a.find(a => a !== 'any'));
+    if (action) return this.tryAction(action);
+    if (it && it.k === 'stairs_up') return this.setFloor((this.floorIdx + 1) % this.floors.length);
+    if (it) return state.ui.showObject({ name: it.name || ITEM_NAMES[it.k] || 'Objet', icon: '✨', actions: genericActions(it.k), params: { what: it.k }, building: this.building });
+  }
+
+  // Ce que la vue 3D doit dessiner
+  ctx3d() {
+    if (!this.building || !this.L) return null;
+    const b = this.building, L = this.L;
+    return { building: b, L, floorIdx: this.floorIdx, views: this.views, playerId: state.player.id,
+      title: this.floors.length > 1 ? `${b.name} · ${t(L.name)}` : b.name };
   }
 
   hide() {
@@ -722,6 +747,7 @@ export class InteriorScene extends Phaser.Scene {
   }
 
   floatText(str, color) {
+    if (state.city3d) return state.city3d.floatText(str, color); // pièce en 3D : message HTML
     const v = this.views.get(state.player.id);
     const vis = v && v.floor === this.floorIdx;
     const x = vis ? v.spr.x : this.cameras.main.midPoint.x;
