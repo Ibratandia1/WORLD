@@ -54,7 +54,8 @@ scene.fog = new THREE.Fog(scene.background, 45, 120);
 const W = map.w, H = map.h;
 const CX = W / 2, CZ = H / 2 + 2;
 const camera = new THREE.PerspectiveCamera(32, innerWidth / innerHeight, 0.5, 300);
-camera.position.set(CX + 20, 22, CZ + 20);
+if (opts.demo) camera.position.set(CX + 20, 22, CZ + 20);
+else camera.position.set(CX + (mobile ? 6 : 8.5), mobile ? 7 : 9.5, CZ + (mobile ? 6 : 8.5)); // jeu : vue rapprochée sur ton personnage
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(CX, 0, CZ);
 controls.enableDamping = true;
@@ -617,7 +618,12 @@ function personView(a) {
   const parts = [legs, body, head];
   if (lk.hairStyle !== 'chauve') parts.push(new THREE.Mesh(hairG, matOf(lk.hairColor ?? 0x2b1d16)));
   for (const p of parts) { p.castShadow = true; g.add(p); }
-  if (a.demoMe || a.isPlayer) { // toi : anneau doré au sol
+  if (a.demoMe || a.isPlayer) { // toi : plus grand, flèche dorée qui rebondit au-dessus de la tête
+    g.scale.setScalar(1.35);
+    const arrowM = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.14, 4).rotateX(Math.PI), new THREE.MeshStandardMaterial({ color: 0xffc83d, emissive: 0xffa800, emissiveIntensity: 0.9 }));
+    arrowM.position.y = 0.55; arrowM.userData.bob = true; g.add(arrowM);
+  }
+  if (a.demoMe || a.isPlayer) { // anneau doré au sol
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.12, 0.16, 24).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffd23f }));
     ring.position.y = 0.01; g.add(ring);
   }
@@ -736,7 +742,9 @@ function centerOn(x, z, instant = false) {
   if (instant) { const d = goal.clone().sub(controls.target); controls.target.add(d); camera.position.add(d); return; }
   camGoal.t = goal;
 }
-api.centerOnPlayer = () => { const p = opts.player; if (p) centerOn(p.px, p.py); };
+api.follow = true;
+controls.addEventListener('start', () => { api.follow = false; });
+api.centerOnPlayer = () => { const p = opts.player; if (p) { api.follow = true; centerOn(p.px, p.py); } };
 api.focusBuilding = b => {
   const cx = b.tiles.reduce((s, t) => s + t.x, 0) / b.tiles.length, cz = b.tiles.reduce((s, t) => s + t.y, 0) / b.tiles.length;
   centerOn(cx, cz); pointAt(new THREE.Vector3(cx, (tops[b.id] || 2) + 0.6, cz));
@@ -804,6 +812,7 @@ if (!opts.demo) {
       const t = map.tiles[ty] && map.tiles[ty][tx];
       if (!t) continue;
       if (t.building != null) return opts.onPlace && opts.onPlace(map.buildings[t.building]);
+      if (t.walk && !t.deco) { api.follow = true; ping(tx, ty); }
       return opts.onTile && opts.onTile(tx, ty, t, h.point); // sol, objet de rue, immeuble de décor : décidé par le jeu
     }
   }
@@ -821,12 +830,22 @@ api.showFire = b => {
   g.userData.noTap = true; scene.add(g); fires[b.id] = g;
 };
 api.hideFire = b => { const g = fires[b.id]; if (g) { scene.remove(g); delete fires[b.id]; } };
+function ping(x, z) {
+  const m = new THREE.Mesh(new THREE.RingGeometry(0.12, 0.2, 24).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, depthWrite: false }));
+  m.position.set(x, 0.12, z); m.userData.noTap = true; scene.add(m);
+  const t0 = performance.now();
+  const tick = () => { const k = (performance.now() - t0) / 700; if (k >= 1) { scene.remove(m); return; } m.scale.setScalar(1 + k * 1.2); m.material.opacity = 0.9 * (1 - k); requestAnimationFrame(tick); };
+  tick();
+}
 let pinTick = 0;
 function updateGame(dt) {
   if (opts.demo) return;
   const now = performance.now() / 1000;
   for (const m of extraMeshes) if (m.userData.blink) m.material.emissiveIntensity = Math.sin(now * 8) > 0 ? 3 : 0.3;
   for (const g of Object.values(fires)) for (const c of g.children) { const k = 0.8 + Math.sin(now * 9 + c.userData.phase) * 0.25; c.scale.set(1, k, 1); }
+  // la caméra suit ton personnage quand il se déplace (sauf si tu as bougé la vue toi-même)
+  const me = opts.player;
+  if (api.follow && me && me.outdoors && me.path.length) camGoal.t = new THREE.Vector3(me.px, 0, me.py);
   // la caméra glisse vers sa cible
   if (camGoal.t) {
     const d = camGoal.t.clone().sub(controls.target);
@@ -1128,6 +1147,7 @@ function loop() {
     v.last.x = a.px; v.last.y = a.py;
     v.phase += dt * (moving ? 14 : 2);
     v.g.position.set(a.px, 0.08 + (moving ? Math.abs(Math.sin(v.phase)) * 0.02 : 0), a.py);
+    for (const ch of v.g.children) if (ch.userData.bob) { ch.position.y = 0.55 + Math.sin(performance.now() / 180) * 0.04; ch.rotation.y += dt * 2; }
   }
   for (const [id, v] of people) if (!world.actorById(id)) { scene.remove(v.g); people.delete(id); }
   lighting();
