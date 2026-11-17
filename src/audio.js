@@ -80,12 +80,12 @@ export class Sound {
     const out = s.outdoors;
     const busy = s.pulse ?? 0.6; // animation de la ville selon l'heure
     this.muffle.frequency.setTargetAtTime(out ? 18000 : 700, this.ctx.currentTime, 0.3);
-    this.ramp(this.city, (out ? 0.05 : 0.025) * (0.4 + busy));
-    this.ramp(this.rain, s.weather === 'rain' ? (out ? 0.16 : 0.07) : 0, 2);
-    this.ramp(this.wind, s.weather === 'snow' ? 0.09 : s.weather === 'cloud' && out ? 0.02 : 0, 2);
+    this.ramp(this.city, (out ? 0.028 : 0.012) * (0.4 + busy)); // rumeur de la ville : discrète
+    this.ramp(this.rain, s.weather === 'rain' ? (out ? 0.1 : 0.045) : 0, 2);
+    this.ramp(this.wind, s.weather === 'snow' ? 0.055 : s.weather === 'cloud' && out ? 0.012 : 0, 2);
     const lively = !out && ['cafe', 'bakery', 'shop', 'cityhall', 'fashion'].includes(s.place);
     const fair = out && (s.fest === 'marche' || s.fest === 'brocante' || s.fest === 'concert');
-    this.ramp(this.crowd, lively ? 0.05 : fair ? 0.04 : 0, 0.6);
+    this.ramp(this.crowd, lively ? 0.03 : fair ? 0.025 : 0, 0.6);
     // Musique des fêtes (concert, fête de la musique) : une petite valse musette jouée en direct
     if (out && (s.fest === 'concert' || s.fest === 'musique')) this.music();
 
@@ -93,9 +93,9 @@ export class Sound {
     const day = s.hour >= 6 && s.hour < 20;
     // oiseaux : rares et doux, un petit chœur le matin, un peu plus dans les parcs
     const dawn = s.hour >= 6 && s.hour < 9;
-    if (out && day && s.weather !== 'rain' && s.weather !== 'snow' && r < (dawn ? 0.045 : 0.018) * (s.season === 'hiver' ? 0.4 : 1)) this.bird();
+    if (out && day && s.weather !== 'rain' && s.weather !== 'snow' && r < (dawn ? 0.02 : 0.01) * (s.season === 'hiver' ? 0.4 : 1)) this.bird();
     if (out && !day && (s.season === 'ete' || s.season === 'printemps') && s.weather !== 'rain' && r < 0.12) this.cricket();
-    if (out && r > 1 - 0.035 * busy) this.car();
+    if (out && r > 1 - 0.01 * busy) this.car();
     if (lively && s.place !== 'shop' && Math.random() < 0.06) this.clink();
   }
 
@@ -138,7 +138,7 @@ export class Sound {
     o.start(t); o.stop(t + dur + 0.05);
   }
   bird() {
-    const pan = Math.random() * 1.6 - 0.8, far = Math.random(), vol = 0.012 + (1 - far) * 0.012, cutoff = 3500 + (1 - far) * 4000;
+    const pan = Math.random() * 1.6 - 0.8, far = Math.random() * 0.6, vol = 0.018 + (1 - far) * 0.012, cutoff = 3500 + (1 - far) * 4000;
     const kind = Math.random();
     if (kind < 0.35) { // merle : 3–4 notes flûtées qui descendent
       let f = 2100 + Math.random() * 500;
@@ -153,7 +153,7 @@ export class Sound {
     }
   }
   cricket() { for (let i = 0; i < 3; i++) this.tone(4300, 0.04, { type: 'triangle', vol: 0.012, delay: i * 0.07, bus: this.amb }); }
-  car() { const up = Math.random() < 0.5; this.noise(1.6, { freq: up ? 300 : 900, to: up ? 900 : 300, q: 0.8, vol: 0.05, bus: this.amb }); }
+  car() { this.noise(2.4, { freq: 160, to: 120, q: 0.6, vol: 0.012, bus: this.amb }); } // léger roulement lointain (plus de « vroum » qui dérange)
   clink() { const f = 2600 + Math.random() * 1200; this.tone(f, 0.12, { vol: 0.03, bus: this.amb }); this.tone(f * 1.5, 0.08, { vol: 0.015, delay: 0.01, bus: this.amb }); }
 
   // Valse (3 temps) sur une grille d'accords la mineur – fa – do – mi : basse au 1er temps, accord ensuite,
