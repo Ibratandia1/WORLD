@@ -10,7 +10,7 @@ import { Festivals } from './sim/festivals.js';
 import { Safety } from './sim/safety.js';
 import { Justice } from './sim/justice.js';
 import { Bank } from './sim/bank.js';
-import { settings } from './settings.js';
+import { settings, onSettings } from './settings.js';
 import { UI } from './ui.js';
 import { GameScene } from './scenes/GameScene.js';
 import { InteriorScene } from './scenes/InteriorScene.js';
@@ -70,6 +70,29 @@ const game = new Phaser.Game({
   scene: [GameScene, InteriorScene, FxScene],
 });
 window.addEventListener('resize', () => game.scale.resize(window.innerWidth * DPR, window.innerHeight * DPR));
+
+// 2b. La ville en 3D (Three.js) : elle remplace le dessin 2D de la carte (la scène Phaser continue de faire
+// tourner la simulation, les intérieurs et la météo). ⚙️ → Batterie → « Ville en 3D » pour revenir à la 2D.
+const want3D = settings().view3d !== false && !new URLSearchParams(location.search).has('2d');
+if (want3D) {
+  import('./city3d.js').then(({ startCity3D }) => {
+    const sc = () => state.scene;
+    state.city3d = startCity3D(world, {
+      player, saver: settings().saver,
+      onPlace: b => state.ui.showPlace(b),
+      onPerson: a => state.ui.showPerson(a),
+      // sol, objets de la rue, stands des fêtes : mêmes réactions que la vue 2D
+      onTile: (x, y, tile) => sc() && sc().tapTile(x, y, tile),
+    });
+    document.body.classList.add('v3d');
+    if (sc()) { sc().shownInterior = undefined; for (const id of Object.keys(world.safety ? world.safety.fires : {})) state.city3d.showFire(world.building(+id)); }
+    world.on('fire', e => state.city3d.showFire(e.building));
+    world.on('fireOut', e => state.city3d.hideFire(e.building));
+    state.city3d.centerOnPlayer();
+  }).catch(err => console.warn('3D indisponible, vue 2D', err)); // sans réseau (Three.js depuis le CDN) : on garde la 2D
+}
+// Changer de vue redémarre le jeu (la partie est sauvegardée en quittant)
+onSettings((k, v) => { if (k === 'view3d' && (v !== false) !== want3D && !new URLSearchParams(location.search).has('2d')) location.reload(); });
 
 // 3. Accueil : nouvelle partie → création du personnage ; sinon écran « Continuer »
 if (TEST) { document.title = 'World (test)'; state.ui.showWelcome(); }

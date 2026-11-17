@@ -248,6 +248,8 @@ export const EN_EXTRA = {
   'Le coffre-fort. Il paraît qu’il est inviolable.': 'The safe. They say it’s unbreakable.', 'Le guichet, derrière sa vitre.': 'The counter, behind its glass.',
   'Le distributeur de billets.': 'The cash machine.', 'L’estrade du juge, et son marteau.': 'The judge’s bench, and the gavel.', 'La barre, où l’on témoigne.': 'The stand, where witnesses testify.',
   'Une poubelle bien vidée.': 'A freshly emptied bin.',
+  '🏙️ Affichage de la ville': '🏙️ City display', 'Affichage de la ville': 'City display', 'Ville en 3D': 'City in 3D',
+  '3D moderne (ombres, jour et nuit) ou ancienne vue 2D. Le jeu redémarre, ta partie est gardée.': 'Modern 3D (shadows, day and night) or the old 2D view. The game restarts, your save is kept.',
   // --- Budget, feux tricolores ---
   'Impôt sur le revenu': 'Income tax', 'Cotisations des entreprises': 'Business contributions', 'TVA des commerces': 'Shop VAT', 'Taxe foncière': 'Property tax',
   'Amendes': 'Fines', 'Dotation de l’État': 'State grant', 'Salaires des services publics': 'Public service wages',

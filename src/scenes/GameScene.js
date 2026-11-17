@@ -96,6 +96,17 @@ export class GameScene extends Phaser.Scene {
 
   update(time, delta) {
     this.world.update(delta);
+    if (state.city3d) { // ville en 3D : la carte 2D n'est plus dessinée, on garde la simulation et l'interface
+      if ((this.tlTick = (this.tlTick || 0) + delta) > 200) {
+        this.tlTick = 0;
+        const pw = state.player && state.player.waitLight;
+        if (pw && !this.saidWait) this.floatText(t('🚦 Feu rouge : on attend pour traverser'), '#e2475b');
+        this.saidWait = pw;
+      }
+      this.syncInterior();
+      state.ui.update(delta);
+      return;
+    }
     if (!this.world.paused) { this.traffic.update(delta, this.world.hour); this.birds.update(delta, this.world.actors); }
     this.crowd.update(delta, this.world.hour, findPath, this.world.paused, this.world.weather);
     this.updateSnow(delta);
@@ -127,8 +138,8 @@ export class GameScene extends Phaser.Scene {
     this.shownInterior = b;
     if (b) state.interior.show(b);
     else state.interior.hide();
-    this.cameras.main.setVisible(!b);
-    this.input.enabled = !b;
+    this.cameras.main.setVisible(!b && !state.city3d);
+    this.input.enabled = !b && !state.city3d;
     document.body.classList.toggle('indoors', !!b);
     if (!b) this.centerOnPlayer();
   }
@@ -672,6 +683,7 @@ export class GameScene extends Phaser.Scene {
   setZoom(z) { this.cameras.main.setZoom(Phaser.Math.Clamp(z, this.minZoom, this.maxZoom)); }
 
   centerOnPlayer() {
+    if (state.city3d) return state.city3d.centerOnPlayer();
     const p = state.player;
     const s = toScreen(p.px, p.py);
     this.cameras.main.centerOn(s.x, s.y - 20);
@@ -679,6 +691,7 @@ export class GameScene extends Phaser.Scene {
 
   // Montrer un lieu ou une personne : la caméra glisse jusqu'à lui et une flèche le désigne
   focusBuilding(b) {
+    if (state.city3d) return state.city3d.focusBuilding(b);
     let sx = 0, sy = 0, top = Infinity;
     for (const t of b.tiles) { const c = toScreen(t.x, t.y); sx += c.x; sy += c.y; top = Math.min(top, c.y - HH - b.height); }
     sx /= b.tiles.length; sy /= b.tiles.length;
@@ -687,6 +700,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   focusActor(a) {
+    if (state.city3d) return state.city3d.focusActor(a);
     const s = toScreen(a.px, a.py);
     this.panTo(s.x, s.y - 20);
     this.pointAt(s.x, s.y - 62, a);
@@ -760,6 +774,24 @@ export class GameScene extends Phaser.Scene {
     if (r.ok) this.ping(t);
   }
 
+  // Toucher une case dans la vue 3D : objets de la rue et stands des fêtes comme en 2D, sinon on y va
+  tapTile(x, y, tile) {
+    const at = (s, r = 0.6) => Math.abs(s.x - x) <= r && Math.abs(s.y - y) <= r;
+    const fs = this.fest.spots.find(s => at(s, 0.8));
+    if (fs) return state.ui.showObject({ name: fs.name, icon: fs.icon, actions: fs.actions, at: fs });
+    const st = this.spots.statues.find(s => at(s));
+    if (st) return state.ui.showObject({ name: 'Statue de Marianne', icon: '🗽', actions: ['admire_statue'], at: st });
+    const f = this.spots.fountains.find(s => at(s));
+    if (f) return state.ui.showObject({ name: 'Fontaine', icon: '⛲', actions: ['wish_fountain'], at: f });
+    const bench = this.spots.benches.find(s => at(s, 0.5));
+    if (bench) return state.ui.showObject({ name: 'Banc', icon: '🪑', actions: ['sit_bench', 'feed_pigeons'], at: bench });
+    const bin = this.spots.bins.find(s => at(s, 0.5));
+    if (bin) return state.ui.showObject({ name: 'Poubelle', icon: '🗑️', actions: ['use_bin', 'pick_litter'], at: bin });
+    if (tile.deco === 'filler') return this.floatText(t('🏢 Immeuble d’habitation privé'), '#7a6f96');
+    if (!tile.walk) return;
+    this.world.perform(state.player, 'goto', { x, y });
+  }
+
   ping(t) {
     const s = toScreen(t.x, t.y);
     const g = this.add.graphics().setDepth(1);
@@ -796,6 +828,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   floatText(str, color) {
+    if (state.city3d && state.player.inside == null) return state.city3d.floatText(str, color);
     const p = state.player;
     const s = toScreen(p.px, p.py);
     this.floatN = ((this.floatN || 0) + 1) % 3;

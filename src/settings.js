@@ -14,7 +14,8 @@ export const DEFAULTS = {
   tips: true,          // astuces
   eventTimer: 12,      // secondes avant qu'un événement s'efface (0 = jamais)
   textSize: 'normal',  // 'small' | 'normal' | 'large'
-  saver: false,        // économie de batterie (moins de détails, résolution réduite au prochain lancement)
+  view3d: true,        // ville en 3D (Three.js) ; false = ancienne vue 2D isométrique
+  saver: false,       // économie de batterie (moins de détails, résolution réduite au prochain lancement)
   welcomed: false,     // cartes de bienvenue déjà vues sur cet appareil
 };
 
