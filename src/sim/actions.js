@@ -149,6 +149,7 @@ export const ACTIONS = {
       if (a.job && a.job.building === b.id) return 'Tu y travailles déjà';
       if (openings(w, b) === 0) return 'Aucun poste libre';
       if (a.lastApply[b.id] === w.day) return 'Déjà postulé aujourd’hui';
+      if (OPEN_HOURS_TYPES.has(b.type) && !sellerAt(w, b, a)) return 'Personne pour te recevoir : reviens aux heures d’ouverture';
       return true;
     },
     effect: (a, w, p) => {
@@ -170,8 +171,21 @@ export const ACTIONS = {
       const colleagues = w.actors.filter(o => o.job && o.job.building === b.id).length;
       a.job = makeJob(b, b.jobs.wage, w.day, colleagues % 2 === 1, (colleagues * 2) % 7); // équipe du matin ou du soir, jours décalés
       const rt = roleTitle(b.type, colleagues); if (rt) a.job.title = rt; // juge, avocat·e, greffier·ère, conseiller·ère…
+      a.job.startDay = w.day + 1; // pas de service le jour de l'embauche : on commence demain au plus tôt
       w.emit('hired', { actor: a, building: b, wage: b.jobs.wage });
       return `${who}embauché·e !`;
+    },
+  },
+
+  // Nouvel emploi : reporter le premier service au lundi suivant (le temps de s'installer)
+  job_start_monday: {
+    icon: '📅', label: 'Commencer lundi prochain', instant: true, custom: true,
+    can: (a, w) => (!a.job || a.job.street ? 'Pas de nouvel emploi' : (a.job.startDay || 0) <= w.day ? 'Tu as déjà commencé' : true),
+    effect: (a, w) => {
+      let d = w.day + 1;
+      while (weekdayOf(d) !== 0) d++;
+      a.job.startDay = d;
+      return `Premier service lundi (jour ${d}).`;
     },
   },
 
@@ -183,6 +197,7 @@ export const ACTIONS = {
 
   eat_cafe: {
     icon: '🍽️', label: 'Déjeuner', place: { type: 'cafe' }, duration: 40, cost: 12, seller: true,
+    can: a => (a.hunger < 15 ? 'Tu n’as pas faim' : true),
     effect: (a, w, p) => {
       a.hunger -= 45; a.energy += 5; a.mood += 5;
       const t = p && p.with && w.actorById(p.with);
@@ -193,12 +208,13 @@ export const ACTIONS = {
 
   eat_bakery: {
     icon: '🥐', label: 'Sandwich', place: { type: 'bakery' }, duration: 10, cost: 4, seller: true,
+    can: a => (a.hunger < 10 ? 'Tu n’as pas faim' : true),
     effect: a => { a.hunger -= 25; },
   },
 
   groceries: {
     icon: '🛒', label: 'Courses (4 repas)', place: { type: 'shop' }, duration: 20, cost: 20, seller: true,
-    can: a => (a.home == null ? 'Pas de cuisine sans logement' : true),
+    can: a => (a.home == null ? 'Pas de cuisine sans logement' : a.food >= 8 ? 'Ton frigo est plein' : true),
     effect: a => { a.food += 4; },
   },
 
@@ -214,7 +230,7 @@ export const ACTIONS = {
 
   eat_home: {
     icon: '🍝', label: 'Cuisiner', place: { own: 'home' }, duration: 25,
-    can: a => (a.food > 0 ? true : 'Frigo vide'),
+    can: a => (a.food <= 0 ? 'Frigo vide' : a.hunger < 15 ? 'Tu n’as pas faim' : true),
     effect: a => { a.food -= 1; a.hunger -= 40; },
   },
 
@@ -231,6 +247,7 @@ export const ACTIONS = {
 
   nap: {
     icon: '🛋️', label: 'Sieste', place: { own: 'home' }, duration: 60, skip: 12,
+    can: a => (a.energy > 85 ? 'Tu es en pleine forme' : true),
     effect: a => { a.energy += 20; a.mood += 3; },
   },
 

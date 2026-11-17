@@ -171,33 +171,6 @@ export const EVENTS = [
   },
 
   // ---------- La rue ----------
-  {
-    id: 'musicien', icon: '🎻', title: 'Musicien de rue', cooldown: 1440, chance: 0.6,
-    text: 'Un violoniste joue près du parc. Quelques passants s’arrêtent.',
-    when: (a, w) => a.outdoors && w.hour >= 10 && w.hour < 20 && nearGrass(w, a),
-    choices: [{ icon: '🎵', label: 'Donner 2 €', action: 'tip' }, { icon: '🚶', label: 'Passer son chemin' }],
-  },
-  {
-    id: 'portefeuille', icon: '👛', title: 'Un portefeuille par terre', cooldown: 4320,
-    text: 'Il contient 40 € et une carte d’identité.',
-    when: a => a.outdoors && a.path.length > 0 && Math.random() < 0.002,
-    choices: [{ icon: '👮', label: 'Le rapporter', action: 'return_wallet' }, { icon: '🤫', label: 'Garder l’argent', action: 'keep_wallet' }],
-  },
-  {
-    id: 'pluie', icon: '🌧️', title: 'Il pleut des cordes', cooldown: 600,
-    text: 'Un vendeur de parapluies surgit au coin de la rue.',
-    when: (a, w) => w.weather === 'rain' && a.outdoors && a.path.length > 0 && !a.items.umbrella,
-    choices: [{ icon: '☂️', label: 'Acheter un parapluie', action: 'buy_umbrella' }, { icon: '🏃', label: 'Courir sous la pluie' }],
-  },
-  {
-    id: 'grattage', icon: '🎟️', title: 'À la caisse', cooldown: 1440,
-    when: (a, w) => {
-      if (a.inside == null || a.doing || w.building(a.inside).type !== 'shop') return null;
-      return w.actors.find(o => o !== a && o.inside === a.inside && o.doing === 'work') || null;
-    },
-    text: (a, w, o) => `${o.name} : « Un ticket à gratter ? Le gros lot est à 200 € ! »`,
-    choices: [{ icon: '🎟️', label: 'Acheter un ticket', action: 'scratch' }, { icon: '🙅', label: 'Non merci' }],
-  },
 
   // ---------- La vie du quartier ----------
   {
@@ -297,7 +270,7 @@ const PUSHED = {
   hired: (a, w, e) => ({
     icon: '🤝', title: 'Embauché·e !',
     text: `${e.building.name} t’engage à ${e.wage} €/h, ${fmtShift(a.job)} (${a.job.days.map(d => DAY_SHORT[d]).join(' ')}). Premier service ${nextShiftText(a, w)}.`,
-    choices: OK,
+    choices: [{ icon: '👍', label: 'Parfait, j’y serai' }, { icon: '📅', label: 'Commencer lundi prochain', action: 'job_start_monday' }],
   }),
   rentBill: (a, w, e) => ({
     icon: '🧾', title: 'Loyer de la semaine', text: `${landlordName(w)} attend ${e.amount} €.`,

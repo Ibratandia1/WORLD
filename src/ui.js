@@ -851,7 +851,7 @@ export class UI {
       const [, lname, licon] = level(r);
       const job = a.role && ROLE_TITLES[a.role] ? ROLE_TITLES[a.role] : a.job ? jobTitle(w, a.job) : 'Sans emploi';
       const now = a.doing && ACTIONS[a.doing] ? ACTIONS[a.doing].icon : '';
-      return `<button data-person="${a.id}"><span class="ic">${licon}</span><span class="nm">${esc(a.name)}<small>${esc(job)} · ${lname}</small></span>
+      return `<button data-person="${a.id}"><span class="ic">${licon}</span><span class="nm">${esc(a.name)}<small>${esc(t(job))} · ${t(lname)}</small></span>
         <span class="rt">${now} ${esc(where(a))}</span></button>`;
     });
     return `${this.head('👥', t('Habitants · {n}', { n: list.length }))}<p>${L(`Tu connais ${known} personne${known > 1 ? 's' : ''}. Touche quelqu’un pour le retrouver.`, `You know ${known} ${known > 1 ? 'people' : 'person'}. Tap someone to find them.`)}</p><div class="list">${rows.join('')}</div>`;

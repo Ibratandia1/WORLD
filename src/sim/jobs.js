@@ -105,7 +105,8 @@ export function makeJob(b, wage, day, evening = false, offset = 0) {
   return job;
 }
 
-export const isWorkday = (job, day) => job.days.includes(weekdayOf(day));
+// (startDay : premier jour du contrat — rien avant, ni service, ni retard)
+export const isWorkday = (job, day) => !(job.startDay && day < job.startDay) && job.days.includes(weekdayOf(day));
 
 // Début / fin du service d'un jour, en minutes absolues
 export function shiftOf(job, day) {
