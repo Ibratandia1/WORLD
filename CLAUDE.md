@@ -12,6 +12,8 @@ L'utilisateur parle français : répondre en français, textes du jeu en frança
 - **Règle d'or** : joueur et PNJ utilisent les mêmes actions. Tout passe par `world.perform(actor, id, params)` ; un acteur ne diffère que par `controller` (`player` / `ai` / plus tard `remote`). Ne jamais ajouter d'effet de jeu qui contourne `ACTIONS`.
 - Carte : grille texte (actuel) → Tiled → génération OpenStreetMap. `parseMap` produit le format commun.
 
+- **Deux quartiers** : le Marais (rangs 0–29) = centre-ville (immeubles, commerces, services) ; au sud, **les Jardins** (rangs 30–47, ajoutés le 2026-11-17) = quartier résidentiel : 12 maisons + 2 villas (`type: 'home', style: 'house'`, 1 logement, plan intérieur `LAYOUTS.house` sur 2 étages), grand parc des Glycines (allées `p` gravier, étang `e` sol `pond` avec canards, aire de jeux `k`, fontaine), jardins privés `j` (haies côté rue, massifs), petits commerces `style: 'village'` (Café du Parc, Boulangerie des Jardins, 3 étages en 3D). Rendu : `house()` dans city3d.js (toit de tuiles à 4 pans, volets, porte côté rue, boîte aux lettres). Actions `feed_ducks`, `play_swing` (toucher l'étang / l'aire de jeux). Le toit `mansard()` avait ses pans à l'envers (corrigé : immeubles mieux éclairés). Nouveaux lieux toujours ajoutés en fin de `order` (ids stables) ; les rangées s'ajoutent EN BAS (coordonnées du Marais inchangées, pas besoin de changer `layout`).
+
 ## Architecture
 - `src/sim/` : simulation pure JS, **aucune dépendance à Phaser ni au DOM** (pour tourner un jour côté serveur).
   - `actions.js` catalogue des actions · `world.js` temps (jour 1 = lundi), météo, déplacements · `ai.js` choix des PNJ **et** routine auto du joueur

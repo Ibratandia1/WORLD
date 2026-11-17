@@ -274,6 +274,18 @@ export const ACTIONS = {
     effect: a => { a.mood += 4; a.karma += 0.5; return 'Les pigeons se régalent !'; },
   },
 
+  feed_ducks: {
+    icon: '🦆', label: 'Nourrir les canards', instant: true, cost: 1,
+    can: a => (a.outdoors ? true : 'Seulement dehors'),
+    effect: a => { a.mood += 5; return 'Les canards accourent en cancanant !'; },
+  },
+
+  play_swing: {
+    icon: '🎠', label: 'Faire de la balançoire', here: true, duration: 15, skip: 4,
+    can: a => (!a.outdoors ? 'Seulement dehors' : a.energy < 10 ? 'Trop fatigué·e' : true),
+    effect: a => { a.mood += 8; a.energy -= 2; return 'Comme quand tu étais petit·e !'; },
+  },
+
   wish_fountain: {
     icon: '🪙', label: 'Faire un vœu (1 €)', instant: true, cost: 1,
     can: a => (a.outdoors ? true : 'Seulement dehors'),

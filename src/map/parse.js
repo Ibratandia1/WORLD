@@ -19,7 +19,7 @@ export function parseMap(def) {
     const bdef = def.buildings[ch];
     const type = TYPES[bdef.type];
     const b = {
-      id: buildings.length, letter: ch, type: bdef.type, name: bdef.name,
+      id: buildings.length, letter: ch, type: bdef.type, style: bdef.style || null, name: bdef.name,
       rent: bdef.rent || 0, price: bdef.price || 0, jobs: bdef.jobs || null,
       units: bdef.units || (bdef.type === 'home' ? 1 : 0),
       height: type.height, tiles: [], entrances: [],

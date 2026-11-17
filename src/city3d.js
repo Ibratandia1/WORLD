@@ -115,7 +115,8 @@ function mansard(w, d, h, inset, x, y, z) {
     -a, 0, -b, a, 0, -b, a, 0, b, -a, 0, b,                     // base
     -a + i, h, -b + i, a - i, h, -b + i, a - i, h, b - i, -a + i, h, b - i, // sommet
   ];
-  const idx = [4, 6, 5, 4, 7, 6, 0, 1, 5, 0, 5, 4, 1, 2, 6, 1, 6, 5, 2, 3, 7, 2, 7, 6, 3, 0, 4, 3, 4, 7];
+  // (pans tournés vers l'extérieur : sinon ils sont invisibles ou mal éclairés)
+  const idx = [4, 6, 5, 4, 7, 6, 0, 5, 1, 0, 4, 5, 1, 6, 2, 1, 5, 6, 2, 7, 3, 2, 6, 7, 3, 4, 0, 3, 7, 4];
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
   g.setIndex(idx);
@@ -251,18 +252,34 @@ const grassMat = new THREE.MeshStandardMaterial({ vertexColors: true, map: grass
 mats.ground.map = paverTex; mats.ground.needsUpdate = true;
 const GROUND = {
   pave: [0xd9cdb5, 0xa9a297, 0.08], cobble: [0xc4b393, 0x9c8f78, 0.08], grass: [0x6db35b, 0x5d8243, 0.1], road: [0x4e5361, 0x4e5361, 0.0],
+  gravel: [0xe4d7b6, 0xbfae8a, 0.07],
 };
+const pondGeos = [], rimGeos = [];
 for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
   const t = T(x, y);
   if (t.ground === 'water') continue;
-  const gdef = GROUND[t.ground] || GROUND.pave;
+  if (t.ground === 'pond') { // étang du parc : fond sombre, eau, margelle de pierre
+    groundGeos.push(paint(box(1, 0.03, 1, x, -0.02, y), 0x34503f));
+    pondGeos.push(box(1, 0.02, 1, x, 0.03, y));
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const n = T(x + dx, y + dy);
+      if (n && n.ground === 'pond') continue;
+      rimGeos.push(paint(dy ? box(1.12, 0.13, 0.14, x, 0, y + dy * 0.5) : box(0.14, 0.13, 1.12, x + dx * 0.5, 0, y), 0xa39c8e, 0xc9c2b2));
+    }
+    continue;
+  }
+  // terrain d'une maison : pelouse autour (la maison est un peu plus petite que sa parcelle)
+  const lawn = t.building != null && map.buildings[t.building].style === 'house';
+  const gdef = lawn ? GROUND.grass : GROUND[t.ground] || GROUND.pave;
   const h = gdef[2] + (t.ground === 'road' && t.avenue ? 0.001 : 0);
   // les cases au bord de la Seine descendent jusqu'à l'eau (quai)
   const quay = T(x, y - 1) && T(x, y - 1).ground === 'water';
   const g = box(1, h + 0.02 + (quay ? 0.25 : 0), 1, x, -0.02 - (quay ? 0.25 : 0), y);
   paint(g, quay ? 0xcfc6b4 : gdef[1], t.ground === 'road' && (x + y) % 2 ? 0x595e6c : gdef[0]);
-  (t.ground === 'road' ? roadGeos : t.ground === 'grass' ? grassGeos : groundGeos).push(g);
+  (t.ground === 'road' ? roadGeos : t.ground === 'grass' || t.ground === 'gravel' || lawn ? grassGeos : groundGeos).push(g);
 }
+if (pondGeos.length) { const pm = new THREE.Mesh(mergeGeometries(pondGeos), mats.water); pm.receiveShadow = true; scene.add(pm); }
+add(rimGeos, mats.solid);
 add(groundGeos, mats.ground, { cast: false });
 add(roadGeos, roadMat, { cast: false });
 add(grassGeos, grassMat, { cast: false });
@@ -458,11 +475,11 @@ function landmark(type, r, cx, cz, w, d, base, top) {
 }
 const aoRects = [];
 const tops = {}; // hauteur du toit de chaque lieu (pour les épingles)
-function building(r, type, seed, bid = null) {
+function building(r, type, seed, bid = null, floorsOverride = null) {
   const x = r.x0 + r.w / 2 - 0.5, z = r.y0 + r.h / 2 - 0.5;
   const w = r.w - 0.04, d = r.h - 0.04;
   aoRects.push([x, z, w, d]);
-  const floors = TYPE_FLOORS[type] ?? 6;
+  const floors = floorsOverride ?? TYPE_FLOORS[type] ?? 6;
   const base = 0.08;
   if (type === 'metro') { // bouche de métro : entourage vert et panneau
     solidGeos.push(paint(box(w * 0.8, 0.12, d * 0.8, x, base, z), 0x2f7352));
@@ -547,8 +564,132 @@ function building(r, type, seed, bid = null) {
   }
 }
 
+// ---------- Maisons individuelles (quartier des Jardins) ----------
+// Façade de maison : une fenêtre sur deux, volets peints, appuis ; 3 couleurs de volets
+function houseTex(shutter) {
+  return canvasTex(256, (g, S) => {
+    const c = S / 4;
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, S, S);
+    for (let fy = 0; fy < 4; fy++) for (let bx = 0; bx < 4; bx++) {
+      if ((bx + fy) % 2) continue;
+      const x = bx * c, y = fy * c;
+      g.fillStyle = '#f4efe6'; g.fillRect(x + c * 0.3, y + c * 0.22, c * 0.4, c * 0.56);
+      g.fillStyle = '#41506a'; g.fillRect(x + c * 0.34, y + c * 0.26, c * 0.32, c * 0.48);
+      g.fillStyle = 'rgba(255,255,255,0.22)'; g.fillRect(x + c * 0.34, y + c * 0.26, c * 0.32, c * 0.1);
+      g.fillStyle = '#f4efe6'; g.fillRect(x + c * 0.49, y + c * 0.26, c * 0.02, c * 0.48);
+      g.fillStyle = shutter; g.fillRect(x + c * 0.13, y + c * 0.22, c * 0.16, c * 0.56); g.fillRect(x + c * 0.71, y + c * 0.22, c * 0.16, c * 0.56);
+      g.fillStyle = 'rgba(0,0,0,0.16)';
+      for (let k = 1; k < 5; k++) { g.fillRect(x + c * 0.13, y + c * (0.22 + k * 0.11), c * 0.16, 2); g.fillRect(x + c * 0.71, y + c * (0.22 + k * 0.11), c * 0.16, 2); }
+      g.fillStyle = '#d9cfbf'; g.fillRect(x + c * 0.27, y + c * 0.78, c * 0.46, c * 0.05);
+    }
+  });
+}
+const houseGlow = canvasTex(256, (g, S) => {
+  const c = S / 4;
+  g.fillStyle = '#000'; g.fillRect(0, 0, S, S);
+  for (let fy = 0; fy < 4; fy++) for (let bx = 0; bx < 4; bx++) {
+    if ((bx + fy) % 2 || rnd() < 0.45) continue;
+    g.fillStyle = ['#ffcf7a', '#ffe0a8'][(fy + bx) % 2];
+    g.fillRect(bx * c + c * 0.34, fy * c + c * 0.26, c * 0.32, c * 0.48);
+  }
+});
+const HOUSE_MATS = ['#4f7bb0', '#5f8a5c', '#a8553a'].map(sh => new THREE.MeshStandardMaterial({ vertexColors: true, map: houseTex(sh), emissiveMap: houseGlow, emissive: 0xffffff, emissiveIntensity: 0, roughness: 0.9 }));
+const houseGeos = HOUSE_MATS.map(() => []);
+const HOUSE_WALL = [0xf6ecd6, 0xf3dfa8, 0xf0cfc4, 0xd7e4ec, 0xdfe8cf, 0xf7f3ea, 0xeed9bd];
+const TILE_ROOF = [0xb5543a, 0xa5492f, 0xc2673f, 0x7d5a4f, 0x9c4a3a];
+function house(r, seed, bid) {
+  const x = r.x0 + r.w / 2 - 0.5, z = r.y0 + r.h / 2 - 0.5;
+  const w = r.w - 0.34, d = r.h - 0.34; // un peu plus petite que sa parcelle : la pelouse fait le tour
+  aoRects.push([x, z, w, d]);
+  const base = 0.1, h = 2 * FLOOR * 0.92;
+  const wall = HOUSE_WALL[seed % HOUSE_WALL.length];
+  houseGeos[seed % HOUSE_MATS.length].push(paint(wallUV(box(w, h, d, x, base, z), w, h, d), wall));
+  solidGeos.push(paint(box(w + 0.03, 0.12, d + 0.03, x, base - 0.02, z), shade(wall, 0.78)));          // soubassement
+  solidGeos.push(paint(box(w + 0.04, 0.03, d + 0.04, x, base + h / 2, z), shade(wall, 1.04)));          // bandeau entre les étages
+  solidGeos.push(paint(box(w + 0.06, 0.04, d + 0.06, x, base + h, z), 0xece4d4));                       // génoise sous le toit
+  // toit de tuiles à quatre pans, qui déborde un peu
+  const roofH = 0.5 + Math.min(w, d) * 0.1;
+  const span = Math.min(w, d) + 0.22;
+  roofGeos.push(paint(mansard(w + 0.22, d + 0.22, roofH, span / 2 - 0.01, x, base + h + 0.04, z), TILE_ROOF[seed % TILE_ROOF.length]));
+  // cheminée
+  const cx = x + (seed % 2 ? 0.25 : -0.25) * Math.max(0.6, w - 1);
+  solidGeos.push(paint(box(0.14, 0.4, 0.14, cx, base + h + roofH * 0.35, z + 0.1), 0xb5654a, 0x7a3f2e));
+  // porte d'entrée côté rue, petit auvent et marche
+  const n = frontOf(r);
+  const fx = x + n[0] * (w / 2 + 0.012), fz = z + n[1] * (d / 2 + 0.012);
+  const along = n[1] !== 0;
+  const doorCol = [0x6b3f2a, 0x2f5d8a, 0x3f6b45, 0x8a2f35][seed % 4];
+  solidGeos.push(paint(along ? box(0.22, 0.38, 0.03, fx, base, fz) : box(0.03, 0.38, 0.22, fx, base, fz), doorCol));
+  solidGeos.push(paint(along ? box(0.36, 0.03, 0.16, fx, base + 0.44, fz + n[1] * 0.07) : box(0.16, 0.03, 0.36, fx + n[0] * 0.07, base + 0.44, fz), 0x5d4a3e));
+  solidGeos.push(paint(along ? box(0.32, 0.05, 0.14, fx, 0.08, fz + n[1] * 0.08) : box(0.14, 0.05, 0.32, fx + n[0] * 0.08, 0.08, fz), 0xbdb5a6));
+  // boîte aux lettres au bord du terrain
+  solidGeos.push(paint(box(0.03, 0.28, 0.03, fx + (along ? 0.4 : n[0] * 0.25), 0.1, fz + (along ? n[1] * 0.25 : 0.4)), 0x3a3a40));
+  solidGeos.push(paint(box(0.1, 0.08, 0.07, fx + (along ? 0.4 : n[0] * 0.25), 0.36, fz + (along ? n[1] * 0.25 : 0.4)), 0xf2c94c));
+  if (bid != null) tops[bid] = base + h + roofH + 0.1;
+}
+
 let seed = 1;
-for (const b of map.buildings) for (const r of rects(b.tiles)) building(r, b.type, seed++ * 7 + b.id, b.id);
+for (const b of map.buildings) for (const r of rects(b.tiles)) {
+  if (b.style === 'house') house(r, seed++ * 7 + b.id, b.id);
+  else building(r, b.type, seed++ * 7 + b.id, b.id, b.style === 'village' ? 3 : null); // commerces de quartier : petits immeubles
+}
+HOUSE_MATS.forEach((m, i) => add(houseGeos[i], m));
+
+// Jardins : haies côté rue, massifs de fleurs, salon de jardin ici et là
+const FLOWER = [0xe85d75, 0xf2c94c, 0xffffff, 0xb07ce8, 0xf08a3c];
+for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+  const t = T(x, y);
+  if (t.deco !== 'garden') continue;
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    const n = T(x + dx, y + dy);
+    if (!n || !n.walk) continue;
+    solidGeos.push(paint(dy ? box(1, 0.24, 0.16, x, 0.1, y + dy * 0.42) : box(0.16, 0.24, 1, x + dx * 0.42, 0.1, y), 0x3c7a38, 0x4f9446));
+  }
+  const k = (x * 7 + y * 13) % 5;
+  // massif : touffe verte piquée de fleurs 
+  for (let i = 0; i < 1 + (k % 2); i++) {
+    const fx = x - 0.25 + ((x * 31 + y * 17 + i * 23) % 50) / 100, fz = y - 0.25 + ((x * 11 + y * 29 + i * 41) % 50) / 100;
+    solidGeos.push(paint(new THREE.SphereGeometry(0.11, 7, 5).scale(1, 0.7, 1).translate(fx, 0.17, fz), 0x4a8f3f));
+    const col = FLOWER[(x + y + i) % FLOWER.length];
+    for (const [ox, oz] of [[0.05, 0.02], [-0.04, 0.05], [0.0, -0.06], [-0.06, -0.02]]) {
+      solidGeos.push(paint(new THREE.SphereGeometry(0.028, 5, 4).translate(fx + ox, 0.24, fz + oz), col));
+    }
+  }
+  if (k === 3) { // petite table de jardin + chaises
+    solidGeos.push(paint(new THREE.CylinderGeometry(0.14, 0.14, 0.03, 12).translate(x, 0.3, y), 0xf4f1ea));
+    solidGeos.push(paint(box(0.03, 0.2, 0.03, x, 0.1, y), 0x8a8f99));
+    for (const o of [-0.22, 0.22]) solidGeos.push(paint(box(0.1, 0.14, 0.1, x + o, 0.1, y), 0xf4f1ea));
+  }
+}
+
+// Aire de jeux du parc : sable, balançoire, toboggan, bac à sable
+{
+  const pg = [];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (T(x, y).deco === 'playground') pg.push({ x, y });
+  if (pg.length) {
+    const x0 = Math.min(...pg.map(p => p.x)), x1 = Math.max(...pg.map(p => p.x)), z0 = Math.min(...pg.map(p => p.y)), z1 = Math.max(...pg.map(p => p.y));
+    const cz = (z0 + z1) / 2;
+    for (const p of pg) solidGeos.push(paint(box(1, 0.04, 1, p.x, 0.1, p.y), 0xd9c08a, 0xead39c));
+    // balançoire (portique bleu, deux sièges rouges)
+    const sx = x0 + 0.1;
+    for (const ox of [-0.42, 0.42]) for (const oz of [-0.18, 0.18]) solidGeos.push(paint(box(0.05, 0.72, 0.05, sx + ox, 0.12, cz + oz), 0x3d6fd8));
+    solidGeos.push(paint(box(0.95, 0.05, 0.05, sx, 0.82, cz), 0x3d6fd8));
+    for (const ox of [-0.18, 0.18]) {
+      solidGeos.push(paint(box(0.01, 0.42, 0.01, sx + ox - 0.06, 0.4, cz), 0x9aa0aa));
+      solidGeos.push(paint(box(0.01, 0.42, 0.01, sx + ox + 0.06, 0.4, cz), 0x9aa0aa));
+      solidGeos.push(paint(box(0.17, 0.03, 0.1, sx + ox, 0.37, cz), 0xd8504d));
+    }
+    // toboggan (tour rouge, glissière jaune)
+    const tx = x1 - 0.1;
+    solidGeos.push(paint(box(0.32, 0.5, 0.32, tx, 0.12, cz - 0.2), 0xd8504d, 0xf2f2f2));
+    solidGeos.push(paint(new THREE.ConeGeometry(0.28, 0.25, 4).rotateY(Math.PI / 4).translate(tx, 0.75, cz - 0.2), 0xf2c94c));
+    solidGeos.push(paint(new THREE.BoxGeometry(0.24, 0.03, 0.85).rotateX(0.55).translate(tx, 0.36, cz + 0.33), 0xf2c94c));
+    // bac à sable avec un seau
+    const bx = (x0 + x1) / 2;
+    solidGeos.push(paint(box(0.7, 0.08, 0.6, bx, 0.12, z1 - 0.1), 0xa9774c, 0xf0dca8));
+    solidGeos.push(paint(new THREE.CylinderGeometry(0.05, 0.04, 0.08, 8).translate(bx + 0.15, 0.24, z1 - 0.1), 0x4bbf8b));
+  }
+}
 // Immeubles de décor (X) : parcelles de 2×2 aux hauteurs variées, un tiers avec boutique en bas
 const fillerTiles = [];
 for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (T(x, y).deco === 'filler') fillerTiles.push({ x, y });
@@ -599,6 +740,7 @@ for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     solidGeos.push(paint(new THREE.CylinderGeometry(0.07, 0.12, 0.45, 8).translate(x, 0.8, y), 0x9aa58f));
     solidGeos.push(paint(new THREE.SphereGeometry(0.07, 8, 6).translate(x, 1.08, y), 0x9aa58f));
   }
+  if (t.ground === 'gravel' && (x + y * 2) % 5 === 0) lamps.push([x + 0.42, y + 0.42]); // lanternes le long des allées du parc
   // lampadaires le long des rues (un sur quatre)
   if (t.walk && (t.ground === 'pave' || t.ground === 'cobble') && !t.deco) {
     const side = roadAt(x, y + 1) ? [0, 0.38] : roadAt(x, y - 1) ? [0, -0.38] : roadAt(x + 1, y) ? [0.38, 0] : roadAt(x - 1, y) ? [-0.38, 0] : null;
@@ -621,7 +763,7 @@ for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
   if (t.walk && t.ground === 'grass' && !t.deco && (x + y * 3) % 7 === 0) benchList.push(`${x},${y}`);
   else if (t.walk && t.ground === 'cobble' && (x * 5 + y) % 13 === 0) benchList.push(`${x},${y}`);
 }
-const benchSet = new Set(benchList.slice(0, 14));
+const benchSet = new Set(benchList.slice(0, 28)); // (même nombre que streetSpots dans city/common.js)
 for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
   const t = T(x, y);
   if (benchSet.has(`${x},${y}`)) {
@@ -811,7 +953,7 @@ function lighting() {
   // halo des lumières la nuit
   if (bloom) bloom.strength = night * 0.38;
   const glow = night * 1.6;
-  mats.wall.emissiveIntensity = glow; mats.shop.emissiveIntensity = glow * 1.1; mats.glass.emissiveIntensity = glow * 0.3;
+  mats.wall.emissiveIntensity = glow; for (const m of HOUSE_MATS) m.emissiveIntensity = glow * 0.9; mats.shop.emissiveIntensity = glow * 1.1; mats.glass.emissiveIntensity = glow * 0.3;
   mats.bulb.emissiveIntensity = night * 3;
   renderer.toneMappingExposure = 0.95;
 }
@@ -1259,9 +1401,38 @@ function updateWeather(dt) {
   wGeo.attributes.position.needsUpdate = true;
 }
 let aliveTick = 0;
+// Canards sur l'étang du parc : ils tournent doucement
+const ducks = [];
+{
+  const pt = [];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (T(x, y).ground === 'pond') pt.push({ x, y });
+  if (pt.length) {
+    const cx = pt.reduce((s, p) => s + p.x, 0) / pt.length, cz = pt.reduce((s, p) => s + p.y, 0) / pt.length;
+    const rx = (Math.max(...pt.map(p => p.x)) - Math.min(...pt.map(p => p.x))) / 2, rz = (Math.max(...pt.map(p => p.y)) - Math.min(...pt.map(p => p.y))) / 2;
+    for (let i = 0; i < 4; i++) {
+      const geos = [
+        paint(new THREE.SphereGeometry(0.07, 8, 6).scale(1, 0.7, 1.4), i === 0 ? 0xf4f1ea : 0x8a6a4a),
+        paint(new THREE.SphereGeometry(0.04, 8, 6).translate(0, 0.07, 0.08), i === 0 ? 0xf4f1ea : 0x2f7d4a),
+        paint(new THREE.ConeGeometry(0.018, 0.05, 6).rotateX(Math.PI / 2).translate(0, 0.065, 0.13), 0xf2a33a),
+      ];
+      const g = new THREE.Mesh(mergeGeometries(geos), mats.solid);
+      g.userData.noTap = true; scene.add(g);
+      ducks.push({ g, a: i * 1.6, k: 0.4 + i * 0.17, cx, cz, rx: Math.max(0.3, rx * (0.4 + i * 0.15)), rz: Math.max(0.2, rz * (0.3 + i * 0.15)) });
+    }
+  }
+}
+function updateDucks(dt) {
+  for (const d of ducks) {
+    d.a += dt * 0.18 * d.k;
+    d.g.position.set(d.cx + Math.cos(d.a) * d.rx, 0.07 + Math.sin(d.a * 6) * 0.004, d.cz + Math.sin(d.a) * d.rz);
+    d.g.rotation.y = Math.atan2(-Math.sin(d.a) * d.rx, Math.cos(d.a) * d.rz);
+  }
+}
+
 function updateAlive(dt) {
   const rate = opts.demo ? speed : (world.paused ? 0 : (world.speed || 1));
   updateWalkers(dt, rate);
+  if (rate > 0) updateDucks(dt);
   updateWeather(dt);
   if (rate > 0) updatePigeons(dt);
   aliveTick -= dt;

@@ -61,6 +61,10 @@ export class GameController {
     const bin = this.spots.bins.find(s => at(s, 0.5));
     if (bin) return this.useSpot(bin, ['use_bin', 'pick_litter']);
     if (tile.deco === 'filler') return this.floatText(t('🏢 Immeuble d’habitation privé'), '#7a6f96');
+    // Quartier des Jardins : étang, aire de jeux, jardins privés
+    if (tile.deco === 'pond') return this.useSpot({ x, y }, ['feed_ducks']);
+    if (tile.deco === 'playground') return this.useSpot({ x, y }, ['play_swing']);
+    if (tile.deco === 'garden') return this.floatText(t('🌷 Jardin privé'), '#3c7a38');
     if (!tile.walk) return;
     this.world.perform(state.player, 'goto', { x, y });
   }

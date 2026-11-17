@@ -43,7 +43,7 @@ export class InteriorLogic {
   // ---------- Ouverture / fermeture ----------
   show(b) {
     this.building = b;
-    this.floors = floorsOf(LAYOUTS[b.type]);
+    this.floors = floorsOf(LAYOUTS[b.style && LAYOUTS[b.style] ? b.style : b.type]);
     this.views.clear();
     this.sig = '';
     this.prepareStations();

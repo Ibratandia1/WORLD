@@ -16,12 +16,13 @@ export const QUARTIER = {
   // Tracé 4 : quadrillage de rues droites ; la rue principale (#, rang 13) traverse le centre-ville,
   // bordée d'arbres d'alignement (a) et des commerces (cafés, boulangeries, banque, supérette, brasserie).
 
-  order: 'ACKOSBMDGEPRFLYV' + 'HNUIJQ' + 'Z' + '12345' + '67',
+  order: 'ACKOSBMDGEPRFLYV' + 'HNUIJQ' + 'Z' + '12345' + '67' + 'bcdfilqrstuvmnyz',
 
   // Lieux des fêtes du quartier (centre de la place)
   places: {
     marche: { x: 18, y: 17, name: 'place du Marché' },
     vosges: { x: 31, y: 17, name: 'place des Vosges' },
+    parc: { x: 17, y: 39, name: 'parc des Glycines' },
   },
 
   legend: {
@@ -36,6 +37,11 @@ export const QUARTIER = {
     o: { ground: 'grass', walk: false, deco: 'fountain' },
     x: { ground: 'cobble', walk: false, deco: 'statue' }, // statue de Marianne, devant la mairie
     X: { ground: 'pave', walk: false, deco: 'filler' },   // immeuble de décor (habité, mais on n'y entre pas) : la ville est dense
+    // --- Les Jardins (quartier résidentiel) ---
+    j: { ground: 'grass', walk: false, deco: 'garden' },   // jardin privé d'une maison (haie côté rue, fleurs)
+    p: { ground: 'gravel', walk: true },                    // allée de gravier du parc
+    e: { ground: 'pond', walk: false, deco: 'pond' },      // étang du parc (canards)
+    k: { ground: 'grass', walk: false, deco: 'playground' }, // aire de jeux (balançoire, toboggan)
   },
 
   // Logements : rent = loyer par jour (payé chaque lundi pour la semaine), price = prix d'achat,
@@ -77,6 +83,23 @@ export const QUARTIER = {
     // --- Justice et argent ---
     6: { type: 'court', name: 'Tribunal du Marais', jobs: { slots: 6, wage: 21, edu: 3 } },
     7: { type: 'bank', name: 'Banque Pavé d’Or', jobs: { slots: 3, wage: 17, edu: 2 } },
+    // --- Les Jardins : maisons avec jardin (style: 'house' = maison individuelle, 1 logement) ---
+    b: { type: 'home', style: 'house', name: 'Maison allée des Tilleuls', rent: 45, price: 7500 },
+    c: { type: 'home', style: 'house', name: 'Maison aux volets bleus', rent: 48, price: 7800 },
+    d: { type: 'home', style: 'house', name: 'Maison du coin des Tilleuls', rent: 50, price: 8200 },
+    f: { type: 'home', style: 'house', name: 'Maison rue des Lilas', rent: 44, price: 7300 },
+    i: { type: 'home', style: 'house', name: 'Maison aux roses', rent: 46, price: 7600 },
+    l: { type: 'home', style: 'house', name: 'Maison du coin des Lilas', rent: 50, price: 8100 },
+    q: { type: 'home', style: 'house', name: 'Maison rue des Glycines', rent: 46, price: 7600 },
+    r: { type: 'home', style: 'house', name: 'Maison au cerisier', rent: 48, price: 7900 },
+    s: { type: 'home', style: 'house', name: 'Maison du coin des Glycines', rent: 52, price: 8500 },
+    t: { type: 'home', style: 'house', name: 'Maison rue des Pivoines', rent: 44, price: 7200 },
+    u: { type: 'home', style: 'house', name: 'Maison au puits', rent: 47, price: 7700 },
+    v: { type: 'home', style: 'house', name: 'Maison du coin des Pivoines', rent: 50, price: 8200 },
+    m: { type: 'home', style: 'house', name: 'Villa des Hortensias', rent: 85, price: 15000 },
+    n: { type: 'home', style: 'house', name: 'Villa Mimosa', rent: 90, price: 16000 },
+    y: { type: 'cafe', style: 'village', name: 'Café du Parc', jobs: { slots: 3, wage: 12 } },
+    z: { type: 'bakery', style: 'village', name: 'Boulangerie des Jardins', jobs: { slots: 3, wage: 11 } },
   },
 
   rows: [
@@ -109,6 +132,25 @@ export const QUARTIER = {
     'gTg:XXXX.=.XXX::::::X4444.=.:::::::X',
     'ggT:HHHX.=.22222222XX4444.=.T::x::TX',
     'XXX:HHHX.=.22222222XX4444.=.:::::::X',
+    '.........=................=.........',
+    // --- Les Jardins : quartier résidentiel au sud (maisons, villas, grand parc) ---
+    '====================================',
+    '.........=................=.........',
+    'bbjccjdd.=.TgTgggppgggTgT.=.qqjrrjss',
+    'bbjccjdd.=.gggggTppTggggg.=.qqjrrjss',
+    'jjjjjjjj.=.gTeeeeppggggTg.=.jjjjjjjj',
+    'jTjjTjjT.=.geeeeeppgkkkgg.=.TjjTjjTj',
+    'jjjjjjjj.=.gTeeeeppgkkkTg.=.jjjjjjjj',
+    'ffjiijll.=.ggggggppgggggg.=.ttjuujvv',
+    'ffjiijll.=.pppppppppppppp.=.ttjuujvv',
+    '.........=.pppppppppppppp.=.........',
+    '==========.ggggggppgggggg.==========',
+    '.........=.gTgggTppTgggTg.=.........',
+    'mmmjjnnn.=.gggoggppggTggg.=.yyyy:zzz',
+    'mmmjjnnn.=.TgggggppggggTg.=.yyyy:zzz',
+    'jjjjTjjj.=.ggTgggppgTgggg.=.::::::::',
+    'jTjjjjTj.=.gggggTppgggTgg.=.gTgggTgg',
+    'jjjjjjjj.=.TgTgggppggTgTg.=.gggTgggT',
     '.........=................=.........',
   ],
 };

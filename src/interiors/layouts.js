@@ -189,6 +189,54 @@ export const LAYOUTS = {
     ],
   },
 
+  // Maison individuelle (quartier des Jardins) : rez-de-chaussée salon + cuisine, étage chambre + bureau
+  house: {
+    floors: [
+      {
+        name: 'Rez-de-chaussée', short: 'RDC',
+        w: 9, h: 7, wallH: 80, wall: 0xf7efe2, floor: [0xe6d3b3, 0xdcc7a4], entrance: { x: 4, y: 6 },
+        winL: [1, 4], winR: [2, 6],
+        zones: [
+          { x: 0, y: 0, w: 4, h: 4, floor: [0xdcefe6, 0xcfe7dc], wall: 0x3fae73, label: 'Cuisine', icon: '🍳', sub: '', doors: [[3, 3]] },
+          { x: 5, y: 0, w: 4, h: 5, floor: [0xf5e4c8, 0xedd8b6], wall: 0xe5a33a, label: 'Salon', icon: '🛋️', sub: '', doors: [[5, 4]] },
+        ],
+        items: [
+          { k: 'fridge', x: 0, y: 0, action: 'eat_home', name: 'Frigo' }, { k: 'kitchen', x: 1, y: 0, action: 'eat_home', name: 'Cuisine' }, { k: 'kitchen', x: 2, y: 0, stove: true, action: 'eat_home', name: 'Cuisinière' },
+          { k: 'tableh', x: 1, y: 2, action: 'eat_home' }, { k: 'chair', x: 2, y: 2, c: 0xb98458 }, { k: 'chair', x: 1, y: 3, c: 0xb98458 }, { k: 'plant', x: 0, y: 3 },
+          { k: 'tv', wall: 'R', at: 2 }, { k: 'tvstand', x: 8, y: 0, actions: ['watch_tv'], name: 'Télé' }, { k: 'rug', x: 7, y: 2, flat: true, c: 0x5b8def, w: 1.6, d: 1.2 },
+          { k: 'sofa', x: 7, y: 3, action: 'nap', actions: ['watch_tv', 'nap', 'read_book'], name: 'Canapé', c: 0x3fae73 }, { k: 'armchair', x: 5, y: 1 },
+          { k: 'bookshelf', x: 5, y: 0, actions: ['read_book'], name: 'Bibliothèque' }, { k: 'bigplant', x: 8, y: 6 }, { k: 'plant', x: 0, y: 6 },
+          { k: 'frame', wall: 'L', at: 5, c: 0xe5a33a }, { k: 'stairs_up', x: 2, y: 6 },
+        ],
+        stations: [
+          S(7, 3, ['watch_tv', 'read_book', 'nap', 'any'], { seat: true, lieAngle: -60 }),
+          S(2, 1, ['cook'], { face: -1 }),
+          S(2, 2, ['eat_home'], { face: -1, seat: true, table: [1, 2] }),
+          S(5, 1, ['read_book', 'any'], { seat: true }), S(4, 5, ['any']), S(6, 5, ['any']),
+        ],
+      },
+      {
+        name: 'Étage', short: '1',
+        w: 9, h: 7, wallH: 80, wall: 0xf7efe2, floor: [0xd9c3a0, 0xcfb894],
+        winL: [1, 5], winR: [1, 5],
+        zones: [
+          { x: 0, y: 0, w: 5, h: 4, floor: [0xddd1f4, 0xd2c4ef], wall: 0x9b7fe0, label: 'Chambre', icon: '🛏️', sub: '', doors: [[3, 3]] },
+          { x: 6, y: 0, w: 3, h: 4, floor: [0xe4eef7, 0xd6e4f0], wall: 0x4a7fd8, label: 'Bureau', icon: '📚', sub: '', doors: [[6, 3]] },
+        ],
+        items: [
+          { k: 'bed', x: 1, y: 0, action: 'sleep', actions: ['sleep', 'nap'], name: 'Lit' }, { k: 'nightstand', x: 0, y: 0, actions: ['read_book'], name: 'Table de nuit' },
+          { k: 'wardrobe', x: 4, y: 0 }, { k: 'rug', x: 2, y: 2, flat: true, c: 0xb9a4ec, w: 1.6, d: 1 }, { k: 'plant', x: 0, y: 3 },
+          { k: 'desk', x: 7, y: 0, actions: ['read_book'], name: 'Bureau' }, { k: 'chair', x: 7, y: 1 }, { k: 'bookshelf', x: 8, y: 2, actions: ['read_book'], name: 'Bibliothèque' },
+          { k: 'bigplant', x: 8, y: 6 }, { k: 'frame', wall: 'L', at: 2, c: 0x8fd3a8 }, { k: 'stairs_up', x: 2, y: 6 },
+        ],
+        stations: [
+          S(1, 0, ['sleep'], { lie: true }),
+          S(7, 1, ['read_book', 'any'], { seat: true }),
+          S(4, 5, ['any']), S(6, 5, ['any']),
+        ],
+      },
+    ],
+  },
   fashion: {
     w: 9, h: 7, wallH: 82, wall: 0xfbe9ef, floor: [0xf3e7e2, 0xe9dbd5], entrance: { x: 4, y: 6 },
     winL: [5], winR: [],

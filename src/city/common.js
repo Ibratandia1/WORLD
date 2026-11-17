@@ -40,7 +40,7 @@ export function streetSpots(map) {
     if (t.walk && t.ground === 'grass' && !t.deco && (x + y * 3) % 7 === 0) bench.push({ x, y });
     else if (t.walk && t.ground === 'cobble' && (x * 5 + y) % 13 === 0) bench.push({ x, y });
   }
-  spots.benches = bench.slice(0, 14);
+  spots.benches = bench.slice(0, 28); // (même nombre que dans city3d.js)
   return spots;
 }
 
