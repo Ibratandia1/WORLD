@@ -42,15 +42,15 @@ const mobile = matchMedia('(pointer: coarse)').matches;
 // Téléphone : anticrénelage matériel (les bords ne scintillent plus) et résolution qui s'adapte à la fluidité
 // (on commence net, on baisse un peu si l'image rame, on remonte quand ça va mieux)
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-const PR_MAX = Math.min(devicePixelRatio, mobile ? 1.5 : 2), PR_MIN = Math.min(devicePixelRatio, 1);
-let pixelRatio = Math.min(devicePixelRatio, mobile ? 1.25 : 2); // (l'anticrénelage garde les bords lisses)
+const PR_MAX = Math.min(devicePixelRatio, mobile ? 1.5 : 1.75), PR_MIN = Math.min(devicePixelRatio, 1);
+let pixelRatio = Math.min(devicePixelRatio, mobile ? 1.25 : 1.5); // (l'anticrénelage garde les bords lisses ; on monte si l'appareil suit)
 renderer.setPixelRatio(pixelRatio);
 renderer.setSize(innerWidth, innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.95;
 renderer.shadowMap.enabled = true;
-const adaptive = { t: 0, frames: 0, calm: 0 };
+const adaptive = { t: 0, frames: 0, calm: 0, slow: 0, level: 0 };
 renderer.shadowMap.type = mobile ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap; // (ombres douces : trop coûteuses au téléphone)
 renderer.shadowMap.autoUpdate = false;
 renderer.shadowMap.needsUpdate = true;
@@ -1832,6 +1832,8 @@ if (opts.demo) $('speed').onclick = () => { speed = speed === 1 ? 4 : speed === 
 if (opts.demo) $('night').onclick = () => { forceNight = !forceNight; if (forceNight) { while (world.hour < 21 || world.hour > 22) world.step(1); } $('night').textContent = forceNight ? '☀️ Jour' : '🌙 Nuit'; if (!forceNight) while (world.hour < 10 || world.hour > 11) world.step(1); };
 
 let dirty = true, acc = 0;
+// Les shaders sont préparés tout de suite (sinon le premier affichage de chaque matériau fige l'image)
+try { renderer.compile(scene, camera); } catch (e) { /* (rien de grave : ils seront compilés à l'affichage) */ }
 controls.addEventListener('change', () => { dirty = true; });
 let loopErrors = 0, shadowT = 0;
 function loop() {
@@ -1852,6 +1854,12 @@ function frame() {
       const fps = adaptive.frames / adaptive.t; adaptive.frames = 0; adaptive.t = 0;
       let pr = pixelRatio;
       if (fps < 45 && pr > PR_MIN) { pr = Math.max(PR_MIN, pr - 0.15); adaptive.calm = 0; }
+      else if (fps < 40 && pr <= PR_MIN && ++adaptive.slow >= 2 && adaptive.level < 2) {
+        // déjà à la résolution minimale : on retire d'abord le halo lumineux, puis on allège les ombres
+        adaptive.slow = 0; adaptive.level++;
+        if (adaptive.level === 1) composer = null;
+        if (adaptive.level === 2 && sun.shadow.mapSize.x > 1024) { sun.shadow.mapSize.set(1024, 1024); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } renderer.shadowMap.needsUpdate = true; }
+      }
       else if (fps > 55) { if (++adaptive.calm >= 3 && pr < PR_MAX) { pr = Math.min(PR_MAX, pr + 0.1); adaptive.calm = 0; } }
       else adaptive.calm = 0;
       if (pr !== pixelRatio) { pixelRatio = pr; renderer.setPixelRatio(pr); if (composer) composer.setPixelRatio(pr); api.pixelRatio = pr; }
@@ -1888,7 +1896,9 @@ function frame() {
     if (api.centerOnPlayer) api.centerOnPlayer();
   }
   if (inside) { requestAnimationFrame(loop); return; }
+  const T0 = performance.now();
   updateCars(dt * Math.min(opts.demo ? speed : (world.paused ? 0 : (world.speed || 1)), 4));
+  const T1 = performance.now();
   for (const a of world.actors) {
     let v = people.get(a.id);
     if (!v) { v = personView(a); people.set(a.id, v); }
@@ -1917,6 +1927,7 @@ function frame() {
     for (const ch of v.g.children) if (ch.userData.bob) { ch.position.y = 0.55 + Math.sin(performance.now() / 180) * 0.04; ch.rotation.y += dt * 2; }
   }
   for (const [id, v] of people) if (!world.actorById(id)) { scene.remove(v.g); people.delete(id); }
+  const T2 = performance.now();
   lighting();
   updateLights();
   controls.update();
@@ -1927,8 +1938,13 @@ function frame() {
   frames++; fpsT += dt;
   if (fpsT > 1) { $('fps').textContent = `${Math.round(frames / fpsT)} img/s · ${renderer.info.render.calls} dessins`; frames = 0; fpsT = 0; }
   }
+  const T3 = performance.now();
   updateAlive(dt);
+  const T4 = performance.now();
   updateGame(dt);
+  const T5 = performance.now();
+  // (débogage : parties lentes de l'image, state.city3d.slow)
+  if (T5 - T0 > 40) { (api.slow = api.slow || []).push({ cars: Math.round(T1 - T0), people: Math.round(T2 - T1), render: Math.round(T3 - T2), alive: Math.round(T4 - T3), game: Math.round(T5 - T4), min: world.minutes | 0 }); if (api.slow.length > 20) api.slow.shift(); }
   requestAnimationFrame(loop);
 }
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); if (composer) composer.setSize(innerWidth, innerHeight); });
