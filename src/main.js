@@ -58,6 +58,9 @@ state.ui = new UI(world, player, director);
 // 2. L'affichage Phaser (carte, intérieurs, effets)
 // Rendu à la résolution réelle de l'écran (sinon l'image est étirée et floue sur téléphone / écran haute définition)
 // (plafonné à 2 : au-delà, un téléphone dessine 2,25× plus de pixels pour une différence à peine visible)
+const qs = new URLSearchParams(location.search);
+const want3D = (settings().view3d !== false || qs.has('3d')) && !qs.has('2d'); // ?3d / ?2d : forcer une vue (tests)
+state.want3D = want3D; // GameScene ne construit pas la carte 2D quand la ville est en 3D
 const DPR = settings().saver ? 1 : Math.min(window.devicePixelRatio || 1, 2); // économie de batterie : résolution simple
 state.dpr = DPR;
 const game = new Phaser.Game({
@@ -81,7 +84,6 @@ if (bootPortrait) {
 
 // 2b. La ville en 3D (Three.js) : elle remplace le dessin 2D de la carte (la scène Phaser continue de faire
 // tourner la simulation, les intérieurs et la météo). ⚙️ → Batterie → « Ville en 3D » pour revenir à la 2D.
-const want3D = settings().view3d !== false && !new URLSearchParams(location.search).has('2d');
 if (want3D) {
   import('./city3d.js').then(({ startCity3D }) => {
     const sc = () => state.scene;
@@ -97,7 +99,11 @@ if (want3D) {
     world.on('fire', e => state.city3d.showFire(e.building));
     world.on('fireOut', e => state.city3d.hideFire(e.building));
     state.city3d.centerOnPlayer();
-  }).catch(err => console.warn('3D indisponible, vue 2D', err)); // sans réseau (Three.js depuis le CDN) : on garde la 2D
+  }).catch(err => { // sans réseau (Three.js depuis le CDN) : on relance en 2D
+    console.warn('3D indisponible, vue 2D', err);
+    const q = new URLSearchParams(location.search); q.set('2d', ''); q.delete('3d');
+    location.replace(`${location.pathname}?${q.toString()}`);
+  });
 }
 // Changer de vue redémarre le jeu (la partie est sauvegardée en quittant)
 onSettings((k, v) => { if (k === 'view3d' && (v !== false) !== want3D && !new URLSearchParams(location.search).has('2d')) location.reload(); });

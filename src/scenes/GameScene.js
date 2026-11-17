@@ -12,7 +12,7 @@ import { shade } from '../color.js';
 import { FestDecor } from '../city/festdecor.js';
 import { settings } from '../settings.js';
 import { festById } from '../sim/festivals.js';
-import { drawTree, drawBuildingTile, drawShadow, drawGroundDetails, drawStreetDecor, makeCarTextures, Traffic, Crowd, rng, makeBirdTextures, Birds, twin, NIGHT, NIGHT_MAX, TrafficLights } from '../city/render.js';
+import { drawTree, drawBuildingTile, drawShadow, drawGroundDetails, drawStreetDecor, makeCarTextures, Traffic, Crowd, rng, makeBirdTextures, Birds, twin, NIGHT, NIGHT_MAX, TrafficLights, streetSpots } from '../city/render.js';
 
 const EMOJI_FONT = '"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
 // Couleur des épingles au-dessus des lieux (même code couleur que les fiches)
@@ -52,6 +52,10 @@ export class GameScene extends Phaser.Scene {
     this.darks = [];    // calques d'obscurité (opaques la nuit)
 
     this.makeTextures();
+    // Ville en 3D : la carte 2D n'est pas construite (gain de mémoire et de démarrage). On garde la simulation,
+    // l'interface, les intérieurs, la météo, et les positions des objets touchables.
+    this.lite = !!state.want3D;
+    if (this.lite) return this.createLite();
     makeCarTextures(this);
     this.drawIsland();
     this.drawGround();
@@ -94,9 +98,26 @@ export class GameScene extends Phaser.Scene {
     this.scene.launch('fx');
   }
 
+  createLite() {
+    this.spots = streetSpots(this.map);
+    this.season = this.world.season;
+    this.fest = new FestDecor(this);
+    this.world.on('festivalStart', e => this.fest.show(e.fest));
+    this.world.on('festivalEnd', e => this.fest.hide(e.fest));
+    if (this.world.festivals) for (const id of this.world.festivals.active) this.fest.show(festById(id));
+    this.fireFx = {};
+    this.views = new Map();
+    this.markerBob = { o: 0 };
+    this.setupCamera();
+    attachControls(this, p => this.tap(p));
+    this.listen();
+    this.scene.launch('interior');
+    this.scene.launch('fx');
+  }
+
   update(time, delta) {
     this.world.update(delta);
-    if (state.city3d) { // ville en 3D : la carte 2D n'est plus dessinée, on garde la simulation et l'interface
+    if (state.city3d || this.lite) { // ville en 3D : la carte 2D n'est plus dessinée, on garde la simulation et l'interface
       if ((this.tlTick = (this.tlTick || 0) + delta) > 200) {
         this.tlTick = 0;
         const pw = state.player && state.player.waitLight;
@@ -259,6 +280,7 @@ export class GameScene extends Phaser.Scene {
 
   // Économie de batterie : moins de passants et de voitures
   applySaver(on) {
+    if (!this.traffic) return; // vue 3D : pas de passants ni de voitures 2D
     if (this.crowd) this.crowd.max = on ? 5 : 14;
     if (this.traffic) this.traffic.max = on ? 7 : 18;
   }
@@ -619,6 +641,7 @@ export class GameScene extends Phaser.Scene {
 
   // ---------- Personnages ----------
   addActorView(a) {
+    if (this.lite) return;
     const spr = this.add.image(0, 0, ensureCharTexture(this, a)).setOrigin(0.5, 0.93).setScale(1.5);
     let marker = null, ring = null;
     if (a.isPlayer) {

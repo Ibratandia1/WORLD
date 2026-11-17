@@ -1031,3 +1031,29 @@ export class TrafficLights {
     }
   }
 }
+
+// Positions des objets de rue touchables (mêmes règles que drawStreetDecor), sans rien dessiner :
+// utilisé par la vue 3D, où la carte 2D n'est pas construite.
+export function streetSpots(map) {
+  const { w, h, tiles } = map;
+  const ground = (x, y) => (tiles[y] && tiles[y][x] ? tiles[y][x].ground : null);
+  const spots = { benches: [], fountains: [], statues: [], trees: [], bins: [] };
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const t = tiles[y][x];
+    if (t.deco === 'statue') spots.statues.push({ x, y });
+    if (t.deco === 'fountain') spots.fountains.push({ x, y });
+    if (t.deco === 'avtree' || !t.walk || (t.ground !== 'pave' && t.ground !== 'cobble')) continue;
+    const side = ground(x, y + 1) === 'road' ? [0, 1] : ground(x, y - 1) === 'road' ? [0, -1]
+      : ground(x + 1, y) === 'road' ? [1, 0] : ground(x - 1, y) === 'road' ? [-1, 0] : null;
+    const along = side ? (side[1] ? x : y) : 0;
+    if (side && t.ground === 'pave' && along % 8 === 5) spots.bins.push({ x, y, px: x + side[0] * 0.3, py: y + side[1] * 0.3 });
+  }
+  const bench = [];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const t = tiles[y][x];
+    if (t.walk && t.ground === 'grass' && !t.deco && (x + y * 3) % 7 === 0) bench.push({ x, y });
+    else if (t.walk && t.ground === 'cobble' && (x * 5 + y) % 13 === 0) bench.push({ x, y });
+  }
+  spots.benches = bench.slice(0, 14);
+  return spots;
+}
