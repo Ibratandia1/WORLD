@@ -91,9 +91,11 @@ export class Sound {
 
     const r = Math.random();
     const day = s.hour >= 6 && s.hour < 20;
-    if (out && day && s.weather !== 'rain' && s.weather !== 'snow' && r < 0.07) this.bird();
+    // oiseaux : rares et doux, un petit chœur le matin, un peu plus dans les parcs
+    const dawn = s.hour >= 6 && s.hour < 9;
+    if (out && day && s.weather !== 'rain' && s.weather !== 'snow' && r < (dawn ? 0.045 : 0.018) * (s.season === 'hiver' ? 0.4 : 1)) this.bird();
     if (out && !day && (s.season === 'ete' || s.season === 'printemps') && s.weather !== 'rain' && r < 0.12) this.cricket();
-    if (out && r > 1 - 0.05 * busy) this.car();
+    if (out && r > 1 - 0.035 * busy) this.car();
     if (lively && s.place !== 'shop' && Math.random() < 0.06) this.clink();
   }
 
@@ -121,9 +123,34 @@ export class Sound {
     src.connect(f).connect(g).connect(bus); src.start(t, Math.random()); src.stop(t + dur + 0.05);
   }
 
+  // Chant d'oiseau : sifflement modulé (vibrato), adouci par un filtre selon la distance, placé à gauche ou à droite.
+  // Trois sortes : merle (phrase qui descend), mésange (« ti-tu ti-tu »), moineau (petit trille)
+  chirp(f0, f1, dur, { delay = 0, vol = 0.02, vib = 0, vibRate = 28, pan = 0, cutoff = 6000 } = {}) {
+    if (!this.ctx || !this.on) return;
+    const c = this.ctx, t = c.currentTime + delay;
+    const o = c.createOscillator(), g = c.createGain(), lp = c.createBiquadFilter(), p = c.createStereoPanner ? c.createStereoPanner() : null;
+    o.type = 'sine'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    if (vib) { const l = c.createOscillator(), lg = c.createGain(); l.frequency.value = vibRate; lg.gain.value = vib; l.connect(lg).connect(o.frequency); l.start(t); l.stop(t + dur + 0.05); }
+    lp.type = 'lowpass'; lp.frequency.value = cutoff;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + Math.min(0.03, dur * 0.3)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(lp).connect(g);
+    if (p) { p.pan.value = pan; g.connect(p).connect(this.amb); } else g.connect(this.amb);
+    o.start(t); o.stop(t + dur + 0.05);
+  }
   bird() {
-    const base = 2400 + Math.random() * 1600, n = 2 + Math.floor(Math.random() * 3);
-    for (let i = 0; i < n; i++) this.tone(base, 0.09, { to: base * 1.35, vol: 0.035, delay: i * 0.13, bus: this.amb });
+    const pan = Math.random() * 1.6 - 0.8, far = Math.random(), vol = 0.012 + (1 - far) * 0.012, cutoff = 3500 + (1 - far) * 4000;
+    const kind = Math.random();
+    if (kind < 0.35) { // merle : 3–4 notes flûtées qui descendent
+      let f = 2100 + Math.random() * 500;
+      const n = 3 + Math.floor(Math.random() * 2);
+      for (let i = 0; i < n; i++) { this.chirp(f * 1.08, f * 0.9, 0.16, { delay: i * 0.2, vol, vib: 40, vibRate: 22, pan, cutoff }); f *= 0.93 + Math.random() * 0.12; }
+    } else if (kind < 0.7) { // mésange : « ti-tu » répété
+      const hi = 3300 + Math.random() * 400, lo = hi * 0.78;
+      for (let i = 0; i < 2 + Math.floor(Math.random() * 2); i++) { this.chirp(hi, hi * 0.97, 0.08, { delay: i * 0.3, vol, pan, cutoff }); this.chirp(lo, lo * 0.95, 0.12, { delay: i * 0.3 + 0.1, vol: vol * 0.9, pan, cutoff }); }
+    } else { // moineau : petit trille rapide
+      const f = 3600 + Math.random() * 600;
+      for (let i = 0; i < 5 + Math.floor(Math.random() * 4); i++) this.chirp(f, f * 1.12, 0.035, { delay: i * 0.055, vol: vol * 0.7, pan, cutoff });
+    }
   }
   cricket() { for (let i = 0; i < 3; i++) this.tone(4300, 0.04, { type: 'triangle', vol: 0.012, delay: i * 0.07, bus: this.amb }); }
   car() { const up = Math.random() < 0.5; this.noise(1.6, { freq: up ? 300 : 900, to: up ? 900 : 300, q: 0.8, vol: 0.05, bus: this.amb }); }
@@ -142,10 +169,11 @@ export class Sound {
     this.tone(midi(ch[melody] + 12), 0.22, { type: 'square', vol: 0.018, bus: this.mus });
   }
 
-  click() { this.tone(880, 0.05, { type: 'triangle', vol: 0.08 }); }
-  chime() { this.tone(784, 0.25, { vol: 0.12 }); this.tone(1175, 0.35, { vol: 0.1, delay: 0.12 }); }
-  coin() { this.tone(1320, 0.08, { type: 'square', vol: 0.05 }); this.tone(1760, 0.18, { type: 'square', vol: 0.05, delay: 0.07 }); }
-  error() { this.tone(220, 0.18, { type: 'sawtooth', vol: 0.06, to: 160 }); }
+  click() { this.tone(660, 0.035, { type: 'sine', vol: 0.04 }); }
+  pop() { this.tone(520, 0.09, { vol: 0.05, to: 700 }); } // info sans importance : un petit « pop » discret
+  chime() { this.tone(659, 0.3, { vol: 0.08 }); this.tone(988, 0.45, { vol: 0.065, delay: 0.14 }); } // annonce importante
+  coin() { this.tone(1320, 0.07, { type: 'triangle', vol: 0.05 }); this.tone(1760, 0.16, { type: 'triangle', vol: 0.045, delay: 0.06 }); }
+  error() { this.tone(300, 0.12, { type: 'sine', vol: 0.06, to: 220 }); } // « bop » grave et doux (plus de bourdon)
   door() { this.noise(0.25, { freq: 400, to: 180, q: 2, vol: 0.12 }); this.tone(140, 0.15, { vol: 0.08, delay: 0.18 }); }
   // Sons des moments importants (synthétisés, comme le reste)
   sparkle() { [1568, 2093, 2637].forEach((f, i) => this.tone(f, 0.18, { vol: 0.07, delay: i * 0.07 })); }          // fidélité, cadeau

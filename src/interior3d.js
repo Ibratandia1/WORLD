@@ -3,6 +3,7 @@
 // ce module ne fait que dessiner la pièce en 3D et transmettre les touchers.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { figurePose, FIGURE_MAT } from './figure3d.js';
 
 const WALL_H = 1.7;    // hauteur des murs du fond
 const LOW_H = 0.32;    // murets (cloisons et façade, coupés pour voir dedans)
@@ -232,15 +233,7 @@ export function createInterior3D(renderer, opts) {
   }
 
   // ---------- Habitants ----------
-  function figure(look) {
-    const parts = [
-      paint(new THREE.CylinderGeometry(0.045, 0.045, 0.16, 6).translate(0, 0.08, 0), look.legs ?? 0x3a4766),
-      paint(new THREE.CapsuleGeometry(0.085, 0.16, 3, 10).translate(0, 0.26, 0), look.body ?? 0x5b8def),
-      paint(new THREE.SphereGeometry(0.08, 12, 10).translate(0, 0.48, 0), look.skin ?? 0xf1c7a3),
-    ];
-    if (look.hairStyle !== 'chauve') parts.push(paint(new THREE.SphereGeometry(0.084, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2).translate(0, 0.5, 0), look.hairColor ?? 0x2b1d16));
-    return merge(parts);
-  }
+  const FIG_H = 0.58; // hauteur d'un personnage dans les pièces (personnages détaillés : figure3d.js)
   function syncPeople(views, floorIdx, L, playerId, time) {
     const keep = new Set();
     for (const [id, v] of views) {
@@ -251,9 +244,9 @@ export function createInterior3D(renderer, opts) {
       let p = people.get(id);
       const lk = `${a.texKey}`;
       if (!p || p.lk !== lk) {
-        if (p) { scene.remove(p.g); p.mesh.geometry.dispose(); }
+        if (p) scene.remove(p.g);
         const g = new THREE.Group();
-        const mesh = new THREE.Mesh(figure(a.look || {}), mat);
+        const mesh = new THREE.Mesh(figurePose(a.look || {}), FIGURE_MAT);
         mesh.castShadow = true; mesh.userData.actorId = id;
         g.add(mesh);
         if (id === playerId) {
@@ -270,8 +263,10 @@ export function createInterior3D(renderer, opts) {
       const st = v.pos;
       const sit = !v.lie && (st.seat || ['sit', 'back_sit', 'read', 'eat', 'eat1', 'eat2', 'type', 'type1', 'type2', 'drink', 'drink1', 'drink2'].includes(st.pose) || v.act === 'watch_tv' || v.act === 'read_book' || v.act === 'eat_home' || v.act === 'eat_cafe');
       p.mesh.rotation.set(0, 0, 0); p.mesh.position.set(0, 0, 0);
-      if (v.lie) { p.mesh.rotation.z = Math.PI / 2; p.mesh.position.set(0.25, 0.32, 0); }
-      else if (sit) p.mesh.position.y = 0.1;
+      const geo = figurePose(a.look || {}, sit ? 'sit' : 'stand');
+      if (p.mesh.geometry !== geo) p.mesh.geometry = geo;
+      if (v.lie) { p.mesh.rotation.z = Math.PI / 2; p.mesh.position.set(0.3, 0.3, 0); }
+      else if (sit) p.mesh.position.y = 0.13;
       p.g.position.set(st.x, 0, st.y);
       // Orientation : vers la table du poste, sinon vers la caméra (on voit les visages)
       let ry = Math.PI / 4;
@@ -281,9 +276,9 @@ export function createInterior3D(renderer, opts) {
       if (v.lie) p.g.rotation.y = 0;
       for (const ch of p.g.children) if (ch.userData.bob) ch.position.y = 0.78 + Math.sin(time / 180) * 0.04;
       // petite respiration / mouvement des mains au travail
-      if (!v.lie) p.mesh.scale.y = 1 + Math.sin(time / 600 + id.length) * 0.012;
+      p.mesh.scale.set(FIG_H, FIG_H * (v.lie ? 1 : 1 + Math.sin(time / 600 + id.length) * 0.012), FIG_H);
     }
-    for (const [id, p] of people) if (!keep.has(id)) { scene.remove(p.g); p.mesh.geometry.dispose(); people.delete(id); }
+    for (const [id, p] of people) if (!keep.has(id)) { scene.remove(p.g); people.delete(id); } // (géométries partagées)
   }
 
   // ---------- Toucher ----------

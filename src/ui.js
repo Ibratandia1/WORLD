@@ -117,15 +117,26 @@ export class UI {
     this.applyIcons();
     this.watchLayout();
     document.addEventListener('click', e => { if (e.target.closest('button')) snd.click(); }, true);
-    world.on('event', () => snd.chime());
+    // Son des annonces selon leur importance : rien pour le banal (journal, saison, bonjour, faim…),
+    // un petit « pop » pour une info, le carillon seulement pour ce qui compte vraiment
+    const QUIET = new Set(['journal', 'salut', 'faim', 'fatigue', 'reveil', 'fete', 'tuyau', 'season']);
+    const BIG = new Set(['hired', 'fired', 'laidOff', 'promoted', 'rentReminder', 'evicted', 'robbed', 'arrested', 'custody', 'verdict', 'jurySummons', 'released', 'bizClosed', 'electionResult', 'jobWarning']);
+    world.on('event', inst => {
+      const k = inst.kind || inst.id;
+      if (QUIET.has(k)) return;
+      if (BIG.has(k) || inst.id === 'incendie' || inst.id === 'malaise' || inst.id === 'retard') snd.chime();
+      else snd.pop();
+    });
     // Sons propres aux grands moments (en plus du carillon de l'événement)
     const SFX = { hired: 'hired', loyalty: 'sparkle', jaywalk: 'whistle', custody: 'whistle', verdict: 'gavel', released: 'unlock', raise: 'fanfare' };
     for (const [ev, fx] of Object.entries(SFX)) world.on(ev, e => { if (mine(e) && snd[fx]) setTimeout(() => snd[fx](), 180); });
-    world.on('fail', e => { if (mine(e)) snd.error(); });
+    // erreurs : seulement quand c'est toi qui as demandé (pas la routine), et pas en rafale
+    let lastErr = 0, lastCoin = 0;
+    world.on('fail', e => { if (mine(e) && !this.player.routine && performance.now() - lastErr > 2500) { lastErr = performance.now(); snd.error(); } });
     world.on('done', e => {
       if (!mine(e)) return;
       if (e.id === 'claim_goal') snd.fanfare();
-      else if (e.delta && e.delta.money >= 1) snd.coin();
+      else if (e.delta && e.delta.money >= 5 && performance.now() - lastCoin > 4000) { lastCoin = performance.now(); snd.coin(); }
     });
     $('b-map').onclick = () => this.showPanel('map');
     $('b-people').onclick = () => this.showPanel('people');

@@ -383,7 +383,7 @@ export class EventDirector {
     this.met = {};
     world.directors.push(this);
     for (const name of Object.keys(PUSHED)) {
-      world.on(name, e => { if (e.actor === actor) this.push(PUSHED[name](actor, world, e)); });
+      world.on(name, e => { if (e.actor === actor) this.push({ ...PUSHED[name](actor, world, e), kind: name }); });
     }
   }
 

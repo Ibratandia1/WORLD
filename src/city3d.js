@@ -23,6 +23,7 @@ import { phase, carMayGo, walkMayGo } from './sim/traffic.js';
 import { findPath } from './sim/pathfinding.js';
 import { cityPulse } from './city/common.js';
 import { createInterior3D } from './interior3d.js';
+import { figurePose, FIGURE_MAT, WALK_FRAMES } from './figure3d.js';
 import { t as tr } from './i18n.js';
 
 import { TYPES } from './map/types.js';
@@ -37,19 +38,24 @@ const map = world.map;
 
 // ---------- Moteur ----------
 const mobile = matchMedia('(pointer: coarse)').matches;
-const renderer = new THREE.WebGLRenderer({ antialias: !mobile, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(devicePixelRatio, mobile ? 1.25 : 2));
+// Téléphone : anticrénelage matériel (les bords ne scintillent plus) et résolution qui s'adapte à la fluidité
+// (on commence net, on baisse un peu si l'image rame, on remonte quand ça va mieux)
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+const PR_MAX = Math.min(devicePixelRatio, mobile ? 1.8 : 2), PR_MIN = Math.min(devicePixelRatio, mobile ? 1.1 : 1);
+let pixelRatio = Math.min(devicePixelRatio, mobile ? 1.6 : 2);
+renderer.setPixelRatio(pixelRatio);
 renderer.setSize(innerWidth, innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.95;
 renderer.shadowMap.enabled = true;
+const adaptive = { t: 0, frames: 0, calm: 0 };
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.shadowMap.autoUpdate = false;
 renderer.shadowMap.needsUpdate = true;
 if (opts.demo) document.body.appendChild(renderer.domElement);
 else { const cv = renderer.domElement; cv.id = 'city3d'; document.body.insertBefore(cv, document.getElementById('game')); }
-if (opts.saver) { renderer.shadowMap.enabled = false; renderer.setPixelRatio(1); }
+if (opts.saver) { renderer.shadowMap.enabled = false; pixelRatio = 1; renderer.setPixelRatio(1); }
 
 const scene = new THREE.Scene();
 // Éclairage d'environnement : reflets doux sur les vitres, le zinc et l'eau (rendu « moderne »)
@@ -68,7 +74,11 @@ else camera.position.set(CX + (mobile ? 6 : 8.5), mobile ? 7 : 9.5, CZ + (mobile
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(CX, 0, CZ);
 controls.enableDamping = true;
-controls.dampingFactor = 0.08;
+controls.dampingFactor = mobile ? 0.12 : 0.09;
+// Sensibilité : plus douce au doigt (tourner et zoomer trop vite donne le tournis)
+controls.rotateSpeed = mobile ? 0.45 : 0.6;
+controls.panSpeed = mobile ? 0.8 : 1;
+controls.zoomSpeed = mobile ? 0.7 : 0.9;
 controls.screenSpacePanning = false;
 controls.minDistance = 6; controls.maxDistance = 75;
 controls.minPolarAngle = 0.35; controls.maxPolarAngle = 1.25;
@@ -886,18 +896,18 @@ const bodyGeo = new THREE.CapsuleGeometry(0.06, 0.12, 3, 8).translate(0, 0.17, 0
 const legGeo = new THREE.CylinderGeometry(0.035, 0.035, 0.1, 6).translate(0, 0.05, 0);
 const headG = new THREE.SphereGeometry(0.055, 10, 8).translate(0, 0.33, 0);
 const hairG = new THREE.SphereGeometry(0.058, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2).translate(0, 0.345, 0);
+const FIG_H = 0.4; // hauteur d'un habitant dans la rue
 const people = new Map();
 const matCache = new Map();
 const matOf = c => { if (!matCache.has(c)) matCache.set(c, new THREE.MeshStandardMaterial({ color: c, roughness: 0.7 })); return matCache.get(c); };
 function personView(a) {
   const g = new THREE.Group();
   const lk = a.look || {};
-  const legs = new THREE.Mesh(legGeo, matOf(lk.legs ?? 0x3a4766));
-  const body = new THREE.Mesh(bodyGeo, matOf(lk.body ?? 0x5b8def));
-  const head = new THREE.Mesh(headG, matOf(lk.skin ?? 0xf1c7a3));
-  const parts = [legs, body, head];
-  if (lk.hairStyle !== 'chauve') parts.push(new THREE.Mesh(hairG, matOf(lk.hairColor ?? 0x2b1d16)));
-  for (const p of parts) { g.add(p); }
+  // personnage détaillé (figure3d.js) : un seul maillage, la pose change pour marcher / s'asseoir
+  const body = new THREE.Mesh(figurePose(lk), FIGURE_MAT);
+  body.scale.setScalar(FIG_H);
+  const parts = [body];
+  g.add(body);
   if (a.demoMe || a.isPlayer) { // toi : plus grand, flèche dorée qui rebondit au-dessus de la tête
     g.scale.setScalar(1.35);
     const arrowM = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.14, 4).rotateX(Math.PI), new THREE.MeshStandardMaterial({ color: 0xffc83d, emissive: 0xffa800, emissiveIntensity: 0.9 }));
@@ -943,7 +953,7 @@ function setVehicle(v, kind, a) {
   if (v.veh) { v.g.remove(v.veh); v.veh = null; }
   v.vehKey = kind;
   const car = kind === 'voiture';
-  for (const p of v.parts) { p.visible = !car; p.position.y = kind && !car ? 0.07 : 0; } // à vélo : assis un peu plus haut
+  for (const p of v.parts) { p.visible = !car; p.position.y = kind && !car ? 0.045 : 0; } // à vélo : assis sur la selle
   if (!kind) return;
   const col = CAR_COLORS[[...String(a.id)].reduce((s, ch) => s + ch.charCodeAt(0), 0) % CAR_COLORS.length];
   v.veh = new THREE.Mesh(vehicleGeo(kind, col), mats.solid);
@@ -1137,7 +1147,7 @@ function updateEmergencies(dt, rate) {
   const now = performance.now();
   api.emergencies = emergencies; // (débogage : state.city3d.emergencies)
   for (const e of emergencies) {
-    const on = Math.floor(now / 220) % 2 === 0;
+    const on = Math.floor(now / 450) % 2 === 0; // gyrophares : alternance douce (pas de stroboscope)
     e.l1.material = on ? SIREN.r : SIREN.off; e.l2.material = on ? SIREN.off : SIREN.b;
     if (e.state === 'stay') {
       if (e.until != null && world.minutes >= e.until) { // fin de l'intervention : retour à la base
@@ -1195,7 +1205,10 @@ function lighting() {
   const day = THREE.MathUtils.clamp(Math.sin(((h - 6) / 12) * Math.PI), 0, 1); // 0 la nuit, 1 à midi
   const dusk = THREE.MathUtils.clamp(1 - Math.abs(h - 19.5) / 1.6, 0, 1) + THREE.MathUtils.clamp(1 - Math.abs(h - 6.5) / 1.2, 0, 1);
   const night = THREE.MathUtils.clamp(1 - day * 3, 0, 1);
-  const ang = ((h - 6) / 12) * Math.PI;
+  // le soleil avance par pas de 10 min de jeu : les ombres sont recalculées à ce moment-là seulement (pas de scintillement)
+  const hq = Math.round(h * 6) / 6;
+  if (hq !== lastSunH) { lastSunH = hq; renderer.shadowMap.needsUpdate = true; }
+  const ang = ((hq - 6) / 12) * Math.PI;
   // soleil venant de la gauche de l'écran : les ombres tombent vers la droite, bien visibles depuis la caméra
   sun.position.set(CX - 24, 9 + Math.max(0.12, Math.sin(ang)) * 24, CZ + Math.cos(ang) * 18);
   sun.intensity = night > 0.6 ? 0.35 : 0.2 + day * 2.9; // la nuit : clair de lune bleuté
@@ -1217,6 +1230,7 @@ function lighting() {
   renderer.toneMappingExposure = 0.95;
 }
 let forceNight = false;
+let lastSunH = null;
 function updateLights() {
   for (const lp of lightPoles) {
     const ph = phase(world, lp.j.x, lp.j.y);
@@ -1430,7 +1444,7 @@ function updateMarks() {
     if (marks[k]) { scene.remove(marks[k]); marks[k].geometry.dispose(); marks[k] = null; }
     if (want[k] != null) marks[k] = footprintRing(world.building(want[k]), k === 'home' ? 0xffc21a : 0x3d84ff);
   }
-  const k = 0.55 + Math.sin(performance.now() / 400) * 0.3;
+  const k = 0.62 + Math.sin(performance.now() / 900) * 0.12; // liseré qui respire doucement (pas de clignotement)
   for (const m of Object.values(marks)) if (m) m.material.opacity = k;
 }
 let pinTick = 0;
@@ -1523,6 +1537,16 @@ function figureGeo(look) {
   return mergeGeometries(parts.map(g => g.index ? g : g));
 }
 const pickC = a => a[Math.floor(Math.random() * a.length)];
+// Une douzaine de passants types (apparences partagées : peu de géométries en mémoire)
+const WALKER_LOOKS = Array.from({ length: 12 }, (_, i) => ({
+  skin: [0xf6d7c3, 0xf1c7a3, 0xd9a77e, 0xb57a52, 0x8a5634, 0x5e3a24][i % 6],
+  body: [0xf2c94c, 0xe86a8c, 0x5b8def, 0x4bbf8b, 0x9b6ee8, 0xf08a3c, 0x3cb5c9, 0xffffff, 0x333a4a, 0xd8504d, 0x7fb3d5, 0xc9a227][i],
+  legs: [0x3a4766, 0x2a2f3d, 0x6b4a2f, 0x8a8f99, 0x2e6b4a][i % 5],
+  hairColor: [0x1c1410, 0x4a3020, 0x7a4a2a, 0xb5651d, 0xd9a441, 0xdddddd][(i * 5) % 6],
+  hairStyle: ['court', 'long', 'boucles', 'queue', 'chignon', 'carre', 'afro', 'court', 'casquette', 'tresses', 'chauve', 'long'][i],
+  build: ['normal', 'mince', 'normal', 'fort'][i % 4],
+  outfit: [null, 'robe', null, 'sweat', 'veste', null, 'mariniere', 'costume', null, 'robe', null, 'sweat'][i],
+}));
 const LOOKS = {
   body: [0xf2c94c, 0xe86a8c, 0x5b8def, 0x4bbf8b, 0x9b6ee8, 0xf08a3c, 0x3cb5c9, 0xffffff, 0x333a4a, 0xd8504d],
   legs: [0x3a4766, 0x2a2f3d, 0x6b4a2f, 0x8a8f99, 0x2e6b4a],
@@ -1603,11 +1627,11 @@ function spawnWalker() {
   let path = leg1.path;
   if (via) { const leg2 = findPath(map, via, (x, y) => x === to.x && y === to.y); if (!leg2) return; path = path.concat(leg2.path); }
   if (path.length < 6) return;
-  const look = { body: pickC(LOOKS.body), legs: pickC(LOOKS.legs), skin: pickC(LOOKS.skin), hair: pickC(LOOKS.hair) };
-  const mesh = new THREE.Mesh(figureGeo(look), mats.solid);
-  mesh.userData.noTap = true;
+  const look = pickC(WALKER_LOOKS);
+  const mesh = new THREE.Mesh(figurePose(look), FIGURE_MAT);
+  mesh.scale.setScalar(FIG_H); mesh.userData.noTap = true;
   mesh.position.set(g.x, 0.08, g.y); scene.add(mesh);
-  walkers.push({ mesh, x: g.x, y: g.y, path, speed: 1.1 + Math.random() * 0.5, ph: Math.random() * 6 });
+  walkers.push({ mesh, look, x: g.x, y: g.y, path, speed: 1.0 + Math.random() * 0.4, ph: Math.random() * 6 });
 }
 function updateWalkers(dt, gameRate) {
   const pulse = cityPulse(world.hour) * (world.weather === 'rain' || world.weather === 'snow' ? 0.4 : 1);
@@ -1624,10 +1648,12 @@ function updateWalkers(dt, gameRate) {
       p.mesh.rotation.y = Math.atan2(dx, dy);
       if (d <= budget) { p.x = t.x; p.y = t.y; p.path.shift(); budget -= d; } else { p.x += dx / d * budget; p.y += dy / d * budget; budget = 0; }
     }
-    p.ph += dt * (moving ? 14 : 2);
-    p.mesh.position.set(p.x, 0.08 + (moving ? Math.abs(Math.sin(p.ph)) * 0.02 : 0), p.y);
+    p.ph += dt * (moving ? 10 : 0);
+    const geo = figurePose(p.look, moving ? 'walk' : 'stand', Math.floor(p.ph / (Math.PI * 2 / WALK_FRAMES)));
+    if (p.mesh.geometry !== geo) p.mesh.geometry = geo;
+    p.mesh.position.set(p.x, 0.08 + (moving ? Math.abs(Math.sin(p.ph)) * 0.008 : 0), p.y);
   }
-  for (let i = walkers.length - 1; i >= 0; i--) if (!walkers[i].path.length) { scene.remove(walkers[i].mesh); walkers[i].mesh.geometry.dispose(); walkers.splice(i, 1); }
+  for (let i = walkers.length - 1; i >= 0; i--) if (!walkers[i].path.length) { scene.remove(walkers[i].mesh); walkers.splice(i, 1); } // (géométries partagées : pas de dispose)
 }
 
 // Pigeons : ils picorent sur les places et s'envolent quand quelqu'un approche
@@ -1800,10 +1826,21 @@ function frame() {
   acc += raw;
   if (!opts.demo && opts.saver && acc < 1 / 30) { requestAnimationFrame(loop); return; }
   const dt = Math.min(acc, 0.1); acc = 0;
+  // Résolution adaptative (pas en économie de batterie, déjà plafonnée à 30 images/s)
+  if (!opts.saver && !opts.demo) {
+    adaptive.frames++; adaptive.t += dt;
+    if (adaptive.t >= 2) {
+      const fps = adaptive.frames / adaptive.t; adaptive.frames = 0; adaptive.t = 0;
+      let pr = pixelRatio;
+      if (fps < 38 && pr > PR_MIN) { pr = Math.max(PR_MIN, pr - 0.15); adaptive.calm = 0; }
+      else if (fps > 55) { if (++adaptive.calm >= 3 && pr < PR_MAX) { pr = Math.min(PR_MAX, pr + 0.1); adaptive.calm = 0; } }
+      else adaptive.calm = 0;
+      if (pr !== pixelRatio) { pixelRatio = pr; renderer.setPixelRatio(pr); if (composer) composer.setPixelRatio(pr); api.pixelRatio = pr; }
+    }
+  }
   if (!opts.demo && world.paused && !dirty && !camGoal.t && !(opts.player && opts.player.inside != null)) { controls.update(); requestAnimationFrame(loop); return; }
   dirty = false;
-  shadowT -= dt;
-  if (shadowT <= 0) { shadowT = 1; renderer.shadowMap.needsUpdate = true; }
+  // (ombres : recalculées quand le soleil change de position, voir lighting())
   if (opts.demo) world.update(dt * 1000 * speed);
   const inside = !opts.demo && opts.player && opts.player.inside != null;
   const ictx = inside && interior && opts.interiorCtx ? opts.interiorCtx() : null;
@@ -1814,6 +1851,7 @@ function frame() {
       savedCam = { pos: camera.position.clone(), tgt: controls.target.clone(), min: controls.minDistance, max: controls.maxDistance, minP: controls.minPolarAngle, maxP: controls.maxPolarAngle };
       camGoal.t = null; interior.setVisible(true);
     }
+    shadowT -= dt; if (shadowT <= 0) { shadowT = 1; renderer.shadowMap.needsUpdate = true; } // (les gens bougent dans la pièce)
     const info = interior.update(ictx, camera, performance.now());
     if (info) { // nouvelle pièce ou nouvel étage : cadrage
       const d = info.size * (mobile ? 1.75 : 1.5) + 3;
@@ -1851,8 +1889,12 @@ function frame() {
     v.lane += (lane - v.lane) * Math.min(1, dt * 6);
     const d = v.dir ? Math.hypot(v.dir[0], v.dir[1]) || 1 : 1;
     const ox = v.dir ? -(v.dir[1] / d) * v.lane : 0, oz = v.dir ? (v.dir[0] / d) * v.lane : 0;
-    v.phase += dt * (moving && !vk ? 14 : 2);
-    v.g.position.set(a.px + ox, 0.08 + (moving && !vk ? Math.abs(Math.sin(v.phase)) * 0.02 : 0), a.py + oz);
+    v.phase += dt * (moving && !vk ? 10 : 0);
+    const pose = vk && vk !== 'voiture' ? 'sit' : moving && !vk ? 'walk' : a.doing === 'sit_bench' ? 'sit' : 'stand';
+    const fr = Math.floor(v.phase / (Math.PI * 2 / WALK_FRAMES));
+    const geo = figurePose(a.look, pose, fr);
+    if (v.body.geometry !== geo) v.body.geometry = geo;
+    v.g.position.set(a.px + ox, 0.08 + (moving && !vk ? Math.abs(Math.sin(v.phase)) * 0.008 : 0) - (pose === 'sit' && !vk ? 0.0 : 0), a.py + oz);
     for (const ch of v.g.children) if (ch.userData.bob) { ch.position.y = 0.55 + Math.sin(performance.now() / 180) * 0.04; ch.rotation.y += dt * 2; }
   }
   for (const [id, v] of people) if (!world.actorById(id)) { scene.remove(v.g); people.delete(id); }
