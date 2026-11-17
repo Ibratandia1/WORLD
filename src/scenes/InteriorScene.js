@@ -623,7 +623,10 @@ export class InteriorScene extends Phaser.Scene {
     const rect = id => { const e = document.getElementById(id); return e && !e.classList.contains('hidden') ? e.getBoundingClientRect() : null; };
     const W = cam.width / d, H = cam.height / d;
     const dock = rect('dock'), box = rect('box'), hud = rect('hud'), quest = rect('quest');
-    let left = (dock ? dock.right : 0) + 10, right = W - 52, top = Math.max(hud ? hud.bottom : 40, quest && quest.height ? quest.bottom : 0) + 6, bottom = H - 10;
+    // (la barre « ma vie » est en bas à gauche : la pièce reste au-dessus ; les étages sont à gauche)
+    const floors = rect('floors');
+    let left = (floors && floors.width ? floors.right : 0) + 10, right = W - 52, top = Math.max(hud ? hud.bottom : 40, quest && quest.height ? quest.bottom : 0) + 6;
+    let bottom = (dock && dock.top > H / 2 ? dock.top : H) - 8;
     if (box && box.width && box.left - 10 - left > 220) right = box.left - 10;
     if (right - left < 200) { left = 10; right = W - 52; }
     if (bottom - top < 150) top = Math.max(10, bottom - 150);

@@ -416,6 +416,7 @@ export class UI {
     if (this.place) shownPlace = this.place;
     // Fiche d'un lieu : fenêtre élargie en paysage (boutons en grille), couleur du type de lieu
     box.classList.toggle('wide', !!shownPlace);
+    document.body.classList.toggle('wide-box', !!shownPlace); // la barre du bas à gauche se resserre
     box.dataset.theme = shownPlace ? shownPlace.type
       : this.life ? 'life' : this.panel ? this.panel : this.person ? 'person' : this.object ? 'object' : this.director.active ? 'event' : 'idle';
     if (pop) { box.classList.remove('pop'); void box.offsetWidth; box.classList.add('pop'); }
