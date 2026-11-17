@@ -7,7 +7,12 @@ import { rel, level, near } from './sim/social.js';
 import { weeklyRent, occupants, LATE_EVICT } from './sim/housing.js';
 import { freeUnits, isClosed } from './sim/city.js';
 import { Sound } from './audio.js';
-import { t, LANGS } from './i18n.js';
+import { t, LANGS, tLines } from './i18n.js';
+const tr = s => t(s); // (dans personHTML, « t » désigne la personne : on traduit avec tr)
+// Texte bilingue écrit sur place (phrases avec nombres) et jours de la semaine
+const L = (fr, en) => (settings().lang === 'en' ? en : fr);
+const DAY_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const dayShort = d => (settings().lang === 'en' ? DAY_EN[d] : DAY_SHORT[d]);
 import { GUIDE } from './guide.js';
 import { icon } from './icons.js';
 import { settings, setSetting, onSettings } from './settings.js';
@@ -243,7 +248,7 @@ export class UI {
     const PAGES = {
       guide: `<h3>📖 ${t('Guide du jeu')}</h3><div class="choices">${this.choiceHTML('data-rewelcome class="c-rest"', '👋', 'Revoir l’accueil', '', true)}</div><div class="guide">${guide}</div>`,
       general: `<h3>🌍 ${t('Langue')}</h3>${chips('lang', LANGS)}
-        ${s.lang !== 'fr' ? '<p class="note">Events, news and conversations are still in French for now.</p>' : ''}
+        
         <h3>🔠 ${t('Taille du texte')}</h3>${chips('textSize', [['small', 'Petit'], ['normal', 'Normal'], ['large', 'Grand']])}`,
       sound: `<div class="choices">${sw('sound', 'Son', '🔊')}</div>
         <label class="range">${t('Volume')} <input type="range" min="0" max="1" step="0.05" value="${s.volume}" data-range="volume"></label>
@@ -276,7 +281,7 @@ export class UI {
     const w = this.world, p = this.player;
 
     $('v-time').textContent = w.clock;
-    $('v-day').textContent = `${w.dayShort} ${SEASON_INFO[w.season].icon}`;
+    $('v-day').textContent = `${dayShort(w.weekday)} ${SEASON_INFO[w.season].icon}`;
     const wx = w.weather === 'rain' ? 'rain' : w.weather === 'snow' ? 'snow' : w.weather === 'cloud' ? 'cloud' : w.isNight ? 'moon' : 'sun';
     if (wx !== this.wxIcon) { this.wxIcon = wx; $('v-weather').innerHTML = icon(wx); }
     $('v-money').textContent = money(p.money);
@@ -429,7 +434,7 @@ export class UI {
   choiceHTML(attrs, icon, label, meta, check) {
     const off = check !== true;
     return `<button ${attrs} ${off ? 'disabled' : ''}><span>${icon}</span>
-      <div class="lbl">${esc(t(label))}${off ? `<small>${esc(check)}</small>` : ''}</div>${meta ? `<em>${meta}</em>` : ''}</button>`;
+      <div class="lbl">${esc(t(label))}${off ? `<small>${esc(t(check))}</small>` : ''}</div>${meta ? `<em>${meta}</em>` : ''}</button>`;
   }
 
   // Bouton générique pour une action (avec paramètres) — icône personnalisable
@@ -443,11 +448,11 @@ export class UI {
   shopHTML(b, inside) {
     const items = CATALOG.filter(i => i.shop === b.type);
     if (!items.length) return '';
-    if (!inside) return '<p>🛍️ Entre pour voir les articles.</p>';
+    if (!inside) return `<p>${tr('🛍️ Entre pour voir les articles.')}</p>`;
     const p = this.player;
     let cat = '';
     const rows = items.map(it => {
-      const head = it.cat !== cat ? `<div class="cat">${(cat = it.cat)}</div>` : '';
+      const head = it.cat !== cat ? `<div class="cat">${tr(cat = it.cat)}</div>` : '';
       if (!p.owned.includes(it.id)) return head + this.actBtn('buy', { item: it.id }, it.name, it.icon);
       if (it.vehicle) {
         return head + (p.vehicle === it.id
@@ -473,8 +478,8 @@ export class UI {
       return this.choiceHTML(`data-choice="${i}" class="c-${c.action ? ACT_CAT[c.action] || 'misc' : 'misc'}"`, c.icon, c.label, def ? this.meta(def, c.params) : '', this.director.check(c));
     }).join('');
     // ✕ en haut : fermer l'événement sans choisir
-    const head = `<div class="box-head"><span class="ico">${ev.icon}</span><b>${esc(ev.title)}</b><button class="box-close ev-close" data-evclose title="Fermer">✕</button></div>`;
-    return `${head}<p>${esc(ev.text).replace(/\n/g, '<br>')}</p><div class="choices">${buttons}</div><div class="evtimer"><i style="width:100%"></i></div>`;
+    const head = `<div class="box-head"><span class="ico">${ev.icon}</span><b>${esc(t(ev.title))}</b><button class="box-close ev-close" data-evclose title="${t('Fermer')}">✕</button></div>`;
+    return `${head}<p>${esc(tLines(ev.text)).replace(/\n/g, '<br>')}</p><div class="choices">${buttons}</div><div class="evtimer"><i style="width:100%"></i></div>`;
   }
 
   // Panneau d'un lieu : vu de la rue (inside = false) ou depuis l'intérieur.
@@ -492,24 +497,24 @@ export class UI {
       const title = JOB_TITLES[b.type] || 'Poste';
       jobTop = `<div class="jobtop"><span>💼 ${esc(t(title))} · ${b.jobs.wage} €/h · ${n ? `${n} poste${n > 1 ? 's' : ''} libre${n > 1 ? 's' : ''}` : 'complet'}</span>${this.actBtn('apply', { building: b.id }, 'Postuler')}</div>`;
     } else if (p.job && p.job.building === b.id) {
-      note = `<p>Ton travail · ${fmtShift(p.job)} · ${p.job.days.map(d => DAY_SHORT[d]).join(' ')}</p>`;
+      note = `<p>${L('Ton travail', 'Your job')} · ${fmtShift(p.job)} · ${p.job.days.map(d => dayShort(d)).join(' ')}</p>`;
     }
 
     // Logement
     if (b.type === 'home') {
       if (b.id === p.home) {
-        note = `<p>${p.housing === 'own' ? 'Tu es propriétaire.' : `Locataire · ${weeklyRent(b)} €/semaine`}</p>`;
+        note = `<p>${p.housing === 'own' ? L('Tu es propriétaire.', 'You own this place.') : L(`Locataire · ${weeklyRent(b)} €/semaine`, `Tenant · €${weeklyRent(b)}/week`)}</p>`;
         if (p.housing === 'rent') {
           if (p.rentDue > 0) buttons.push(this.actBtn('pay_rent'));
           buttons.push(this.actBtn('buy_home', { building: b.id }, `Acheter (${money(b.price)} €)`));
         }
       } else if (freeUnits(w, b) > 0) {
         const f = freeUnits(w, b);
-        note = `<p>${f} appartement${f > 1 ? 's' : ''} libre${f > 1 ? 's' : ''} sur ${b.units} · ${weeklyRent(b)} €/semaine${occupants(w, b).length ? '' : ` ou ${money(b.price)} € à l’achat`}</p>`;
+        note = `<p>${L(`${f} appartement${f > 1 ? 's' : ''} libre${f > 1 ? 's' : ''} sur ${b.units} · ${weeklyRent(b)} €/semaine${occupants(w, b).length ? '' : ` ou ${money(b.price)} € à l’achat`}`, `${f} of ${b.units} apartment${f > 1 ? 's' : ''} free · €${weeklyRent(b)}/week${occupants(w, b).length ? '' : ` or €${money(b.price)} to buy`}`)}</p>`;
         buttons.push(this.actBtn('rent_home', { building: b.id }));
         if (!occupants(w, b).length) buttons.push(this.actBtn('buy_home', { building: b.id }, `Acheter (${money(b.price)} €)`));
       } else if (!inside) {
-        note = `<p>Complet : ${b.units} appartement${b.units > 1 ? 's' : ''}, tous occupés.</p>`;
+        note = `<p>${L(`Complet : ${b.units} appartement${b.units > 1 ? 's' : ''}, tous occupés.`, `Full: all ${b.units} apartment${b.units > 1 ? 's are' : ' is'} taken.`)}</p>`;
       }
       // La nuit, on peut tenter un cambriolage (très risqué)
       if (b.id !== p.home && occupants(w, b).length && (w.hour >= 23 || w.hour < 5)) buttons.push(this.actBtn('burgle', { building: b.id }));
@@ -517,34 +522,35 @@ export class UI {
 
     // Services publics : un mot sur ce qu'on y fait
     const SERVICE = {
-      police: () => { const s = w.safety ? w.safety.stats : { week: 0, arrests: 0 }; return `🚨 ${s.week} délit${s.week > 1 ? 's' : ''} cette semaine · ${s.arrests} arrestation${s.arrests > 1 ? 's' : ''} au total${p.wanted > 0 ? ' · <span class="bad">tu es recherché·e !</span>' : ''}`; },
-      hospital: () => (p.sick ? '🤧 Tu es malade : un médecin peut te soigner.' : '🩺 Consultations quand un soignant est de service.'),
-      firestation: () => { const n = w.safety ? Object.keys(w.safety.fires).length : 0; return n ? `🔥 ${n} incendie${n > 1 ? 's' : ''} en cours !` : '🚒 Aucun incendie. Les pompiers veillent.'; },
-      prison: () => { const n = w.actors.filter(o => jailed(w, o)).length; return `⛓️ ${n} détenu${n > 1 ? 's' : ''}`; },
-      school: () => `🎓 Ton niveau d’études : ${p.education ?? 1}/3 · cours du soir : 3 cours = 1 diplôme`,
+      police: () => { const s = w.safety ? w.safety.stats : { week: 0, arrests: 0 }; return L(`🚨 ${s.week} délit${s.week > 1 ? 's' : ''} cette semaine · ${s.arrests} arrestation${s.arrests > 1 ? 's' : ''} au total`, `🚨 ${s.week} crime${s.week > 1 ? 's' : ''} this week · ${s.arrests} arrest${s.arrests > 1 ? 's' : ''} in total`) + (p.wanted > 0 ? ` · <span class="bad">${L('tu es recherché·e !', 'you are wanted!')}</span>` : ''); },
+      hospital: () => t(p.sick ? '🤧 Tu es malade : un médecin peut te soigner.' : '🩺 Consultations quand un soignant est de service.'),
+      firestation: () => { const n = w.safety ? Object.keys(w.safety.fires).length : 0; return n ? L(`🔥 ${n} incendie${n > 1 ? 's' : ''} en cours !`, `🔥 ${n} fire${n > 1 ? 's' : ''} burning!`) : t('🚒 Aucun incendie. Les pompiers veillent.'); },
+      prison: () => { const n = w.actors.filter(o => jailed(w, o)).length; return L(`⛓️ ${n} détenu${n > 1 ? 's' : ''}`, `⛓️ ${n} inmate${n > 1 ? 's' : ''}`); },
+      school: () => L(`🎓 Ton niveau d’études : ${p.education ?? 1}/3 · cours du soir : 3 cours = 1 diplôme`, `🎓 Your education level: ${p.education ?? 1}/3 · evening classes: 3 classes = 1 diploma`),
     };
     if (SERVICE[b.type]) note = `${note}<p>${SERVICE[b.type]()}</p>`;
-    if (w.safety && w.safety.burning(b.id)) note = `<p class="status bad">🔥 En feu ! Personne ne peut entrer.</p>${note}`;
+    if (w.safety && w.safety.burning(b.id)) note = `<p class="status bad">${L('🔥 En feu ! Personne ne peut entrer.', '🔥 On fire! Nobody can go in.')}</p>${note}`;
     // Commerce : ouvert seulement s'il y a quelqu'un au comptoir
     if (['cafe', 'bakery', 'shop', 'fashion', 'garage', 'cityhall', 'hospital', 'school'].includes(b.type)) {
       const s = sellerAt(w, b, p);
       let status;
-      if (s) status = `🟢 Ouvert · ${esc(s.name)} au comptoir`;
+      if (s) status = L(`🟢 Ouvert · ${esc(s.name)} au comptoir`, `🟢 Open · ${esc(s.name)} at the counter`);
       else {
         const n = nextOpening(w, b);
-        const when = !n ? '' : n.day === w.day ? `aujourd’hui à ${Math.floor((n.start % 1440) / 60)}h` : `${DAY_SHORT[weekdayOf(n.day)]} à ${Math.floor((n.start % 1440) / 60)}h`;
-        status = `🔴 Fermé${when ? ` · ouvre ${when}` : ''}`;
+        const hh = !n ? 0 : Math.floor((n.start % 1440) / 60);
+        const when = !n ? '' : n.day === w.day ? L(`aujourd’hui à ${hh}h`, `today at ${hh}:00`) : L(`${DAY_SHORT[weekdayOf(n.day)]} à ${hh}h`, `${dayShort(weekdayOf(n.day))} at ${hh}:00`);
+        status = L(`🔴 Fermé${when ? ` · ouvre ${when}` : ''}`, `🔴 Closed${when ? ` · opens ${when}` : ''}`);
       }
       // Santé du commerce (ville vivante) : fréquentation et prix
       const biz = w.city && w.city.biz[b.id];
       let life = '';
       if (biz && biz.closed) {
-        status = `🔒 Fermé définitivement · un repreneur arrive ${biz.reopenDay - w.day <= 1 ? 'demain' : `dans ${biz.reopenDay - w.day} jours`}`;
+        status = L(`🔒 Fermé définitivement · un repreneur arrive ${biz.reopenDay - w.day <= 1 ? 'demain' : `dans ${biz.reopenDay - w.day} jours`}`, `🔒 Closed for good · new owner ${biz.reopenDay - w.day <= 1 ? 'tomorrow' : `in ${biz.reopenDay - w.day} days`}`);
       } else if (biz && biz.hist.length) {
         const avg = biz.hist.reduce((t, d) => t + d.n, 0) / biz.hist.length;
-        const mood = avg >= 12 ? '🔥 Bondé' : avg >= 5 ? '🙂 Bonne clientèle' : avg >= 2 ? '😐 Calme' : '⚠️ Presque vide';
-        const price = biz.price === 1 ? 'prix normaux' : biz.price > 1 ? `prix +${Math.round((biz.price - 1) * 100)} %` : `promos −${Math.round((1 - biz.price) * 100)} %`;
-        life = `<p>${mood} · ${Math.round(avg * 10) / 10} clients/jour · ${price}</p>`;
+        const mood = t(avg >= 12 ? '🔥 Bondé' : avg >= 5 ? '🙂 Bonne clientèle' : avg >= 2 ? '😐 Calme' : '⚠️ Presque vide');
+        const price = biz.price === 1 ? t('prix normaux') : biz.price > 1 ? L(`prix +${Math.round((biz.price - 1) * 100)} %`, `prices +${Math.round((biz.price - 1) * 100)}%`) : L(`promos −${Math.round((1 - biz.price) * 100)} %`, `discounts −${Math.round((1 - biz.price) * 100)}%`);
+        life = `<p>${mood} · ${Math.round(avg * 10) / 10} ${L('clients/jour', 'customers/day')} · ${price}</p>`;
       }
       note = `<p class="status">${status}</p>${life}${note}`;
     }
@@ -565,20 +571,20 @@ export class UI {
     if (!g) return '';
     const m = g.mayorActor;
     const lines = [
-      `👤 Maire : <b>${m ? esc(m.isPlayer ? `${m.name} (toi)` : m.name) : 'vacant'}</b>`,
-      `${TAX_POLICIES[g.tax].icon} ${TAX_POLICIES[g.tax].label} · ${AID_POLICIES[g.aid].icon} ${AID_POLICIES[g.aid].label} (${g.aidAmount} €/semaine)`,
-      `🏦 Trésor public : ${money(Math.round(w.treasury || 0))} € · aides versées : ${money(g.aidPaid)} €`,
+      `👤 ${L('Maire', 'Mayor')} : <b>${m ? esc(m.isPlayer ? `${m.name} (${L('toi', 'you')})` : m.name) : 'vacant'}</b>`,
+      `${TAX_POLICIES[g.tax].icon} ${t(TAX_POLICIES[g.tax].label)} · ${AID_POLICIES[g.aid].icon} ${t(AID_POLICIES[g.aid].label)} (${L(`${g.aidAmount} €/semaine`, `€${g.aidAmount}/week`)})`,
+      L(`🏦 Trésor public : ${money(Math.round(w.treasury || 0))} € · aides versées : ${money(g.aidPaid)} €`, `🏦 Treasury: €${money(Math.round(w.treasury || 0))} · welfare paid: €${money(g.aidPaid)}`),
     ];
     const rows = [];
     if (g.campaignOpen && g.candidates.length) {
-      lines.push(g.votingOpen ? `🗳️ <b>Vote en cours</b> jusqu’au jour ${g.election}` : `🗳️ Campagne : vote du jour ${g.election - 2} au jour ${g.election}`);
+      lines.push(g.votingOpen ? L(`🗳️ <b>Vote en cours</b> jusqu’au jour ${g.election}`, `🗳️ <b>Voting in progress</b> until day ${g.election}`) : L(`🗳️ Campagne : vote du jour ${g.election - 2} au jour ${g.election}`, `🗳️ Campaign: voting from day ${g.election - 2} to day ${g.election}`));
       for (const id of g.candidates) {
         const c = w.actorById(id);
         if (!c) continue;
         rows.push(this.actBtn('vote', { for: id }, `Voter ${c.isPlayer ? 'pour toi' : c.name}${id === g.mayor ? ' (sortant)' : ''}`));
       }
     } else {
-      lines.push(`🗳️ Prochaines élections : jour ${g.election} (candidatures 5 jours avant)`);
+      lines.push(L(`🗳️ Prochaines élections : jour ${g.election} (candidatures 5 jours avant)`, `🗳️ Next elections: day ${g.election} (candidacies 5 days before)`));
     }
     rows.push(this.actBtn('run_mayor', {}, `Se présenter (caution ${CAMPAIGN_FEE} €)`));
     if (g.mayor === p.id) {
@@ -598,40 +604,41 @@ export class UI {
     let job;
     if (p.job) {
       const b = w.building(p.job.building);
-      const warn = p.job.warnings ? '⚠️'.repeat(p.job.warnings) : 'aucun';
-      job = `<div class="sec"><b>💼 ${esc(b.name)}</b><p>${JOB_TITLES[b.type]} · ${p.job.wage} €/h<br>
-        ${fmtShift(p.job)} · ${p.job.days.map(d => DAY_SHORT[d]).join(' ')}<br>
-        Prochain service : ${nextShiftText(p, w) || '—'}<br>
-        Avertissements : ${warn} (${p.job.warnings}/${MAX_WARNINGS})<br>
-        🎓 Niveau d’études : ${p.education ?? 1}/3<br>
-        Augmentation dans ${RAISE_EVERY - (p.job.streak % RAISE_EVERY)} jour(s) sans faute<br>
-        🏛️ Impôt prélevé à la source : ${Math.round(taxRate(p.job.wage) * 100)} % · ${Math.round(p.taxWeek || 0)} € cette semaine</p>
+      const warn = p.job.warnings ? '⚠️'.repeat(p.job.warnings) : L('aucun', 'none');
+      const raiseIn = RAISE_EVERY - (p.job.streak % RAISE_EVERY), taxP = Math.round(taxRate(p.job.wage) * 100), taxW = Math.round(p.taxWeek || 0);
+      job = `<div class="sec"><b>💼 ${esc(b.name)}</b><p>${t(jobTitle(w, p.job))} · ${L(`${p.job.wage} €/h`, `€${p.job.wage}/h`)}<br>
+        ${fmtShift(p.job)} · ${p.job.days.map(d => dayShort(d)).join(' ')}<br>
+        ${L('Prochain service', 'Next shift')} : ${t(nextShiftText(p, w) || '—')}<br>
+        ${L('Avertissements', 'Warnings')} : ${warn} (${p.job.warnings}/${MAX_WARNINGS})<br>
+        🎓 ${L('Niveau d’études', 'Education level')} : ${p.education ?? 1}/3<br>
+        ${L(`Augmentation dans ${raiseIn} jour(s) sans faute`, `Raise in ${raiseIn} day(s) without fault`)}<br>
+        🏛️ ${L(`Impôt prélevé à la source : ${taxP} % · ${taxW} € cette semaine`, `Income tax withheld: ${taxP}% · €${taxW} this week`)}</p>
         <div class="choices">${isWorkday(p.job, w.day) ? this.actBtn('call_sick') : ''}${this.actBtn('quit_job')}</div></div>`;
     } else {
-      job = '<div class="sec"><b>💼 Sans emploi</b><p>Touche un commerce ou un bureau pour postuler, ou demande des tuyaux à tes connaissances.</p></div>';
+      job = `<div class="sec"><b>${t('💼 Sans emploi')}</b><p>${t('Touche un commerce ou un bureau pour postuler, ou demande des tuyaux à tes connaissances.')}</p></div>`;
     }
 
     let home;
     if (p.home != null) {
       const b = w.building(p.home);
       if (p.housing === 'own') {
-        home = `<div class="sec"><b>🔑 ${esc(b.name)}</b><p>Tu es propriétaire : plus de loyer.<br>🏛️ Taxe foncière : ${Math.round(b.price * PROPERTY_TAX)} € par semaine (le lundi)</p></div>`;
+        home = `<div class="sec"><b>🔑 ${esc(b.name)}</b><p>${L(`Tu es propriétaire : plus de loyer.<br>🏛️ Taxe foncière : ${Math.round(b.price * PROPERTY_TAX)} € par semaine (le lundi)`, `You own it: no more rent.<br>🏛️ Property tax: €${Math.round(b.price * PROPERTY_TAX)} per week (on Monday)`)}</p></div>`;
       } else {
         const due = p.rentDue > 0
-          ? `<br><span class="bad">À payer : ${p.rentDue} €${p.rentLate ? ` · ${p.rentLate} j de retard (expulsion à ${LATE_EVICT} j)` : ''}</span>`
-          : '<br>Loyer à jour ✓';
-        home = `<div class="sec"><b>🏠 ${esc(b.name)}</b><p>Locataire · ${weeklyRent(b)} €/semaine, à payer chaque lundi${due}</p>
+          ? `<br><span class="bad">${L(`À payer : ${p.rentDue} €${p.rentLate ? ` · ${p.rentLate} j de retard (expulsion à ${LATE_EVICT} j)` : ''}`, `Due: €${p.rentDue}${p.rentLate ? ` · ${p.rentLate} days late (eviction at ${LATE_EVICT})` : ''}`)}</span>`
+          : `<br>${t('Loyer à jour ✓')}`;
+        home = `<div class="sec"><b>🏠 ${esc(b.name)}</b><p>${L(`Locataire · ${weeklyRent(b)} €/semaine, à payer chaque lundi`, `Tenant · €${weeklyRent(b)}/week, due every Monday`)}${due}</p>
           <div class="choices">${p.rentDue > 0 ? this.actBtn('pay_rent') : ''}${this.actBtn('buy_home', { building: b.id }, `Acheter (${money(b.price)} €)`)}</div></div>`;
       }
     } else {
-      home = '<div class="sec"><b>🏠 Sans logement</b><p>Loue un logement libre (touche-le sur la carte) ou dors au Métro Saint-Paul.</p></div>';
+      home = `<div class="sec"><b>${t('🏠 Sans logement')}</b><p>${t('Loue un logement libre (touche-le sur la carte) ou dors au Métro Saint-Paul.')}</p></div>`;
     }
 
     const vehicles = CATALOG.filter(i => i.vehicle && p.owned.includes(i.id));
     const ride = vehicles.length
       ? `<div class="sec"><b>${t('🚲 Déplacements')}</b><div class="choices">${
         this.actBtn('use_vehicle', { item: null }, 'Marcher', '🚶')}${vehicles.map(v => this.actBtn('use_vehicle', { item: v.id }, v.name, v.icon)).join('')}</div></div>`
-      : `<div class="sec"><b>${t('🚲 Déplacements')}</b><p>À pied. Vélos, scooters et voitures au Garage Roue Libre.</p></div>`;
+      : `<div class="sec"><b>${t('🚲 Déplacements')}</b><p>${t('À pied. Vélos, scooters et voitures au Garage Roue Libre.')}</p></div>`;
 
     const routine = `<div class="sec"><b>${t('🔁 Routine automatique')}</b><p>${t('Ton personnage mange, dort et va travailler tout seul. Tu peux toujours reprendre la main.')}</p>
       <div class="choices">${this.choiceHTML('data-routine', p.routine ? '⏹️' : '▶️', p.routine ? 'Désactiver la routine' : 'Activer la routine', '', true)}</div></div>`;
@@ -756,15 +763,15 @@ export class UI {
       ['💼 Travail', ['office']], ['🏛️ Services', ['cityhall', 'metro']], ['🏠 Logements', ['home']]];
     const status = b => {
       if (b.type === 'home') {
-        if (b.id === p.home) return '🏠 chez toi';
+        if (b.id === p.home) return t('🏠 chez toi');
         const f = freeUnits(w, b);
-        return f ? `🔑 ${f} libre${f > 1 ? 's' : ''} · ${weeklyRent(b)} €/sem.` : 'complet';
+        return f ? L(`🔑 ${f} libre${f > 1 ? 's' : ''} · ${weeklyRent(b)} €/sem.`, `🔑 ${f} free · €${weeklyRent(b)}/wk`) : t('complet');
       }
-      if (b.type === 'metro') return 'bientôt : voyager';
-      if (isClosed(w, b.id)) return '🔒 fermé (repreneur à venir)';
-      const mine = p.job && p.job.building === b.id ? ' · ton travail' : '';
+      if (b.type === 'metro') return t('bientôt : voyager');
+      if (isClosed(w, b.id)) return t('🔒 fermé (repreneur à venir)');
+      const mine = p.job && p.job.building === b.id ? t(' · ton travail') : '';
       const jobs = b.jobs && openings(w, b) ? ` · ${openings(w, b)} poste${openings(w, b) > 1 ? 's' : ''}` : '';
-      if (b.type === 'office') return `${mine ? 'ton travail' : 'bureaux'}${jobs}`;
+      if (b.type === 'office') return `${t(mine ? 'ton travail' : 'bureaux')}${jobs}`;
       return `${t(sellerAt(w, b) ? '🟢 ouvert' : '🔴 fermé')}${mine}${jobs}`;
     };
     const sections = GROUPS.map(([title, types]) => {
@@ -790,24 +797,24 @@ export class UI {
       return `<button data-person="${a.id}"><span class="ic">${licon}</span><span class="nm">${esc(a.name)}<small>${esc(job)} · ${lname}</small></span>
         <span class="rt">${now} ${esc(where(a))}</span></button>`;
     });
-    return `${this.head('👥', t('Habitants · {n}', { n: list.length }))}<p>Tu connais ${known} personne${known > 1 ? 's' : ''}. Touche quelqu’un pour le retrouver.</p><div class="list">${rows.join('')}</div>`;
+    return `${this.head('👥', t('Habitants · {n}', { n: list.length }))}<p>${L(`Tu connais ${known} personne${known > 1 ? 's' : ''}. Touche quelqu’un pour le retrouver.`, `You know ${known} ${known > 1 ? 'people' : 'person'}. Tap someone to find them.`)}</p><div class="list">${rows.join('')}</div>`;
   }
 
   // ---------- Prochain rendez-vous (HUD) ----------
   nextAppointment() {
     const p = this.player, w = this.world;
-    if (jailed(w, p)) return ['⛓️', `sortie ${Math.ceil((p.jailUntil - w.minutes) / 1440)} j`];
-    if (p.wanted > 0) return ['🚨', 'recherché·e'];
-    if (p.sick) return ['🤧', 'malade'];
+    if (jailed(w, p)) return ['⛓️', L(`sortie ${Math.ceil((p.jailUntil - w.minutes) / 1440)} j`, `out in ${Math.ceil((p.jailUntil - w.minutes) / 1440)} d`)];
+    if (p.wanted > 0) return ['🚨', L('recherché·e', 'wanted')];
+    if (p.sick) return ['🤧', L('malade', 'sick')];
     if (p.housing === 'rent' && p.rentDue > 0) return ['🧾', `${p.rentDue} €`];
     const g = w.gov;
-    if (g && g.votingOpen && !g.votes[p.id]) return ['🗳️', 'vote'];
+    if (g && g.votingOpen && !g.votes[p.id]) return ['🗳️', L('vote', 'vote')];
     // (l'heure du service est déjà en bas à gauche : ici, seulement quand il faut y aller maintenant)
     if (p.job && !p.job.street && p.doing !== 'work' && !(p.plan && p.plan.id === 'work')) {
       const n = nextShift(p.job, w);
-      if (n && n.start - w.minutes <= 30 && w.minutes < n.end - 60) return ['💼', w.minutes > n.start ? 'en retard !' : 'c’est l’heure'];
+      if (n && n.start - w.minutes <= 30 && w.minutes < n.end - 60) return ['💼', t(w.minutes > n.start ? 'en retard !' : 'c’est l’heure')];
     }
-    if (w.hour >= 22 || w.hour < 5) return ['😴', 'au lit'];
+    if (w.hour >= 22 || w.hour < 5) return ['😴', t('au lit')];
     return null;
   }
 
@@ -869,9 +876,9 @@ export class UI {
     const p = this.player, w = this.world;
     const r = rel(p, t);
     const [, lname, licon] = level(r);
-    const role = t.role ? `${ROLE_TITLES[t.role]} · ` : '';
-    const job = t.job ? `${role}${esc(jobTitle(w, t.job))}${t.job.street ? '' : ` · ${esc(w.building(t.job.building).name)}`}` : (t.role ? ROLE_TITLES[t.role] : 'Sans emploi');
-    const now = t.doing ? `<br>${ACTIONS[t.doing].icon} ${esc(ACTIONS[t.doing].label)}` : '';
+    const role = t.role ? `${tr(ROLE_TITLES[t.role])} · ` : '';
+    const job = t.job ? `${role}${esc(tr(jobTitle(w, t.job)))}${t.job.street ? '' : ` · ${esc(w.building(t.job.building).name)}`}` : (t.role ? tr(ROLE_TITLES[t.role]) : tr('Sans emploi'));
+    const now = t.doing ? `<br>${ACTIONS[t.doing].icon} ${esc(tr(ACTIONS[t.doing].label))}` : '';
     const reach = canReach(p, t);
     // Interactions : elles se débloquent avec la relation (le bouton grisé dit pourquoi)
     const extra = [];
@@ -889,20 +896,20 @@ export class UI {
     // Fil de la conversation
     const log = chatLog(t).slice(-8).map(m => m.from === 'player'
       ? `<div class="msg me">${esc(m.text)}</div>`
-      : m.from === 'npc' ? `<div class="msg them"><b>${esc(t.name)}</b> ${esc(m.text)}</div>` : `<div class="msg note">${esc(m.text)}</div>`).join('');
+      : m.from === 'npc' ? `<div class="msg them"><b>${esc(t.name)}</b> ${esc(tr(m.text))}</div>` : `<div class="msg note">${esc(tr(m.text))}</div>`).join('');
     const offers = (this.chatOffers || []).map((o, i) => this.choiceHTML(`data-offer="${i}"`, o.icon, o.label, '', this.world.check(p, o.action, o.params))).join('');
     // Réponses proposées après la dernière réplique, puis les thèmes
-    const picks = (this.chatChoices || []).map((c, i) => `<button class="pick" data-pick="${i}" ${reach && !this.chatWaiting ? '' : 'disabled'}><span>${c.icon}</span>${esc(c.label)}</button>`).join('');
-    const topics = topicsFor(t).map(tp => `<button class="topic" data-topic="${tp.id}" ${reach && !this.chatWaiting ? '' : 'disabled'}><span>${tp.icon}</span>${esc(tp.label)}</button>`).join('');
-    const mode = chatMode() === 'local' ? '<small class="mode">réponses intégrées · ajoute une clé API pour des PNJ encore plus vivants</small>' : '';
-    const intro = reach ? `Choisis un sujet ou écris ce que tu veux dire à ${esc(t.name)}.` : 'Trop loin pour parler.';
+    const picks = (this.chatChoices || []).map((c, i) => `<button class="pick" data-pick="${i}" ${reach && !this.chatWaiting ? '' : 'disabled'}><span>${c.icon}</span>${esc(tr(c.label))}</button>`).join('');
+    const topics = topicsFor(t).map(tp => `<button class="topic" data-topic="${tp.id}" ${reach && !this.chatWaiting ? '' : 'disabled'}><span>${tp.icon}</span>${esc(tr(tp.label))}</button>`).join('');
+    const mode = chatMode() === 'local' ? `<small class="mode">${tr('réponses intégrées · ajoute une clé API pour des PNJ encore plus vivants')}</small>` : '';
+    const intro = reach ? tr(`Choisis un sujet ou écris ce que tu veux dire à ${t.name}.`) : tr('Trop loin pour parler.');
     const chat = `<div class="sec chat"><div class="log">${log || `<div class="msg note">${intro}</div>`}${this.chatWaiting ? `<div class="msg them typing">${esc(t.name)} réfléchit…</div>` : ''}</div>
       ${offers ? `<div class="choices">${offers}</div>` : ''}
       ${picks ? `<div class="picks">${picks}</div>` : ''}
       <div class="topics">${topics}</div>
-      <form class="say-form" data-chat><input id="chat-in" maxlength="300" autocomplete="off" placeholder="${reach ? 'Ou écris librement…' : 'Trop loin pour parler'}" ${reach && !this.chatWaiting ? '' : 'disabled'}><button type="submit" ${reach ? '' : 'disabled'}>➤</button></form>${mode}</div>`;
+      <form class="say-form" data-chat><input id="chat-in" maxlength="300" autocomplete="off" placeholder="${tr(reach ? 'Ou écris librement…' : 'Trop loin pour parler')}" ${reach && !this.chatWaiting ? '' : 'disabled'}><button type="submit" ${reach ? '' : 'disabled'}>➤</button></form>${mode}</div>`;
 
-    return `${this.head('🧑', t.name)}<p>${licon} ${lname} · <span class="hearts">${hearts(r)}</span><br>${job}${now}</p>
+    return `${this.head('🧑', t.name)}<p>${licon} ${tr(lname)} · <span class="hearts">${hearts(r)}</span><br>${job}${now}</p>
       <div class="sec"><b>${t('✨ Interagir')}</b><div class="choices">${extra.join('')}</div></div>${chat}`;
   }
 

@@ -1,3 +1,4 @@
+import { t } from '../i18n.js';
 import { toScreen, toTile } from '../iso.js';
 import { LAYOUTS, floorsOf } from '../interiors/layouts.js';
 import { FLOOR_ITEMS, WALL_ITEMS, P, planeX, planeY, quad, block } from '../interiors/furniture.js';
@@ -86,7 +87,7 @@ export class InteriorScene extends Phaser.Scene {
 
     const me = e => this.building && e.actor === state.player;
     state.world.on('done', e => { if (me(e)) this.floatDelta(e); });
-    state.world.on('fail', e => { if (me(e)) this.floatText(e.reason, '#e2475b'); });
+    state.world.on('fail', e => { if (me(e)) this.floatText(t(e.reason), '#e2475b'); });
 
     this.floorsEl = document.getElementById('floors');
     this.floorsEl.addEventListener('click', e => {
@@ -182,7 +183,7 @@ export class InteriorScene extends Phaser.Scene {
     el.classList.remove('hidden');
     const html = this.floors.map((F, i) => {
       const here = this.playerFloor === i ? ' here' : '';
-      return `<button data-floor="${i}" class="${i === this.floorIdx ? 'on' : ''}${here}" title="${F.name}">${F.short || i}</button>`;
+      return `<button data-floor="${i}" class="${i === this.floorIdx ? 'on' : ''}${here}" title="${t(F.name)}">${F.short || i}</button>`;
     }).reverse().join('');
     el.innerHTML = `<span>🏢</span>${html}`;
   }
@@ -264,12 +265,12 @@ export class InteriorScene extends Phaser.Scene {
     const b = this.building;
     const icon = b.type === 'home' ? '🏠' : TYPES[b.type].icon;
     const top = P(-0.5, -0.5, L.wallH);
-    const title = this.floors.length > 1 ? `${b.name} · ${L.name}` : b.name;
+    const title = this.floors.length > 1 ? `${b.name} · ${t(L.name)}` : b.name;
     this.makePill(top.x, top.y - 16, icon, title, null, 0x3d3357, true);
     // La porte : la toucher (ou l'étiquette) fait sortir directement dans la rue
     if (L.entrance) {
       const d = P(L.entrance.x + 0.15, L.entrance.y + 0.75, 4);
-      this.exitPill = this.makePill(d.x, d.y + 28, '🚪', 'Sortir', null, 0x3fae73, true); // sous le muret : ne chevauche pas les étiquettes des pièces
+      this.exitPill = this.makePill(d.x, d.y + 28, '🚪', t('Sortir'), null, 0x3fae73, true); // sous le muret : ne chevauche pas les étiquettes des pièces
     } else this.exitPill = null;
     this.renderFloorButtons();
   }
@@ -412,7 +413,7 @@ export class InteriorScene extends Phaser.Scene {
 
   makeZoneLabel(z) {
     const s = P(z.x - 0.35, z.y + z.h - 0.55, 6);
-    return { z, pill: this.makePill(s.x, s.y, z.icon, z.label, z.note || ' ', z.wall) };
+    return { z, pill: this.makePill(s.x, s.y, z.icon, t(z.label), z.note ? t(z.note) : ' ', z.wall) };
   }
 
   makeTag() {
@@ -603,7 +604,7 @@ export class InteriorScene extends Phaser.Scene {
       if (z.note) continue;
       const mine = this.stations.filter(s => s.floor === this.floorIdx && s.zone === i);
       const n = (this.assigned || []).filter(s => s.floor === this.floorIdx && s.zone === i).length;
-      pill.st.setText(mine.length ? `${n}/${mine.length} ${z.sub || 'présents'}` : `${n} ici`);
+      pill.st.setText(mine.length ? `${n}/${mine.length} ${t(z.sub || 'présents')}` : t(`${n} ici`));
       this.layoutPill(pill);
     }
   }
@@ -693,9 +694,9 @@ export class InteriorScene extends Phaser.Scene {
 
   tryAction(id) {
     const w = state.world, p = state.player;
-    if (id === 'shop') return this.floatText('🛍️ Les articles sont dans la fenêtre à droite', '#7b5cf0');
+    if (id === 'shop') return this.floatText(t('🛍️ Les articles sont dans la fenêtre à droite'), '#7b5cf0');
     if (!w.canDoAt(p, id, this.building)) {
-      return this.floatText(id === 'work' ? 'Tu ne travailles pas ici' : 'Pas possible ici', '#e2475b');
+      return this.floatText(t(id === 'work' ? 'Tu ne travailles pas ici' : 'Pas possible ici'), '#e2475b');
     }
     if (p.doing === id) return;
     w.perform(p, id);
@@ -708,7 +709,7 @@ export class InteriorScene extends Phaser.Scene {
     if (Math.abs(d.energy) >= 1) parts.push(`⚡${d.energy > 0 ? '+' : ''}${Math.round(d.energy)}`);
     if (Math.abs(d.hunger) >= 1) parts.push(`🍔${d.hunger < 0 ? '+' : ''}${Math.round(-d.hunger)}`);
     if (d.mood && Math.abs(d.mood) >= 1) parts.push(`😊${d.mood > 0 ? '+' : ''}${Math.round(d.mood)}`);
-    if (e.msg) parts.push(e.msg);
+    if (e.msg) parts.push(t(e.msg));
     if (parts.length) this.floatText(parts.join('  '), d.money < 0 ? '#3d3357' : '#2e8b57');
   }
 

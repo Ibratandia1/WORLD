@@ -1,3 +1,4 @@
+import { t } from '../i18n.js';
 import { TW, TH, toScreen, toTile } from '../iso.js';
 import { TYPES } from '../map/types.js';
 import { ACTIONS } from '../sim/actions.js';
@@ -656,7 +657,7 @@ export class GameScene extends Phaser.Scene {
     }
     for (const hl of this.hulls) {
       // (immeuble de décor : rien à faire, mais le toucher ne doit pas ouvrir le lieu caché derrière)
-      if (Phaser.Geom.Polygon.Contains(hl.poly, wp.x, wp.y)) return hl.b ? state.ui.showPlace(hl.b) : this.floatText('🏢 Immeuble d’habitation privé', '#7a6f96');
+      if (Phaser.Geom.Polygon.Contains(hl.poly, wp.x, wp.y)) return hl.b ? state.ui.showPlace(hl.b) : this.floatText(t('🏢 Immeuble d’habitation privé'), '#7a6f96');
     }
     const t = toTile(wp.x, wp.y);
     if (!this.map.walk(t.x, t.y)) return;
@@ -676,7 +677,7 @@ export class GameScene extends Phaser.Scene {
   listen() {
     const isMe = e => e.actor === state.player;
     this.world.on('done', e => { if (isMe(e)) this.floatDelta(e); });
-    this.world.on('fail', e => { if (isMe(e)) this.floatText(e.reason, '#e2475b'); });
+    this.world.on('fail', e => { if (isMe(e)) this.floatText(t(e.reason), '#e2475b'); });
     // La ville vivante : des habitants arrivent, d'autres s'en vont
     this.world.on('actorAdded', e => this.addActorView(e.actor));
     this.world.on('actorRemoved', e => {
@@ -695,7 +696,7 @@ export class GameScene extends Phaser.Scene {
     if (Math.abs(d.energy) >= 1) parts.push(`⚡${d.energy > 0 ? '+' : ''}${Math.round(d.energy)}`);
     if (Math.abs(d.hunger) >= 1) parts.push(`🍔${d.hunger < 0 ? '+' : ''}${Math.round(-d.hunger)}`);
     if (d.mood && Math.abs(d.mood) >= 1) parts.push(`😊${d.mood > 0 ? '+' : ''}${Math.round(d.mood)}`);
-    if (e.msg) parts.push(e.msg);
+    if (e.msg) parts.push(t(e.msg));
     if (parts.length) this.floatText(parts.join('  '), d.money < 0 ? '#3d3357' : '#2e8b57');
   }
 

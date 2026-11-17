@@ -1,4 +1,5 @@
 import { settings } from './settings.js';
+import { EN_EXTRA, EN_PATTERNS } from './i18n-en.js';
 
 // Traductions de l'interface. Le texte français sert de clé : t('Temps libre') → « Free time » en anglais.
 // Une phrase absente du dictionnaire reste en français (les noms propres aussi).
@@ -148,16 +149,37 @@ const EN = {
   'Touche un meuble ou une personne.': 'Tap furniture or a person.',
 };
 
-const DICTS = { en: EN };
+const DICTS = { en: { ...EN, ...EN_EXTRA } };
+const PATTERNS = { en: EN_PATTERNS };
 
 export const lang = () => settings().lang;
+
+// Traduit une phrase : d'abord le dictionnaire, puis les modèles (phrases avec des noms / nombres).
+// Dans un modèle, ⟦…⟧ marque un morceau à traduire à son tour.
+function translate(s, d, pats, depth) {
+  if (!s || depth > 5) return s;
+  if (d[s] != null) return d[s];
+  const trimmed = s.trim();
+  if (trimmed !== s && d[trimmed] != null) return s.replace(trimmed, d[trimmed]);
+  for (const [re, rep] of pats) {
+    const m = s.match(re);
+    if (!m) continue;
+    let out = typeof rep === 'function' ? rep(...m) : rep.replace(/\$(\d)/g, (_, i) => m[+i] ?? '');
+    out = out.replace(/⟦([\s\S]*?)⟧/g, (_, part) => (part ? translate(part, d, pats, depth + 1) : ''));
+    return out;
+  }
+  return s;
+}
 
 export function t(s, vars) {
   if (s == null) return s;
   const d = DICTS[lang()];
-  let out = d && d[s] != null ? d[s] : s;
+  let out = d ? translate(String(s), d, PATTERNS[lang()] || [], 0) : String(s);
   if (vars) for (const [k, v] of Object.entries(vars)) out = out.replace(`{${k}}`, v);
   return out;
 }
+
+// Plusieurs lignes (journal du quartier…) : chaque ligne est traduite séparément
+export const tLines = s => String(s).split('\n').map(l => t(l)).join('\n');
 
 export const LANGS = [['fr', 'Français'], ['en', 'English']];
