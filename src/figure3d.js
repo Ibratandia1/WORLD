@@ -14,9 +14,9 @@ function paint(geo, color) {
   geo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
   return geo;
 }
-const sph = (r, x, y, z, ws = 8, hs = 6) => new THREE.SphereGeometry(r, ws, hs).translate(x, y, z);
+const sph = (r, x, y, z, ws = 6, hs = 5) => new THREE.SphereGeometry(r, ws, hs).translate(x, y, z);
 const box = (w, h, d, x, y, z) => new THREE.BoxGeometry(w, h, d).translate(x, y, z);
-const cyl = (r1, r2, h, x, y, z, s = 7) => new THREE.CylinderGeometry(r1, r2, h, s).translate(x, y, z);
+const cyl = (r1, r2, h, x, y, z, s = 6) => new THREE.CylinderGeometry(r1, r2, h, s).translate(x, y, z);
 const darker = (c, k = 0.75) => { const o = new THREE.Color(c ?? 0x888888); o.multiplyScalar(k); return o.getHex(); };
 const BUILD = { mince: 0.86, normal: 1, fort: 1.2 };
 
@@ -46,7 +46,7 @@ function build(look, pose, k) {
   }
   // --- Bassin, buste (tenue), robe ---
   out.push(paint(box(0.2 * bw, 0.09, 0.13, 0, hipY, 0), dress ? body : bottom));
-  out.push(paint(new THREE.CapsuleGeometry(0.1 * bw, 0.17, 3, 8).scale(1, 1, 0.72).translate(0, 0.63, 0), top));
+  out.push(paint(new THREE.CapsuleGeometry(0.1 * bw, 0.17, 2, 7).scale(1, 1, 0.72).translate(0, 0.63, 0), top));
   if (dress) out.push(paint(new THREE.ConeGeometry(0.17 * bw, 0.26, 10, 1, true).translate(0, 0.42, 0), body));
   if (L.outfit === 'mariniere') for (let i = 0; i < 4; i++) out.push(paint(cyl(0.103 * bw, 0.103 * bw, 0.022, 0, 0.56 + i * 0.05, 0, 10).scale(1, 1, 0.74), 0x1f2f5e));
   if (suit) { out.push(paint(box(0.05, 0.16, 0.01, 0, 0.66, 0.075), 0xffffff)); out.push(paint(box(0.022, 0.13, 0.012, 0, 0.65, 0.08), 0xc9453f)); }
@@ -62,7 +62,7 @@ function build(look, pose, k) {
   // --- Cou, tête, visage ---
   out.push(paint(cyl(0.035, 0.04, 0.06, 0, 0.8, 0), skin));
   const hy = 0.9;
-  out.push(paint(sph(0.1, 0, hy, 0, 12, 9), skin));
+  out.push(paint(sph(0.1, 0, hy, 0, 10, 7), skin));
   for (const s of [-1, 1]) {
     out.push(paint(sph(0.016, s * 0.036, hy + 0.01, 0.088, 6, 5), 0x1d1b22));            // yeux
     out.push(paint(box(0.032, 0.008, 0.01, s * 0.036, hy + 0.045, 0.09), darker(hair, 0.9))); // sourcils
@@ -77,10 +77,10 @@ function build(look, pose, k) {
     out.push(paint(box(0.11, 0.008, 0.008, 0, hy + 0.024, 0.101), c));
   }
   // --- Coiffure ---
-  const cap = (r = 0.106, cut = Math.PI / 2) => new THREE.SphereGeometry(r, 12, 7, 0, Math.PI * 2, 0, cut);
+  const cap = (r = 0.106, cut = Math.PI / 2) => new THREE.SphereGeometry(r, 10, 5, 0, Math.PI * 2, 0, cut);
   const st = L.hairStyle || 'court';
   if (st !== 'chauve') {
-    if (st === 'afro') out.push(paint(sph(0.145, 0, hy + 0.04, -0.02, 10, 8), hair));
+    if (st === 'afro') out.push(paint(sph(0.145, 0, hy + 0.04, -0.02, 8, 6), hair));
     else if (st === 'casquette') {
       out.push(paint(cap(0.108).translate(0, hy + 0.01, 0), 0x2b3245));
       out.push(paint(box(0.13, 0.012, 0.09, 0, hy + 0.03, 0.11), 0x2b3245));

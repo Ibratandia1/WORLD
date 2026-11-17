@@ -731,3 +731,6 @@ body.v3d #game, body.v3d #game canvas { pointer-events: none; } /* la couche 2D 
 #dock #b-rotl, #dock #b-rotr { background: #eef3ff; font-size: 18px; font-weight: 700; color: #3d5bb8; }
 #dock #b-center.on { background: #ffd23f; box-shadow: 0 0 0 3px rgba(255, 210, 63, .45); }
 body.indoors #b-rotl, body.indoors #b-rotr { display: none; }
+
+/* Rien à afficher (temps libre, marche) : la fenêtre se cache */
+#box.empty { display: none !important; }

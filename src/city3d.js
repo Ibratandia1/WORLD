@@ -42,8 +42,8 @@ const mobile = matchMedia('(pointer: coarse)').matches;
 // Téléphone : anticrénelage matériel (les bords ne scintillent plus) et résolution qui s'adapte à la fluidité
 // (on commence net, on baisse un peu si l'image rame, on remonte quand ça va mieux)
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-const PR_MAX = Math.min(devicePixelRatio, mobile ? 1.8 : 2), PR_MIN = Math.min(devicePixelRatio, mobile ? 1.1 : 1);
-let pixelRatio = Math.min(devicePixelRatio, mobile ? 1.6 : 2);
+const PR_MAX = Math.min(devicePixelRatio, mobile ? 1.5 : 2), PR_MIN = Math.min(devicePixelRatio, 1);
+let pixelRatio = Math.min(devicePixelRatio, mobile ? 1.25 : 2); // (l'anticrénelage garde les bords lisses)
 renderer.setPixelRatio(pixelRatio);
 renderer.setSize(innerWidth, innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -51,7 +51,7 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.95;
 renderer.shadowMap.enabled = true;
 const adaptive = { t: 0, frames: 0, calm: 0 };
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = mobile ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap; // (ombres douces : trop coûteuses au téléphone)
 renderer.shadowMap.autoUpdate = false;
 renderer.shadowMap.needsUpdate = true;
 if (opts.demo) document.body.appendChild(renderer.domElement);
@@ -75,10 +75,10 @@ else camera.position.set(CX + (mobile ? 6 : 8.5), mobile ? 7 : 9.5, CZ + (mobile
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(CX, 0, CZ);
 controls.enableDamping = true;
-controls.dampingFactor = mobile ? 0.12 : 0.09;
+controls.dampingFactor = mobile ? 0.15 : 0.1;
 // Sensibilité : plus douce au doigt (tourner et zoomer trop vite donne le tournis)
 // (multipliée par le réglage ⚙️ → Confort → Caméra)
-const CAM_BASE = { rot: mobile ? 0.45 : 0.6, pan: mobile ? 0.8 : 1, zoom: mobile ? 0.7 : 0.9 };
+const CAM_BASE = { rot: mobile ? 0.22 : 0.4, pan: mobile ? 0.55 : 0.8, zoom: mobile ? 0.45 : 0.7 }; // (plus lent : demandé)
 function applyCamSettings() {
   const st = settings();
   controls.rotateSpeed = CAM_BASE.rot * (st.camRotate ?? 1);
@@ -88,7 +88,7 @@ function applyCamSettings() {
 applyCamSettings();
 controls.screenSpacePanning = false;
 controls.minDistance = 6; controls.maxDistance = 75;
-controls.minPolarAngle = 0.35; controls.maxPolarAngle = 1.25;
+controls.minPolarAngle = 0.25; controls.maxPolarAngle = 1.32; // (de presque au-dessus à presque à hauteur des rues)
 controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
 controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE };
 let interiorOn = false;
@@ -1271,7 +1271,8 @@ function setFollow(v) {
   api.follow = v;
   if (opts.demo) return;
   const rot1 = settings().oneFinger !== 'pan'; // réglage : un doigt tourne autour de toi, ou déplace la vue
-  controls.touches = v && rot1 ? { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN } : { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE };
+  // un doigt : tourner la vue (gauche-droite et haut-bas) ; deux doigts : zoomer (pincer) et se déplacer
+  controls.touches = rot1 ? { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN } : { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE };
   controls.mouseButtons = v ? { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN } : { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
   const b = document.getElementById('b-center'); if (b) b.classList.toggle('on', v);
 }
@@ -1456,7 +1457,7 @@ function updateMarks() {
   const k = 0.62 + Math.sin(performance.now() / 900) * 0.12; // liseré qui respire doucement (pas de clignotement)
   for (const m of Object.values(marks)) if (m) m.material.opacity = k;
 }
-let pinTick = 0;
+let pinTick = 0, lastPinSig = '';
 function updateGame(dt) {
   if (opts.demo) return;
   const now = performance.now() / 1000;
@@ -1513,14 +1514,23 @@ function updateGame(dt) {
     }
   }
   // positions + pas de chevauchement (priorité : chez toi / ton travail, puis services et commerces, puis logements libres)
-  const prio = b => (p && (b.id === p.home || (p.job && p.job.building === b.id)) ? 3 : b.type === 'home' ? 1 : 2);
-  const placed = [];
-  const list = pins.map(pin => ({ pin, s: project(pin.pos) })).sort((a, b) => prio(b.pin.b) - prio(a.pin.b));
-  for (const { pin, s } of list) {
-    let ok = pin.show && s.front && s.x > -40 && s.x < innerWidth + 40 && s.y > -40 && s.y < innerHeight + 40;
-    if (ok && !pin.role) ok = !placed.some(q => Math.abs(q.x - s.x) < 34 && Math.abs(q.y - s.y) < 40);
-    pin.el.style.display = ok ? '' : 'none';
-    if (ok) { placed.push(s); pin.el.style.transform = `translate(${s.x}px, ${s.y}px)`; }
+  // (seulement quand la caméra a bougé ou que les épingles ont changé : moins de travail pour le téléphone)
+  const camSig = `${camera.position.x.toFixed(3)},${camera.position.y.toFixed(3)},${camera.position.z.toFixed(3)},${controls.target.x.toFixed(3)},${controls.target.z.toFixed(3)},${innerWidth},${pinTick === 1 ? Math.random() : ''}`;
+  if (camSig !== lastPinSig) {
+    lastPinSig = camSig;
+    const prio = b => (p && (b.id === p.home || (p.job && p.job.building === b.id)) ? 3 : b.type === 'home' ? 1 : 2);
+    const placed = [];
+    const list = pins.map(pin => ({ pin, s: project(pin.pos) })).sort((a, b) => prio(b.pin.b) - prio(a.pin.b));
+    for (const { pin, s } of list) {
+      let ok = pin.show && s.front && s.x > -40 && s.x < innerWidth + 40 && s.y > -40 && s.y < innerHeight + 40;
+      if (ok && !pin.role) ok = !placed.some(q => Math.abs(q.x - s.x) < 34 && Math.abs(q.y - s.y) < 40);
+      if (pin.vis !== ok) { pin.vis = ok; pin.el.style.display = ok ? '' : 'none'; }
+      if (ok) {
+        placed.push(s);
+        const tf = `translate(${Math.round(s.x)}px, ${Math.round(s.y)}px)`;
+        if (pin.tf !== tf) { pin.tf = tf; pin.el.style.transform = tf; }
+      }
+    }
   }
   if (arrow) {
     const live = performance.now() < +arrow.dataset.until;
@@ -1841,7 +1851,7 @@ function frame() {
     if (adaptive.t >= 2) {
       const fps = adaptive.frames / adaptive.t; adaptive.frames = 0; adaptive.t = 0;
       let pr = pixelRatio;
-      if (fps < 38 && pr > PR_MIN) { pr = Math.max(PR_MIN, pr - 0.15); adaptive.calm = 0; }
+      if (fps < 45 && pr > PR_MIN) { pr = Math.max(PR_MIN, pr - 0.15); adaptive.calm = 0; }
       else if (fps > 55) { if (++adaptive.calm >= 3 && pr < PR_MAX) { pr = Math.min(PR_MAX, pr + 0.1); adaptive.calm = 0; } }
       else adaptive.calm = 0;
       if (pr !== pixelRatio) { pixelRatio = pr; renderer.setPixelRatio(pr); if (composer) composer.setPixelRatio(pr); api.pixelRatio = pr; }

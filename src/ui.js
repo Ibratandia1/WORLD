@@ -86,8 +86,6 @@ export class UI {
     });
     $('b-look').onclick = () => openCustomizer();
     $('b-center').onclick = () => state.scene && state.scene.centerOnPlayer();
-    $('b-rotl').onclick = () => state.city3d && state.city3d.rotateBy(Math.PI / 4);
-    $('b-rotr').onclick = () => state.city3d && state.city3d.rotateBy(-Math.PI / 4);
     $('b-routine').onclick = () => {
       player.routine = !player.routine; player.thinkIn = 0; this.syncControls(); this.refresh(true);
       if (player.routine) this.floatNote(t('⚠️ Routine : livré à lui-même, ton personnage peut mal tourner (vols, pots-de-vin, jeux, absences)…'));
@@ -282,7 +280,7 @@ export class UI {
       comfort: `<h3>🎥 ${t('Caméra')}</h3>
           ${[['camRotate', '🔄', 'Rotation'], ['camZoom', '🔍', 'Zoom'], ['camPan', '✋', 'Déplacement']].map(([k, ic, l]) =>
             `<label class="range"><span>${ic} ${esc(t(l))}</span><input type="range" min="0.3" max="2" step="0.1" value="${s[k] ?? 1}" data-range="${k}" oninput="this.nextElementSibling.textContent=Math.round(this.value*100)+' %'"><b>${Math.round((s[k] ?? 1) * 100)} %</b></label>`).join('')}
-        <h3>☝️ ${t('Un doigt (quand la caméra te suit)')}</h3>${chips('oneFinger', [['rotate', 'Tourner autour de moi'], ['pan', 'Déplacer la vue']])}
+        <h3>☝️ ${t('Un doigt')}</h3>${chips('oneFinger', [['rotate', 'Tourner la vue'], ['pan', 'Déplacer la vue']])}
         <div class="choices two">${sw('vibrate', 'Vibrations', '📳')}${sw('tips', 'Astuces', '💡')}</div>
         <h3>⏱️ ${t('Les événements s’effacent après')}</h3>${chips('eventTimer', [[8, '8 s'], [12, '12 s'], [25, '25 s'], [0, 'jamais']])}
         <div class="choices">${this.choiceHTML('data-resettips', '💡', 'Revoir les astuces', '', true)}</div>`,
@@ -445,9 +443,10 @@ export class UI {
     else {
       const info = this.statusInfo();
       this.statusKey = info.key;
-      box.innerHTML = info.stay ? this.placeHTML(info.stay, true) : this.statusHTML(info);
+      box.innerHTML = info.stay ? this.placeHTML(info.stay, true) : info.hidden ? '' : this.statusHTML(info);
       if (info.stay) shownPlace = info.stay;
     }
+    box.classList.toggle('empty', !box.innerHTML.trim());
     if (this.place) shownPlace = this.place;
     // Fiche d'un lieu : fenêtre élargie en paysage (boutons en grille), couleur du type de lieu
     const mini = !!shownPlace && !this.place && shownPlace.type !== 'home' && !this.placeMore; // petite fiche dans un commerce
@@ -994,7 +993,7 @@ export class UI {
     if (now - (this.tipAt || -1e9) < 45000 || this.tipOn) return;
     p.tips = p.tips || [];
     const TIPS = [
-      ['camera', () => p.outdoors && w.minutes > 40, '🎥 Un doigt : tourner autour de toi · deux doigts : zoomer et déplacer la vue · ⟲ ⟳ pour pivoter · 🎯 pour te suivre à nouveau.'],
+      ['camera', () => p.outdoors && w.minutes > 40, '🎥 Un doigt : tourner la vue · deux doigts : zoomer et déplacer · 🎯 pour te suivre à nouveau.'],
       ['career', () => p.job && w.day >= 3, '📈 Chaque lieu a plusieurs postes : diplôme 🎓, formation 📜 (à l’école) ou expérience ⏳. Ouvre la fiche de ton travail pour demander une promotion.'],
       ['guide', () => p.goals && p.goals.tut >= 1, '📖 Perdu·e ? Le guide complet du jeu est dans ⚙️ Paramètres (en haut à droite).'],
       ['hungry', () => p.hunger > 65, '🍔 Ton ventre gargouille : cuisine chez toi (🥫 = repas au frigo) ou va à la boulangerie.'],
@@ -1103,6 +1102,7 @@ export class UI {
         progress: 1 - p.current.remaining / p.current.total, cancel: true,
       };
     }
+    if (p.plan && p.plan.id === 'goto') return { key: 'walk', hidden: true }; // marcher : pas de fenêtre (les pointillés dorés suffisent)
     if (p.plan) {
       const def = ACTIONS[p.plan.id];
       const b = p.plan.buildingId != null ? w.building(p.plan.buildingId) : null;
@@ -1113,7 +1113,7 @@ export class UI {
       };
     }
     if (p.routine) return { key: 'routine', icon: '🔁', title: 'Routine', sub: 'Ta routine choisit la prochaine activité.' };
-    return { key: 'idle', icon: '🙂', title: 'Temps libre', sub: 'Touche un lieu, une rue ou une personne.' };
+    return { key: 'idle', hidden: true }; // rien en cours : la fenêtre se cache
   }
 
   statusHTML(info) {
