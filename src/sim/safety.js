@@ -1,5 +1,22 @@
 import { near } from './social.js';
-import { credit } from './budget.js';
+import { credit, debit } from './budget.js';
+
+// Fin de détention : pécule de l'atelier versé (par le Trésor), cours suivis comptés dans les études. Renvoie le message.
+export function prisonRelease(w, a) {
+  const pay = Math.round(a.prisonPay || 0);
+  if (pay > 0) { a.money += pay; debit(w, 'wages', pay); }
+  a.prisonPay = 0;
+  let msg = pay > 0 ? `Libéré·e, avec ${pay} € de pécule gagnés à l’atelier.` : 'Libéré·e. On repart de zéro ?';
+  const lessons = Math.floor(a.prisonStudy || 0);
+  if (lessons > 0 && (a.education ?? 1) < 3) {
+    a.studies = (a.studies || 0) + lessons;
+    while (a.studies >= 3 && (a.education ?? 1) < 3) { a.studies -= 3; a.education = (a.education ?? 1) + 1; }
+    msg += ` Cours suivis en détention : ${lessons}.`;
+  }
+  a.prisonStudy = 0;
+  a.karma = (a.karma || 0) + 1;
+  return msg;
+}
 
 // Sécurité du quartier : délits (vol à la tire, vol à l'étalage, cambriolage), police, prison ; incendies et pompiers ;
 // maladies. Les gestes eux-mêmes sont des actions (actions.js) : steal, shoplift, burgle, arrest, report, extinguish,
@@ -120,8 +137,9 @@ export class Safety {
     for (const a of w.actors) {
       if (a.jailUntil && w.minutes >= a.jailUntil) {
         a.jailUntil = null;
+        const msg = a.trial ? null : prisonRelease(w, a);
         if (a.current && a.current.id === 'jail') w.stay(a, a.current.buildingId);
-        w.emit('released', { actor: a });
+        w.emit('released', { actor: a, msg });
       }
     }
   }

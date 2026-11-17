@@ -248,7 +248,7 @@ export const EN_EXTRA = {
   'Le coffre-fort. Il paraît qu’il est inviolable.': 'The safe. They say it’s unbreakable.', 'Le guichet, derrière sa vitre.': 'The counter, behind its glass.',
   'Le distributeur de billets.': 'The cash machine.', 'L’estrade du juge, et son marteau.': 'The judge’s bench, and the gavel.', 'La barre, où l’on témoigne.': 'The stand, where witnesses testify.',
   'Une poubelle bien vidée.': 'A freshly emptied bin.',
-  'Fermé : personne en service': 'Closed: nobody on duty', 'Accepter un pot-de-vin': 'Accept a bribe', 'Réservé aux agents publics': 'Public servants only',
+  'Réfectoire': 'Canteen', 'Fermé : personne en service': 'Closed: nobody on duty', 'Accepter un pot-de-vin': 'Accept a bribe', 'Réservé aux agents publics': 'Public servants only',
   'Seulement pendant le service': 'Only during your shift', 'Moins': 'Less',
   '⚠️ Routine : livré à lui-même, ton personnage peut mal tourner (vols, pots-de-vin, jeux, absences)…': '⚠️ Routine: left to themselves, your character may go astray (theft, bribes, gambling, absences)…',
   '⚠️ Mais livré à lui-même, il peut mal tourner : vols, pots-de-vin, jeux d’argent, jours d’absence… Plus souvent mal que bien !': '⚠️ But left alone, they may go astray: theft, bribes, gambling, missed days… More often bad than good!',
@@ -270,6 +270,10 @@ export const EN_EXTRA = {
 
 // Modèles : [expression, remplacement] — $1, $2… = morceaux repris ; ⟦…⟧ = morceau traduit à son tour
 export const EN_PATTERNS = [
+  [/^Tu as purgé ta peine\. (.+)$/, 'You’ve served your sentence. ⟦$1⟧'],
+  [/^Libéré·e, avec (\d+) € de pécule gagnés à l’atelier\.(.*)$/, 'Released, with €$1 earned in the prison workshop.⟦$2⟧'],
+  [/^Libéré·e\. On repart de zéro \?(.*)$/, 'Released. A fresh start?⟦$1⟧'],
+  [/^ Cours suivis en détention : (\d+)\.$/, ' Classes taken in prison: $1.'],
   [/^(.+) Et en tant que responsable, je dois tout surveiller !$/, '⟦$1⟧ And as the manager, I have to keep an eye on everything!'],
   [/^\+(\d+) € glissés discrètement dans ta poche\.$/, '+€$1 slipped discreetly into your pocket.'],
   [/^\+(\d+) €… mais quelqu’un t’a vu·e ! Renvoi et enquête\.$/, '+€$1… but someone saw you! Fired and investigated.'],

@@ -356,7 +356,7 @@ const PUSHED = {
     ].filter(Boolean).join(' '),
     choices: OK,
   }),
-  released: () => ({ icon: '🔓', title: 'Libéré·e', text: 'Tu as purgé ta peine. Tu peux sortir de la Maison d’arrêt.', choices: OK }),
+  released: (a, w, e) => ({ icon: '🔓', title: 'Libéré·e', text: e && e.msg ? `Tu as purgé ta peine. ${e.msg}` : 'Tu as purgé ta peine. Tu peux sortir de la Maison d’arrêt.', choices: OK }),
   fellSick: (a, w) => ({
     icon: '🤧', title: 'Tu as attrapé froid',
     text: 'Fatigue, nez qui coule… Ça passera en 3 jours, ou plus vite avec un médecin à l’hôpital.',

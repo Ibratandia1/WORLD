@@ -370,12 +370,19 @@ export const LAYOUTS = {
       { x: 4, y: 0, w: 3, h: 4, floor: [0xa9a7a1, 0x9f9d97], wall: 0x5f6066, label: 'Cellule', icon: '🔒', sub: '', doors: [[4, 3]] },
       { x: 8, y: 0, w: 3, h: 4, floor: [0xa9a7a1, 0x9f9d97], wall: 0x5f6066, label: 'Cellule', icon: '🔒', sub: '', doors: [[8, 3]] },
     ],
+    // Cellules avec lit, table de nuit et plante ; réfectoire, bibliothèque et coin télé : une détention digne
     items: [
-      { k: 'bed', x: 0, y: 1, c: 0x8a8f99 }, { k: 'bed', x: 5, y: 1, c: 0x8a8f99 }, { k: 'bed', x: 9, y: 1, c: 0x8a8f99 },
-      { k: 'desk', x: 2, y: 6 }, { k: 'chair', x: 2, y: 5 }, { k: 'tablec', x: 7, y: 6 }, { k: 'bench', x: 8, y: 6 }, { k: 'bench', x: 6, y: 6 },
+      { k: 'bed', x: 0, y: 1, c: 0x5b8def }, { k: 'bed', x: 5, y: 1, c: 0x4bbf8b }, { k: 'bed', x: 9, y: 1, c: 0xf2c94c },
+      { k: 'nightstand', x: 1, y: 0 }, { k: 'nightstand', x: 6, y: 0 }, { k: 'nightstand', x: 10, y: 0 },
+      { k: 'desk', x: 2, y: 6 }, { k: 'chair', x: 2, y: 5 },
+      { k: 'tableh', x: 7, y: 6, name: 'Réfectoire' }, { k: 'bench', x: 8, y: 6 }, { k: 'bench', x: 6, y: 6 },
+      { k: 'bookshelf', x: 4, y: 7, name: 'Bibliothèque' }, { k: 'tvstand', x: 10, y: 5 }, { k: 'sofa', x: 10, y: 7, c: 0x7a6f96 },
+      { k: 'cooler', x: 3, y: 4 }, { k: 'plant', x: 0, y: 7 }, { k: 'plant', x: 10, y: 4 },
     ],
     stations: [S(2, 5, ['work'], { pose: 'sit' }), S(4, 5, ['work']), S(8, 5, ['work']),
-      S(0, 1, ['jail'], { lie: true }), S(5, 1, ['jail'], { lie: true }), S(9, 1, ['jail'], { lie: true }), S(6, 6, ['jail', 'any'], { seat: true })],
+      S(0, 1, ['jail'], { lie: true }), S(5, 1, ['jail'], { lie: true }), S(9, 1, ['jail'], { lie: true }),
+      S(6, 6, ['jail', 'any'], { seat: true, pose: 'eat2' }), S(8, 6, ['jail'], { seat: true, pose: 'eat2' }),
+      S(4, 6, ['jail'], { pose: 'read' }), S(10, 7, ['jail', 'any'], { seat: true })],
   },
 
   school: {

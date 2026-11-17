@@ -5,6 +5,10 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { QUARTIER } from './map/quartier.js';
 import { parseMap } from './map/parse.js';
 import { World } from './sim/world.js';
@@ -217,7 +221,26 @@ const add = (geos, mat, { cast = true, receive = true } = {}) => {
 
 // ---------- Sol : trottoirs surélevés (bordures), rues, pavés, herbe, eau ----------
 const T = (x, y) => (map.tiles[y] && map.tiles[y][x]) || null;
-const groundGeos = [], markGeos = [];
+const groundGeos = [], markGeos = [], roadGeos = [], grassGeos = [];
+const noiseTex = (base, n, size = 128) => canvasTex(size, (g, S) => {
+  g.fillStyle = base; g.fillRect(0, 0, S, S);
+  for (let i = 0; i < n; i++) { const v = Math.random(); g.fillStyle = v < 0.5 ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.07)'; g.fillRect(Math.random() * S, Math.random() * S, 2, 2); }
+});
+const paverTex = canvasTex(128, (g, S) => {
+  g.fillStyle = '#ffffff'; g.fillRect(0, 0, S, S);
+  g.strokeStyle = 'rgba(0,0,0,0.13)'; g.lineWidth = 2;
+  for (let k = 0; k <= 4; k++) { g.beginPath(); g.moveTo(0, k * S / 4); g.lineTo(S, k * S / 4); g.stroke(); }
+  for (let r = 0; r < 4; r++) for (let k = 0; k <= 2; k++) { const x = (k + (r % 2) * 0.5) * S / 2; g.beginPath(); g.moveTo(x, r * S / 4); g.lineTo(x, (r + 1) * S / 4); g.stroke(); }
+  for (let i = 0; i < 400; i++) { g.fillStyle = Math.random() < 0.5 ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.06)'; g.fillRect(Math.random() * S, Math.random() * S, 2, 2); }
+});
+const asphaltTex = noiseTex('#ffffff', 900);
+const grassTex = canvasTex(128, (g, S) => {
+  g.fillStyle = '#ffffff'; g.fillRect(0, 0, S, S);
+  for (let i = 0; i < 500; i++) { g.fillStyle = ['rgba(30,90,30,0.18)', 'rgba(255,255,255,0.15)', 'rgba(255,240,120,0.25)'][i % 3]; g.fillRect(Math.random() * S, Math.random() * S, 2, 3); }
+});
+const roadMat = new THREE.MeshStandardMaterial({ vertexColors: true, map: asphaltTex, roughness: 0.95 });
+const grassMat = new THREE.MeshStandardMaterial({ vertexColors: true, map: grassTex, roughness: 1 });
+mats.ground.map = paverTex; mats.ground.needsUpdate = true;
 const GROUND = {
   pave: [0xd9cdb5, 0xa9a297, 0.08], cobble: [0xc4b393, 0x9c8f78, 0.08], grass: [0x6db35b, 0x5d8243, 0.1], road: [0x4e5361, 0x4e5361, 0.0],
 };
@@ -230,9 +253,11 @@ for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
   const quay = T(x, y - 1) && T(x, y - 1).ground === 'water';
   const g = box(1, h + 0.02 + (quay ? 0.25 : 0), 1, x, -0.02 - (quay ? 0.25 : 0), y);
   paint(g, quay ? 0xcfc6b4 : gdef[1], t.ground === 'road' && (x + y) % 2 ? 0x595e6c : gdef[0]);
-  groundGeos.push(g);
+  (t.ground === 'road' ? roadGeos : t.ground === 'grass' ? grassGeos : groundGeos).push(g);
 }
 add(groundGeos, mats.ground, { cast: false });
+add(roadGeos, roadMat, { cast: false });
+add(grassGeos, grassMat, { cast: false });
 // Socle façon maquette sous le quartier (terre et pierre), au lieu d'un bord qui flotte
 const plinth = new THREE.Mesh(paint(box(W + 0.6, 1.4, H + 0.6, CX - 0.5, -1.45, H / 2 - 0.5), 0x8c7a62, 0xcfc6b4), mats.ground);
 plinth.receiveShadow = true; scene.add(plinth);
@@ -423,10 +448,12 @@ function landmark(type, r, cx, cz, w, d, base, top) {
     solidGeos.push(paint(box(0.42, 0.05, 0.42, px(0.1, span * 0.4), base + 1.5, pz(0.1, span * 0.4)), 0x5f6066));
   }
 }
+const aoRects = [];
 const tops = {}; // hauteur du toit de chaque lieu (pour les épingles)
 function building(r, type, seed, bid = null) {
   const x = r.x0 + r.w / 2 - 0.5, z = r.y0 + r.h / 2 - 0.5;
   const w = r.w - 0.04, d = r.h - 0.04;
+  aoRects.push([x, z, w, d]);
   const floors = TYPE_FLOORS[type] ?? 6;
   const base = 0.08;
   if (type === 'metro') { // bouche de métro : entourage vert et panneau
@@ -504,6 +531,18 @@ add(wallGeos, mats.wall);
 add(shopGeos, mats.shop);
 add(glassGeos, mats.glass);
 add(roofGeos, mats.roof);
+{
+  const aoTex = canvasTex(128, (g, S) => {
+    g.clearRect(0, 0, S, S);
+    g.shadowColor = 'rgba(0,0,0,0.75)'; g.shadowBlur = 22; g.fillStyle = 'rgba(0,0,0,0.75)';
+    g.fillRect(S * 0.24, S * 0.24, S * 0.52, S * 0.52);
+  }, false);
+  const geos = aoRects.map(([x, z, w, d]) => new THREE.PlaneGeometry(w + 0.9, d + 0.9).rotateX(-Math.PI / 2).translate(x, 0.086, z));
+  if (geos.length) {
+    const ao = new THREE.Mesh(mergeGeometries(geos), new THREE.MeshBasicMaterial({ map: aoTex, transparent: true, depthWrite: false, opacity: 0.55 }));
+    ao.userData.noTap = true; ao.renderOrder = 1; scene.add(ao);
+  }
+}
 
 // ---------- Arbres, lampadaires, bancs, fontaines, statue ----------
 const trees = [];
@@ -695,6 +734,24 @@ function updateCars(dt) {
 
 // ---------- Jour / nuit ----------
 const tmpC = new THREE.Color();
+const SKY_ZENITH_DAY = new THREE.Color(0x6fa8e0), SKY_ZENITH_NIGHT = new THREE.Color(0x070b1c);
+const skyMat = new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false, fog: false,
+  uniforms: { top: { value: new THREE.Color(0x6fa8e0) }, bottom: { value: new THREE.Color(0xbcd6ee) } },
+  vertexShader: 'varying float h; void main(){ h = normalize(position).y; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: 'uniform vec3 top; uniform vec3 bottom; varying float h; void main(){ gl_FragColor = vec4(mix(bottom, top, smoothstep(-0.05, 0.6, h)), 1.0); }',
+});
+const sky = new THREE.Mesh(new THREE.SphereGeometry(140, 24, 12), skyMat);
+sky.userData.noTap = true; sky.renderOrder = -1; scene.add(sky);
+// Halo lumineux la nuit (fenêtres, lampadaires, feux) : seulement sur les appareils puissants
+let composer = null, bloom = null;
+if (!mobile && !opts.saver) {
+  composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));
+  bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0, 0.3, 0.9);
+  composer.addPass(bloom);
+  composer.addPass(new OutputPass());
+}
 function lighting() {
   const h = world.hour;
   const day = THREE.MathUtils.clamp(Math.sin(((h - 6) / 12) * Math.PI), 0, 1); // 0 la nuit, 1 à midi
@@ -711,8 +768,13 @@ function lighting() {
   scene.environmentIntensity = 0.03 + day * 0.13;
   tmpC.copy(SKY_NIGHT).lerp(SKY_DAY, Math.min(1, day * 1.6)).lerp(SKY_DUSK, Math.min(0.55, dusk * 0.55));
   scene.background.copy(tmpC); scene.fog.color.copy(tmpC);
+  skyMat.uniforms.top.value.copy(tmpC).lerp(SKY_ZENITH_NIGHT, night).lerp(SKY_ZENITH_DAY, day * 0.7);
+  skyMat.uniforms.bottom.value.copy(tmpC);
+  sky.position.copy(camera.position);
+  // halo des lumières la nuit
+  if (bloom) bloom.strength = night * 0.38;
   const glow = night * 1.6;
-  mats.wall.emissiveIntensity = glow; mats.shop.emissiveIntensity = glow * 1.1; mats.glass.emissiveIntensity = glow * 0.45;
+  mats.wall.emissiveIntensity = glow; mats.shop.emissiveIntensity = glow * 1.1; mats.glass.emissiveIntensity = glow * 0.3;
   mats.bulb.emissiveIntensity = night * 3;
   renderer.toneMappingExposure = 0.95;
 }
@@ -1153,7 +1215,7 @@ function loop() {
   lighting();
   updateLights();
   controls.update();
-  renderer.render(scene, camera);
+  if (composer && bloom.strength > 0.02) composer.render(); else renderer.render(scene, camera);
   if (opts.demo) {
   const hh = Math.floor(world.hour), mm = Math.floor((world.hour % 1) * 60);
   $('clock').textContent = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')} · J${world.day}`;
@@ -1164,7 +1226,7 @@ function loop() {
   updateGame(dt);
   requestAnimationFrame(loop);
 }
-addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); if (composer) composer.setSize(innerWidth, innerHeight); });
 window.three = { scene, sun, hemi, renderer, mats, camera, controls }; // débogage (console)
 loop();
 return api;

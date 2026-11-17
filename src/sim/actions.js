@@ -5,7 +5,7 @@ import { itemById, hasPhone } from './catalog.js';
 import { isClosed, freeUnits } from './city.js';
 import { AID_EVERY, CAMPAIGN_FEE, TAX_POLICIES, AID_POLICIES, PROJECTS } from './gov.js';
 import { TUTORIAL, TUT_REWARD, TUT_FINAL, DREAMS, tutReady, dreamDone, dailyFor, dailyDone, DAILY_REWARD, DAILY_BONUS, levelOf, LEVEL_TITLES, XP } from './goals.js';
-import { isPolice } from './safety.js';
+import { isPolice, prisonRelease } from './safety.js';
 import { isLawyer, LAWYER_FEE } from './justice.js';
 import { LOAN_STEP, LOAN_MAX, LOAN_RATE } from './bank.js';
 import { debit, isPublicJob } from './budget.js';
@@ -648,8 +648,18 @@ export const ACTIONS = {
   // ---------- Délits, police, prison ----------
   jail: {
     icon: '⛓️', label: 'En prison', skip: 16,
-    tick: (a, w, dt) => { a.hunger = Math.max(0, a.hunger - 0.05 * dt); a.mood -= 0.01 * dt; }, // repas servis, moral en berne
-    effect: a => { a.jailUntil = null; return 'Libéré·e. On repart de zéro ?'; },
+    // Détention digne : trois repas par jour, nuits de repos, et en journée atelier rémunéré (pécule versé à la sortie),
+    // bibliothèque, sport et cours. Le moral reste stable et l'on ressort avec un petit bagage pour repartir.
+    tick: (a, w, dt) => {
+      const h = w.hour;
+      a.hunger = Math.max(0, a.hunger - 0.12 * dt);                      // repas servis à heures fixes
+      a.energy = Math.min(100, a.energy + (h >= 22 || h < 7 ? 0.16 : 0.04) * dt); // la nuit on dort, le jour on souffle
+      a.mood = Math.max(35, a.mood + (a.mood < 50 ? 0.04 : -0.002) * dt); // soutien et activités : le moral ne s'effondre pas
+      a.sick = false;                                                    // infirmerie
+      if (h >= 9 && h < 17 && w.weekday < 5) a.prisonPay = (a.prisonPay || 0) + (4 / 60) * dt; // atelier : 4 €/h
+      if (h >= 14 && h < 16) a.prisonStudy = (a.prisonStudy || 0) + dt / 120; // cours l'après-midi
+    },
+    effect: (a, w) => { a.jailUntil = null; return prisonRelease(w, a); },
   },
   steal: {
     icon: '🤏', label: 'Voler son portefeuille (risqué)', here: true, duration: 2, custom: true,

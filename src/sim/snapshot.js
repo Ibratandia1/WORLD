@@ -10,7 +10,7 @@ const ACTOR_FIELDS = [
   'owned', 'vehicle', 'referrals', 'taxWeek', 'mood', 'gifts', // ajoutés sans changer de version : les anciennes sauvegardes restent valides
   'hardDays', 'newcomer', 'fav', 'aidDay', 'role', 'lastRepair', 'goals', 'tips',
   'education', 'studies', 'studyDay', 'wanted', 'victimOf', 'sick', 'sickSince', 'jailUntil',
-  'bank', 'loan', 'trial',
+  'bank', 'loan', 'trial', 'prisonPay', 'prisonStudy',
 ];
 // Pour les nouveaux arrivants (absents de la liste de départ), on garde aussi qui ils sont
 const NEWCOMER_FIELDS = ['name', 'look', 'role', 'controller'];
