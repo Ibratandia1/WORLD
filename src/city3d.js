@@ -23,6 +23,7 @@ import { phase, carMayGo, walkMayGo } from './sim/traffic.js';
 import { findPath } from './sim/pathfinding.js';
 import { cityPulse } from './city/common.js';
 import { createInterior3D } from './interior3d.js';
+import { settings, onSettings } from './settings.js';
 import { figurePose, FIGURE_MAT, WALK_FRAMES } from './figure3d.js';
 import { t as tr } from './i18n.js';
 
@@ -76,9 +77,15 @@ controls.target.set(CX, 0, CZ);
 controls.enableDamping = true;
 controls.dampingFactor = mobile ? 0.12 : 0.09;
 // Sensibilité : plus douce au doigt (tourner et zoomer trop vite donne le tournis)
-controls.rotateSpeed = mobile ? 0.45 : 0.6;
-controls.panSpeed = mobile ? 0.8 : 1;
-controls.zoomSpeed = mobile ? 0.7 : 0.9;
+// (multipliée par le réglage ⚙️ → Confort → Caméra)
+const CAM_BASE = { rot: mobile ? 0.45 : 0.6, pan: mobile ? 0.8 : 1, zoom: mobile ? 0.7 : 0.9 };
+function applyCamSettings() {
+  const st = settings();
+  controls.rotateSpeed = CAM_BASE.rot * (st.camRotate ?? 1);
+  controls.panSpeed = CAM_BASE.pan * (st.camPan ?? 1);
+  controls.zoomSpeed = CAM_BASE.zoom * (st.camZoom ?? 1);
+}
+applyCamSettings();
 controls.screenSpacePanning = false;
 controls.minDistance = 6; controls.maxDistance = 75;
 controls.minPolarAngle = 0.35; controls.maxPolarAngle = 1.25;
@@ -1263,11 +1270,13 @@ let userDrag = null;
 function setFollow(v) {
   api.follow = v;
   if (opts.demo) return;
-  controls.touches = v ? { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN } : { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE };
+  const rot1 = settings().oneFinger !== 'pan'; // réglage : un doigt tourne autour de toi, ou déplace la vue
+  controls.touches = v && rot1 ? { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN } : { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE };
   controls.mouseButtons = v ? { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN } : { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
   const b = document.getElementById('b-center'); if (b) b.classList.toggle('on', v);
 }
 setFollow(true);
+onSettings(() => { applyCamSettings(); setFollow(api.follow); });
 controls.addEventListener('start', () => { userDrag = controls.target.clone(); });
 controls.addEventListener('end', () => { userDrag = null; });
 controls.addEventListener('change', () => {
@@ -1330,11 +1339,11 @@ if (!opts.demo) {
   const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
   let down = null;
   const el = renderer.domElement;
-  el.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY }; });
+  el.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY, t: performance.now() }; });
   el.addEventListener('pointerup', e => {
     if (!down) return;
-    const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y); down = null;
-    if (moved < 8) tap(e.clientX, e.clientY);
+    const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y), held = performance.now() - down.t; down = null;
+    if (moved < (mobile ? 18 : 8) && held < 450) tap(e.clientX, e.clientY);
   });
   function tap(cx, cy) {
     if (interior && opts.player && opts.player.inside != null) return interior.tap(cx, cy, camera);

@@ -12,7 +12,9 @@ export const DEFAULTS = {
   uiSounds: true,      // petits sons de l'interface (clic, événement, pièces…)
   vibrate: true,       // vibrations sur téléphone
   tips: true,          // astuces
-  eventTimer: 12,      // secondes avant qu'un événement s'efface (0 = jamais)
+  eventTimer: 12,
+  camRotate: 1, camZoom: 1, camPan: 1, // sensibilité de la caméra (0,3 à 2)
+  oneFinger: 'rotate', // un doigt quand la caméra te suit : 'rotate' (tourner autour de toi) | 'pan' (déplacer la vue)      // secondes avant qu'un événement s'efface (0 = jamais)
   textSize: 'normal',  // 'small' | 'normal' | 'large'
   view3d: true,
   musVol: 0.8, ambVol: 0.8, uiVol: 1,  // volumes séparés (0 à 1)        // ville en 3D (Three.js) ; false = ancienne vue 2D isométrique

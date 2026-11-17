@@ -279,7 +279,11 @@ export class UI {
         </div>
         <div class="choices two">${sw('music', 'Musique', '🎻')}${sw('ambience', 'Ambiances (ville, pluie, café)', '🌧️')}${sw('uiSounds', 'Sons de l’interface', '🔔')}</div>
         <div class="choices">${this.choiceHTML('data-sndtest class="c-rest"', '🎵', 'Tester le son', '', true)}</div>`,
-      comfort: `<div class="choices two">${sw('vibrate', 'Vibrations', '📳')}${sw('tips', 'Astuces', '💡')}</div>
+      comfort: `<h3>🎥 ${t('Caméra')}</h3>
+          ${[['camRotate', '🔄', 'Rotation'], ['camZoom', '🔍', 'Zoom'], ['camPan', '✋', 'Déplacement']].map(([k, ic, l]) =>
+            `<label class="range"><span>${ic} ${esc(t(l))}</span><input type="range" min="0.3" max="2" step="0.1" value="${s[k] ?? 1}" data-range="${k}" oninput="this.nextElementSibling.textContent=Math.round(this.value*100)+' %'"><b>${Math.round((s[k] ?? 1) * 100)} %</b></label>`).join('')}
+        <h3>☝️ ${t('Un doigt (quand la caméra te suit)')}</h3>${chips('oneFinger', [['rotate', 'Tourner autour de moi'], ['pan', 'Déplacer la vue']])}
+        <div class="choices two">${sw('vibrate', 'Vibrations', '📳')}${sw('tips', 'Astuces', '💡')}</div>
         <h3>⏱️ ${t('Les événements s’effacent après')}</h3>${chips('eventTimer', [[8, '8 s'], [12, '12 s'], [25, '25 s'], [0, 'jamais']])}
         <div class="choices">${this.choiceHTML('data-resettips', '💡', 'Revoir les astuces', '', true)}</div>`,
       battery: `<p>${t('Moins de passants et de voitures ; résolution réduite au prochain lancement.')}</p>
