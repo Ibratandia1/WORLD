@@ -4,14 +4,20 @@ const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 // Traverser ailleurs est interdit (amende si la police voit) : très coûteux, donc presque jamais choisi.
 const CROSSING_COST = 2;
 const JAYWALK_COST = 60;
-const costOf = (map, x, y) => {
-  const t = map.tiles[y][x];
-  return t.ground !== 'road' ? 1 : t.crossing ? CROSSING_COST : JAYWALK_COST;
+// À pied : trottoirs, ruelles, parcs ; la chaussée seulement sur les passages piétons.
+// À vélo : la piste cyclable (bord de la chaussée) d'abord, le trottoir au pas si besoin.
+// En voiture / scooter : la chaussée ; le trottoir seulement pour rejoindre la porte, jamais les parcs.
+const COSTS = {
+  walk: t => (t.ground !== 'road' ? 1 : t.crossing ? CROSSING_COST : JAYWALK_COST),
+  bike: t => (t.ground === 'road' ? 0.6 : t.ground === 'grass' || t.ground === 'gravel' ? 2.5 : 1.6),
+  motor: t => (t.ground === 'road' ? 0.4 : t.ground === 'grass' || t.ground === 'gravel' ? 30 : 4),
 };
 
 // Plus court chemin (Dijkstra) vers la première case qui satisfait isGoal(x, y).
-// Renvoie { path, goal } (path sans la case de départ) ou null.
-export function findPath(map, start, isGoal) {
+// Renvoie { path, goal } (path sans la case de départ) ou null. mode : 'walk' | 'bike' | 'motor'.
+export function findPath(map, start, isGoal, mode = 'walk') {
+  const cost = COSTS[mode] || COSTS.walk;
+  const costOf = (m, x, y) => cost(m.tiles[y][x]);
   const sx = Math.round(start.x), sy = Math.round(start.y);
   if (isGoal(sx, sy)) return { path: [], goal: { x: sx, y: sy } };
 

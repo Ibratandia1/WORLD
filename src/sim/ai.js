@@ -127,8 +127,8 @@ export function decide(a, w, opts = {}) {
   // 2b. Aller travailler : on part en avance, on mange vite si besoin
   const s = a.job && !a.job.street && shiftNow(a.job, w);
   if (s && w.minutes < s.end - 30 && a.energy > 8 && !(player && a.routine && a.slacking)) { // (routine : jours « sans »)
-    if (a.hunger > 45 && a.money >= 4 && w.minutes < s.start - 35) { const c = shop(a, w, 'eat_bakery'); if (c) return c; }
-    if (w.minutes >= s.start - 45) return { id: 'work' };
+    if (a.hunger > 45 && a.money >= 4 && w.minutes < s.start - 65) { const c = shop(a, w, 'eat_bakery'); if (c) return c; }
+    if (w.minutes >= s.start - 60) return { id: 'work' }; // (à pied, traverser le quartier prend ~40 min)
     return null; // trop tôt : on attend, sans se lancer dans une longue activité
   }
 

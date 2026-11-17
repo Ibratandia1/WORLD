@@ -850,7 +850,7 @@ export class UI {
 
   mapHTML() {
     const p = this.player, w = this.world;
-    const walk = b => Math.max(1, Math.round(Math.min(...b.entrances.map(e => Math.abs(e.x - p.px) + Math.abs(e.y - p.py))) / 1.6));
+    const walk = b => Math.max(1, Math.round(Math.min(...b.entrances.map(e => Math.abs(e.x - p.px) + Math.abs(e.y - p.py))) / 1.1)); // (minutes à pied)
     const GROUPS = [['☕ Manger et boire', ['cafe', 'bakery']], ['🛍️ Boutiques', ['shop', 'fashion', 'garage']],
       ['💼 Travail', ['office']], ['🏛️ Services', ['cityhall', 'court', 'bank', 'police', 'hospital', 'firestation', 'school', 'prison', 'metro']], ['🏠 Logements', ['home']]];
     const status = b => {
@@ -1046,7 +1046,7 @@ export class UI {
       const b = p.plan.buildingId != null ? w.building(p.plan.buildingId) : null;
       return {
         key: `plan:${p.plan.id}:${p.plan.buildingId}`, icon: '🚶',
-        title: p.plan.id === 'goto' ? 'En marche' : t('En route : {x}', { x: t(def.label) }),
+        title: p.plan.id === 'goto' ? (p.vehicle ? ({ velo: '🚲 À vélo', trottinette: '🛴 En trottinette', scooter: '🛵 En scooter', voiture: '🚗 En voiture' }[p.vehicle] || 'En marche') : 'En marche') : t('En route : {x}', { x: t(def.label) }),
         sub: b ? b.name : '', cancel: true,
       };
     }

@@ -7,7 +7,7 @@ export const DAY_SHORT = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 export const MAX_WARNINGS = 3;
 export const RAISE_EVERY = 15; // jours sans faute avant une augmentation
 export const RAISE_CAP = 1.3;  // salaire max = 130 % du salaire d'embauche
-export const EARLY = 60;       // on peut arriver jusqu'à 1 h avant son service
+export const EARLY = 80;       // on peut arriver jusqu'à 1 h 20 avant son service (la marche prend du temps)
 
 // Horaires par type de lieu (service de 8 h). days : 0 = lundi … 6 = dimanche
 // alt = heure de début de l'équipe du soir (les commerces restent ouverts plus tard, comme en vrai)

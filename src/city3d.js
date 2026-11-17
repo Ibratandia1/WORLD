@@ -230,7 +230,7 @@ const add = (geos, mat, { cast = true, receive = true } = {}) => {
 
 // ---------- Sol : trottoirs surélevés (bordures), rues, pavés, herbe, eau ----------
 const T = (x, y) => (map.tiles[y] && map.tiles[y][x]) || null;
-const groundGeos = [], markGeos = [], roadGeos = [], grassGeos = [];
+const groundGeos = [], markGeos = [], roadGeos = [], grassGeos = [], bikeGeos = [];
 const noiseTex = (base, n, size = 128) => canvasTex(size, (g, S) => {
   g.fillStyle = base; g.fillRect(0, 0, S, S);
   for (let i = 0; i < n; i++) { const v = Math.random(); g.fillStyle = v < 0.5 ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.07)'; g.fillRect(Math.random() * S, Math.random() * S, 2, 2); }
@@ -255,6 +255,7 @@ const GROUND = {
   gravel: [0xe4d7b6, 0xbfae8a, 0.07],
 };
 const pondGeos = [], rimGeos = [];
+const RW = 0.16; // élargissement de la chaussée de chaque côté (piste cyclable)
 for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
   const t = T(x, y);
   if (t.ground === 'water') continue;
@@ -274,7 +275,17 @@ for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
   const h = gdef[2] + (t.ground === 'road' && t.avenue ? 0.001 : 0);
   // les cases au bord de la Seine descendent jusqu'à l'eau (quai)
   const quay = T(x, y - 1) && T(x, y - 1).ground === 'water';
-  const g = box(1, h + 0.02 + (quay ? 0.25 : 0), 1, x, -0.02 - (quay ? 0.25 : 0), y);
+  // Chaussée élargie : le trottoir recule de RW du côté de la rue (place pour la piste cyclable)
+  const rd = (xx, yy) => T(xx, yy) && T(xx, yy).ground === 'road';
+  let sE = 0, sW = 0, sS = 0, sN = 0;
+  if (t.ground !== 'road') {
+    sE = rd(x + 1, y) ? RW : 0; sW = rd(x - 1, y) ? RW : 0; sS = rd(x, y + 1) ? RW : 0; sN = rd(x, y - 1) ? RW : 0;
+    if (sE) roadGeos.push(paint(box(RW, 0.02, 1, x + 0.5 - RW / 2, -0.02, y), 0x4e5361));
+    if (sW) roadGeos.push(paint(box(RW, 0.02, 1, x - 0.5 + RW / 2, -0.02, y), 0x4e5361));
+    if (sS) roadGeos.push(paint(box(1, 0.02, RW, x, -0.02, y + 0.5 - RW / 2), 0x4e5361));
+    if (sN) roadGeos.push(paint(box(1, 0.02, RW, x, -0.02, y - 0.5 + RW / 2), 0x4e5361));
+  }
+  const g = box(1 - sE - sW, h + 0.02 + (quay ? 0.25 : 0), 1 - sS - sN, x + (sW - sE) / 2, -0.02 - (quay ? 0.25 : 0), y + (sN - sS) / 2);
   paint(g, quay ? 0xcfc6b4 : gdef[1], t.ground === 'road' && (x + y) % 2 ? 0x595e6c : gdef[0]);
   (t.ground === 'road' ? roadGeos : t.ground === 'grass' || t.ground === 'gravel' || lawn ? grassGeos : groundGeos).push(g);
 }
@@ -299,9 +310,22 @@ for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
   const straight = links <= 2 && !((roadAt(x + 1, y) || roadAt(x - 1, y)) && (roadAt(x, y + 1) || roadAt(x, y - 1)));
   if (!straight) continue;
   const yy = 0.005;
+  // Pistes cyclables vertes le long des trottoirs (bande blanche côté voitures, vélo peint de temps en temps)
+  for (const sgn of [1, -1]) {
+    const curb = alongX ? !roadAt(x, y + sgn) : !roadAt(x + sgn, y);
+    if (!curb || t.crossing) continue;
+    const o = sgn * (0.5 + RW - 0.115);
+    bikeGeos.push(alongX ? box(1, 0.004, 0.17, x, 0.006, y + o) : box(0.17, 0.004, 1, x + o, 0.006, y));
+    const ol = sgn * (0.5 + RW - 0.215);
+    markGeos.push(alongX ? box(1, 0.005, 0.018, x, 0.006, y + ol) : box(0.018, 0.005, 1, x + ol, 0.006, y));
+    if ((x + y) % 3 === 0) { // pictogramme : deux roues et un cadre
+      for (const w of [-0.06, 0.06]) markGeos.push(new THREE.CylinderGeometry(0.03, 0.03, 0.005, 10).translate(alongX ? x + w : x + o, 0.009, alongX ? y + o : y + w));
+      markGeos.push(alongX ? box(0.12, 0.005, 0.012, x, 0.007, y + o) : box(0.012, 0.005, 0.12, x + o, 0.007, y));
+    }
+  }
   if (t.crossing) {
-    for (let k = 0; k < 5; k++) {
-      const o = -0.36 + k * 0.18;
+    for (let k = 0; k < 6; k++) {
+      const o = -0.42 + k * 0.17;
       markGeos.push(alongX ? box(0.62, 0.004, 0.09, x, yy, y + o) : box(0.09, 0.004, 0.62, x + o, yy, y));
     }
   } else if (t.avenue) {
@@ -311,13 +335,15 @@ for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
   }
 }
 add(markGeos, mats.marks, { cast: false });
+add(bikeGeos, new THREE.MeshStandardMaterial({ color: 0x3f9d63, roughness: 0.85 }), { cast: false });
 
 // ---------- Immeubles ----------
 const TYPE_FLOORS = { home: 6, office: 9, cafe: 5, bakery: 5, shop: 5, fashion: 5, garage: 2, metro: 0, cityhall: 4, police: 4, hospital: 7, firestation: 3, prison: 3, school: 4, court: 4, bank: 5 };
 const SHOP_COLOR = { cafe: 0xc9453f, bakery: 0xd9922b, shop: 0x2f9e5f, fashion: 0xd94f9c, bank: 0x1f6a4a, garage: 0x2f7d8b };
-const STONE = [0xf1e2c4, 0xe9cfae, 0xf4ead8, 0xe2c6b4, 0xeed8bf, 0xd3dadf, 0xe8cdc8, 0xe4d9ac, 0xcddcd7, 0xf0dcc0];
+// Pierre de Paris, mais avec du caractère : crème, ocre, rose poudré, gris bleuté, sauge, beurre, terre cuite, lavande
+const STONE = [0xf1e2c4, 0xe8c597, 0xf0cdbf, 0xd6e0e7, 0xeedcb4, 0xcfdcc8, 0xf6e8d2, 0xe5b394, 0xddd2e6, 0xf3dea0, 0xe9d7c3, 0xc9d6dc];
 const PUBLIC = { cityhall: 0xf4ecda, police: 0xe3e8f0, hospital: 0xf7f8fa, firestation: 0xc65a46, prison: 0xb9b6ae, school: 0xf3e3c3, court: 0xe8eaee };
-const ROOFS = [0x6f7d8f, 0x5f6b7c, 0x7a8798, 0x566173];
+const ROOFS = [0x6f7d8f, 0x5f6b7c, 0x7a8798, 0x566173, 0x4a5568, 0x8f9bb0];
 const wallGeos = [], shopGeos = [], glassGeos = [], roofGeos = [], solidGeos = [];
 
 // Rectangles d'un bâtiment (ses cases regroupées en blocs : pas de « briques »)
@@ -477,7 +503,7 @@ const aoRects = [];
 const tops = {}; // hauteur du toit de chaque lieu (pour les épingles)
 function building(r, type, seed, bid = null, floorsOverride = null) {
   const x = r.x0 + r.w / 2 - 0.5, z = r.y0 + r.h / 2 - 0.5;
-  const w = r.w - 0.04, d = r.h - 0.04;
+  let w = r.w - 0.04, d = r.h - 0.04;
   aoRects.push([x, z, w, d]);
   const floors = floorsOverride ?? TYPE_FLOORS[type] ?? 6;
   const base = 0.08;
@@ -511,14 +537,34 @@ function building(r, type, seed, bid = null, floorsOverride = null) {
   }
   const upper = Math.max(1, floors - (y > base ? 1 : 0));
   const h = upper * FLOOR;
-  wallGeos.push(paint(wallUV(box(w, h, d, x, y, z), w, h, d, y - base), stone));
+  // Silhouettes variées : un immeuble sur trois a un dernier étage en retrait (terrasse filante) ;
+  // chaînes d'angle en pierre plus claire pour bien lire les volumes
+  const plain = !PUBLIC[type] && !SHOP_COLOR[type] || type === 'filler' || type === 'filler-shop';
+  const attic = plain && upper >= 4 && seed % 3 === 0;
+  const hMain = attic ? h - FLOOR : h;
+  wallGeos.push(paint(wallUV(box(w, hMain, d, x, y, z), w, hMain, d, y - base), stone));
+  if (attic) {
+    const aw = w - 0.26, ad = d - 0.26;
+    wallGeos.push(paint(wallUV(box(aw, FLOOR, ad, x, y + hMain, z), aw, FLOOR, ad, y + hMain - base), shade(stone, 1.03)));
+    solidGeos.push(paint(box(w + 0.06, 0.05, d + 0.06, x, y + hMain, z), 0xe2d8c4)); // corniche de la terrasse
+    for (const [bw, bd, ox, oz] of [[w, 0.015, 0, d / 2 - 0.01], [w, 0.015, 0, -d / 2 + 0.01], [0.015, d, w / 2 - 0.01, 0], [0.015, d, -w / 2 + 0.01, 0]]) {
+      solidGeos.push(paint(box(bw, 0.09, bd, x + ox, y + hMain + 0.05, z + oz), 0x2a2c33)); // garde-corps
+    }
+    // jardinières sur la terrasse
+    for (let k = 0; k < 3; k++) solidGeos.push(paint(box(0.12, 0.08, 0.08, x - w / 2 + 0.2 + k * (w - 0.4) / 2, y + hMain + 0.05, z + d / 2 - 0.08), 0x9a5b3c, 0x5aa04a));
+  }
+  if (plain && type !== 'filler-shop' || type === 'filler') {
+    for (const [ox, oz] of [[w / 2, d / 2], [-w / 2, d / 2], [w / 2, -d / 2], [-w / 2, -d / 2]]) {
+      solidGeos.push(paint(box(0.06, hMain, 0.06, x + ox, y, z + oz), shade(stone, 1.08)));
+    }
+  }
   // Détails haussmanniens : soubassement de pierre, bandeau au-dessus du rez-de-chaussée,
   // balcons filants en fer forgé au 2e et au dernier étage (sur tout le tour de l'immeuble)
   const wallBase = y;
   if (wallBase === base) solidGeos.push(paint(box(w + 0.03, 0.14, d + 0.03, x, base, z), shade(stone, 0.82)));
   solidGeos.push(paint(box(w + 0.05, 0.035, d + 0.05, x, wallBase === base ? base + FLOOR : wallBase, z), shade(stone, 1.05)));
   if (upper >= 3) {
-    for (const lvl of [wallBase + FLOOR * (wallBase === base ? 2 : 1), wallBase + h - FLOOR]) {
+    for (const lvl of [wallBase + FLOOR * (wallBase === base ? 2 : 1), wallBase + h - FLOOR].slice(0, attic ? 1 : 2)) {
       solidGeos.push(paint(box(w + 0.12, 0.025, d + 0.12, x, lvl, z), shade(stone, 0.95)));          // dalle du balcon
       for (const [bw, bd, ox, oz] of [[w + 0.12, 0.012, 0, d / 2 + 0.06], [w + 0.12, 0.012, 0, -d / 2 - 0.06], [0.012, d + 0.12, w / 2 + 0.06, 0], [0.012, d + 0.12, -w / 2 - 0.06, 0]]) {
         solidGeos.push(paint(box(bw, 0.075, bd, x + ox, lvl + 0.025, z + oz), 0x2a2c33));             // garde-corps
@@ -526,14 +572,30 @@ function building(r, type, seed, bid = null, floorsOverride = null) {
     }
   }
   y += h;
-  // corniche + toit à la Mansart en zinc, cheminées
+  const bw = w, bd = d; // emprise au sol (enseignes, landmark)
+  if (attic) { w -= 0.26; d -= 0.26; } // le toit coiffe l'étage en retrait
+  // Toit-terrasse végétalisé sur un immeuble ordinaire sur cinq (sinon toit à la Mansart en zinc ou ardoise)
+  const garden = plain && !attic && seed % 5 === 1;
+  // corniche + toit, cheminées
   solidGeos.push(paint(box(w + 0.08, 0.06, d + 0.08, x, y, z), 0xd8cfbd));
   y += 0.06;
-  const roofH = type === 'firestation' || type === 'prison' ? 0.12 : 0.5;
+  const roofH = garden ? 0.06 : type === 'firestation' || type === 'prison' ? 0.12 : 0.5;
   const rcol = ROOF_BY_TYPE[type] ?? ROOFS[seed % ROOFS.length]; // les lieux importants ont un toit de couleur reconnaissable
-  roofGeos.push(paint(mansard(w + 0.02, d + 0.02, roofH, Math.min(0.32, Math.min(w, d) * 0.3), x, y, z), rcol));
+  if (garden) {
+    solidGeos.push(paint(box(w - 0.04, 0.05, d - 0.04, x, y, z), 0x9aa0aa));                            // dalle
+    solidGeos.push(paint(box(w - 0.3, 0.06, d - 0.3, x, y + 0.02, z), 0x5d9a4a, 0x6db35b));             // pelouse
+    for (let k = 0; k < 3; k++) {
+      const bx = x - (w - 0.5) / 2 + k * (w - 0.5) / 2, bz = z + ((seed + k) % 2 ? 0.15 : -0.15) * (d - 0.4);
+      solidGeos.push(paint(new THREE.SphereGeometry(0.09, 7, 5).translate(bx, y + 0.15, bz), 0x3f8f45));
+    }
+    solidGeos.push(paint(box(0.02, 0.22, 0.02, x + 0.1, y + 0.05, z), 0xdddddd));                       // parasol
+    solidGeos.push(paint(new THREE.ConeGeometry(0.16, 0.07, 8).translate(x + 0.1, y + 0.3, z), [0xe2475b, 0xf2c94c, 0x3d6fd8][seed % 3]));
+    for (const [bw2, bd2, ox, oz] of [[w, 0.015, 0, d / 2], [w, 0.015, 0, -d / 2], [0.015, d, w / 2, 0], [0.015, d, -w / 2, 0]]) {
+      solidGeos.push(paint(box(bw2, 0.08, bd2, x + ox, y, z + oz), 0x2a2c33));                          // garde-corps
+    }
+  } else roofGeos.push(paint(mansard(w + 0.02, d + 0.02, roofH, Math.min(0.32, Math.min(w, d) * 0.3), x, y, z), rcol));
   if (bid != null) tops[bid] = Math.max(tops[bid] || 0, y + roofH);
-  if (bid != null) landmark(type, r, x, z, w, d, base, y);
+  if (bid != null) landmark(type, r, x, z, bw, bd, base, y);
   // Lucarnes dans le toit en zinc (petites fenêtres à fronton), réparties sur les longs côtés
   if (roofH > 0.2) {
     const inset = Math.min(0.32, Math.min(w, d) * 0.3);
@@ -729,7 +791,7 @@ const lamps = [];
 for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
   const t = T(x, y);
   if (t.deco === 'tree') trees.push([x, y, 1]);
-  if (t.deco === 'avtree') { const sd = roadAt(x, y + 1) ? 0.3 : roadAt(x, y - 1) ? -0.3 : 0; trees.push([x, y + sd, 0.85]); }
+  if (t.deco === 'avtree') { const sd = roadAt(x, y + 1) ? 0.26 : roadAt(x, y - 1) ? -0.26 : 0; trees.push([x, y + sd, 0.85]); }
   if (t.deco === 'fountain') {
     solidGeos.push(paint(new THREE.CylinderGeometry(0.46, 0.5, 0.18, 20).translate(x, 0.19, y), 0xcfc6b4));
     solidGeos.push(paint(new THREE.CylinderGeometry(0.08, 0.1, 0.45, 10).translate(x, 0.4, y), 0xcfc6b4));
@@ -743,12 +805,12 @@ for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
   if (t.ground === 'gravel' && (x + y * 2) % 5 === 0) lamps.push([x + 0.42, y + 0.42]); // lanternes le long des allées du parc
   // lampadaires le long des rues (un sur quatre)
   if (t.walk && (t.ground === 'pave' || t.ground === 'cobble') && !t.deco) {
-    const side = roadAt(x, y + 1) ? [0, 0.38] : roadAt(x, y - 1) ? [0, -0.38] : roadAt(x + 1, y) ? [0.38, 0] : roadAt(x - 1, y) ? [-0.38, 0] : null;
+    const side = roadAt(x, y + 1) ? [0, 0.27] : roadAt(x, y - 1) ? [0, -0.27] : roadAt(x + 1, y) ? [0.27, 0] : roadAt(x - 1, y) ? [-0.27, 0] : null;
     const along = side ? (side[1] ? x : y) : 0;
     if (side && along % 4 === 2) lamps.push([x + side[0], y + side[1]]);
     // poubelles de rue (mêmes places que la vue 2D : on peut les toucher)
     else if (side && t.ground === 'pave' && along % 8 === 5) {
-      const bx = x + side[0] * 0.8, bz = y + side[1] * 0.8;
+      const bx = x + side[0] * 0.85, bz = y + side[1] * 0.85;
       binSpots.push([bx, bz]);
       solidGeos.push(paint(box(0.03, 0.42, 0.03, bx, 0.08, bz), 0x2e6b4a));
       solidGeos.push(paint(new THREE.CylinderGeometry(0.08, 0.07, 0.2, 10).translate(bx, 0.32, bz), 0xd5dde2));
@@ -807,7 +869,7 @@ for (const j of map.junctions) {
   for (const [dx, dy] of [[-1, -1], [1, 1], [1, -1], [-1, 1]]) {
     const t = T(j.x + dx, j.y + dy);
     if (!t || t.ground === 'road' || t.building != null || t.ground === 'water') continue;
-    const px = j.x + dx * 0.6, pz = j.y + dy * 0.6;
+    const px = j.x + dx * 0.76, pz = j.y + dy * 0.76;
     solidGeos.push(paint(box(0.04, 0.8, 0.04, px, 0.08, pz), 0x2c2f38));
     solidGeos.push(paint(box(0.1, 0.3, 0.1, px, 0.75, pz), 0x23252c));
     const lp = { j, axis: dx === dy ? 'x' : 'y', meshes: {} };
@@ -847,7 +909,46 @@ function personView(a) {
   }
   g.userData.actorId = a.id;
   scene.add(g);
-  return { g, body, last: { x: a.px, y: a.py }, phase: rnd() * 6 };
+  return { g, body, parts, last: { x: a.px, y: a.py }, phase: rnd() * 6, lane: 0, vehKey: null, veh: null };
+}
+// Véhicules des habitants (construits vers +z, l'avant de la personne)
+const vehGeoCache = new Map();
+function vehicleGeo(kind, col) {
+  const key = `${kind}:${col}`;
+  if (vehGeoCache.has(key)) return vehGeoCache.get(key);
+  let g;
+  if (kind === 'velo') g = bikeGeo(null, 'z');
+  else if (kind === 'trottinette') {
+    g = mergeGeometries([
+      paint(box(0.05, 0.015, 0.22, 0, 0.03, 0), 0x2a2a30),
+      paint(new THREE.CylinderGeometry(0.025, 0.025, 0.02, 10).rotateZ(Math.PI / 2).translate(0, 0.025, 0.1), 0x111111),
+      paint(new THREE.CylinderGeometry(0.025, 0.025, 0.02, 10).rotateZ(Math.PI / 2).translate(0, 0.025, -0.1), 0x111111),
+      paint(box(0.015, 0.2, 0.015, 0, 0.03, 0.1), col),
+      paint(box(0.1, 0.015, 0.015, 0, 0.23, 0.1), 0x2a2a30),
+    ]);
+  } else if (kind === 'scooter') {
+    g = mergeGeometries([
+      paint(box(0.1, 0.07, 0.3, 0, 0.05, 0), col),
+      paint(box(0.09, 0.05, 0.12, 0, 0.12, -0.05), 0x2a2a30),
+      paint(box(0.08, 0.16, 0.04, 0, 0.05, 0.13), col),
+      paint(box(0.14, 0.015, 0.015, 0, 0.22, 0.13), 0x2a2a30),
+      paint(new THREE.CylinderGeometry(0.04, 0.04, 0.03, 10).rotateZ(Math.PI / 2).translate(0, 0.04, 0.14), 0x111111),
+      paint(new THREE.CylinderGeometry(0.04, 0.04, 0.03, 10).rotateZ(Math.PI / 2).translate(0, 0.04, -0.13), 0x111111),
+    ]);
+  } else g = carGeo(col).rotateY(-Math.PI / 2);
+  vehGeoCache.set(key, g);
+  return g;
+}
+function setVehicle(v, kind, a) {
+  if (v.veh) { v.g.remove(v.veh); v.veh = null; }
+  v.vehKey = kind;
+  const car = kind === 'voiture';
+  for (const p of v.parts) { p.visible = !car; p.position.y = kind && !car ? 0.07 : 0; } // à vélo : assis un peu plus haut
+  if (!kind) return;
+  const col = CAR_COLORS[[...String(a.id)].reduce((s, ch) => s + ch.charCodeAt(0), 0) % CAR_COLORS.length];
+  v.veh = new THREE.Mesh(vehicleGeo(kind, col), mats.solid);
+  v.veh.scale.setScalar(1 / v.g.scale.x); // (le joueur est dessiné un peu plus grand : pas son véhicule)
+  v.g.add(v.veh);
 }
 
 // ---------- Voitures (suivent les rues, s'arrêtent au feu rouge) ----------
@@ -869,6 +970,23 @@ function carGeo(col) {
   return mergeGeometries(parts);
 }
 const carGeos = CAR_COLORS.map(carGeo);
+// Cycliste (vélo + personne), construit dans l'axe x comme les voitures
+function bikeGeo(shirt, along = 'x') {
+  const parts = [];
+  for (const o of [-0.1, 0.1]) parts.push(paint(new THREE.TorusGeometry(0.055, 0.012, 5, 12).translate(o, 0.06, 0), 0x222228));
+  parts.push(paint(box(0.2, 0.018, 0.018, 0, 0.1, 0), 0x3d6fd8));
+  parts.push(paint(box(0.018, 0.08, 0.018, -0.04, 0.1, 0), 0x3d6fd8));
+  parts.push(paint(box(0.018, 0.03, 0.12, 0.09, 0.16, 0), 0x2a2a30));
+  if (shirt != null) {
+    parts.push(paint(box(0.07, 0.16, 0.09, -0.03, 0.17, 0), shirt));
+    parts.push(paint(new THREE.SphereGeometry(0.045, 8, 6).translate(-0.01, 0.38, 0), 0xf1c7a3));
+    parts.push(paint(new THREE.SphereGeometry(0.05, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2).translate(-0.01, 0.39, 0), 0xf2c94c)); // casque
+  }
+  const g = mergeGeometries(parts);
+  if (along === 'z') g.rotateY(-Math.PI / 2);
+  return g;
+}
+const riderGeos = [0xd8504d, 0x4bbf8b, 0xf2c94c, 0x9b6ee8].map(c => bikeGeo(c));
 const cars = [];
 function pickNext(c) {
   const [dx, dy] = c.dir;
@@ -878,11 +996,14 @@ function pickNext(c) {
   const d = st && (opts.length === 1 || rnd() < 0.65) ? st : opts[Math.floor(rnd() * opts.length)];
   return { x: c.x + d[0], y: c.y + d[1], dir: d };
 }
-function spawnCar() {
+// Voitures sur leur voie (à droite), vélos sur la piste cyclable, plus lents
+const LANE = { car: 0.24, bike: 0.5 + RW - 0.115 };
+function spawnCar(kind = 'car') {
   const gt = gates[Math.floor(rnd() * gates.length)];
-  const mesh = new THREE.Mesh(carGeos[Math.floor(rnd() * carGeos.length)], mats.solid);
+  const geo = kind === 'bike' ? riderGeos[Math.floor(rnd() * riderGeos.length)] : carGeos[Math.floor(rnd() * carGeos.length)];
+  const mesh = new THREE.Mesh(geo, mats.solid);
   scene.add(mesh);
-  const c = { mesh, x: gt.x, y: gt.y, dir: gt.dir, t: 0, speed: 1.4 + rnd(), alive: true };
+  const c = { kind, mesh, x: gt.x, y: gt.y, dir: gt.dir, t: 0, speed: kind === 'bike' ? 0.9 + rnd() * 0.4 : 2.0 + rnd(), alive: true };
   c.next = pickNext(c);
   cars.push(c);
 }
@@ -890,25 +1011,163 @@ for (let i = 0; i < 10; i++) { spawnCar(); const c = cars[cars.length - 1]; for 
 function updateCars(dt) {
   for (const c of cars) {
     if (!c.next) { c.alive = false; continue; }
-    const axis = c.dir[0] !== 0 ? 'x' : 'y';
-    const red = jset.has(`${c.next.x},${c.next.y}`) && !jset.has(`${c.x},${c.y}`) && !carMayGo(world, c.next.x, c.next.y, axis);
-    const ahead = cars.some(o => o !== c && o.alive && o.dir[0] === c.dir[0] && o.dir[1] === c.dir[1] && (() => {
+    const axis = c.next.dir[0] !== 0 ? 'x' : 'y';
+    // Feu rouge : on s'arrête AVANT le passage piéton (pas dessus) ; déjà engagé sur le passage, on dégage le carrefour
+    const curT = T(c.x, c.y), cr = T(c.next.x, c.next.y) && T(c.next.x, c.next.y).crossing;
+    const redCross = cr && !curT.crossing && !jset.has(`${c.x},${c.y}`)
+      && Math.abs(cr.jx - c.next.x) + Math.abs(cr.jy - c.next.y) < Math.abs(cr.jx - c.x) + Math.abs(cr.jy - c.y)
+      && !carMayGo(world, cr.jx, cr.jy, cr.axis);
+    const red = redCross || (jset.has(`${c.next.x},${c.next.y}`) && !jset.has(`${c.x},${c.y}`) && !curT.crossing && !carMayGo(world, c.next.x, c.next.y, axis));
+    const ahead = cars.some(o => o !== c && o.alive && o.kind === c.kind && o.dir[0] === c.dir[0] && o.dir[1] === c.dir[1] && (() => {
       const ax = ((o.x + o.dir[0] * o.t) - (c.x + c.dir[0] * c.t)) * c.dir[0] + ((o.y + o.dir[1] * o.t) - (c.y + c.dir[1] * c.t)) * c.dir[1];
       const side = Math.abs((o.x - c.x) * c.dir[1] - (o.y - c.y) * c.dir[0]);
       return ax > 0 && ax < 0.9 && side < 0.3;
     })());
-    if (red && c.t <= 0.32) c.t = Math.min(0.3, c.t + c.speed * dt);
+    if (red && c.t <= 0.42) c.t = Math.min(0.4, c.t + c.speed * dt);
     else if (!ahead) c.t += c.speed * dt;
     while (c.t >= 1 && c.next) { c.t -= 1; c.x = c.next.x; c.y = c.next.y; c.dir = c.next.dir; c.next = pickNext(c); }
-    const lane = 0.2;
-    const px = c.x + c.dir[0] * c.t - c.dir[1] * lane, pz = c.y + c.dir[1] * c.t + c.dir[0] * lane;
+    const lane = LANE[c.kind] || LANE.car;
+    // dans les virages, on glisse doucement d'une voie à l'autre (au lieu de couper en diagonale)
+    // (le tronçon en cours va de la case actuelle vers c.next, dans la direction c.next.dir)
+    const nd = c.next ? c.next.dir : c.dir;
+    const k = nd[0] !== c.dir[0] || nd[1] !== c.dir[1] ? Math.min(1, c.t * 2) : 1;
+    const ox = -(c.dir[1] * (1 - k) + nd[1] * k) * lane, oz = (c.dir[0] * (1 - k) + nd[0] * k) * lane;
+    const px = c.x + nd[0] * c.t + ox, pz = c.y + nd[1] * c.t + oz;
     c.mesh.position.set(px, 0.005, pz);
-    c.mesh.rotation.y = Math.atan2(-c.dir[1], c.dir[0]);
+    c.mesh.rotation.y = Math.atan2(-(c.dir[1] * (1 - k) + nd[1] * k), c.dir[0] * (1 - k) + nd[0] * k);
   }
   for (const c of cars) if (!c.alive) scene.remove(c.mesh);
   for (let i = cars.length - 1; i >= 0; i--) if (!cars[i].alive) cars.splice(i, 1);
-  const target = Math.round(16 * (world.hour > 6 && world.hour < 22 ? 1 : 0.35));
-  if (cars.length < target && rnd() < dt * 1.5) spawnCar();
+  const day = world.hour > 6 && world.hour < 22;
+  const nCar = cars.filter(c => c.kind === 'car').length, nBike = cars.length - nCar;
+  if (nCar < Math.round(14 * (day ? 1 : 0.35)) && rnd() < dt * 1.5) spawnCar('car');
+  if (world.weather !== 'rain' && world.weather !== 'snow' && nBike < (day ? 6 : 1) && rnd() < dt) spawnCar('bike');
+}
+
+// ---------- Véhicules de secours : pompiers, ambulance, police (partent de leur caserne / hôpital / commissariat) ----------
+// Ils roulent vite par la chaussée, gyrophares allumés, sans s'arrêter aux feux ; ils restent sur place pendant
+// l'intervention puis rentrent à la base.
+const SIREN = { r: new THREE.MeshStandardMaterial({ color: 0xff2a2a, emissive: 0xff2a2a, emissiveIntensity: 2.5 }),
+  b: new THREE.MeshStandardMaterial({ color: 0x2a6bff, emissive: 0x2a6bff, emissiveIntensity: 2.5 }), off: new THREE.MeshStandardMaterial({ color: 0x444a55 }) };
+function serviceGeo(kind) {
+  const P = [];
+  const wheels = (len, w) => { for (const dx of [len * 0.32, -len * 0.32]) for (const dz of [w / 2, -w / 2]) P.push(paint(new THREE.CylinderGeometry(0.065, 0.065, 0.05, 10).rotateX(Math.PI / 2).translate(dx, 0.065, dz), 0x1c1c22)); };
+  if (kind === 'fire') { // grand camion rouge, échelle sur le toit
+    P.push(paint(box(0.95, 0.3, 0.36, -0.05, 0.06, 0), 0xc0261d));
+    P.push(paint(box(0.26, 0.24, 0.36, 0.38, 0.06, 0), 0xc0261d));
+    P.push(paint(box(0.2, 0.12, 0.37, 0.4, 0.17, 0), 0x2a3a50));               // pare-brise
+    P.push(paint(box(0.95, 0.03, 0.37, -0.05, 0.2, 0), 0xf2f2f2));             // bande blanche
+    P.push(paint(box(0.8, 0.03, 0.1, -0.1, 0.38, 0), 0xd5dde2));               // échelle
+    for (let k = 0; k < 6; k++) P.push(paint(box(0.015, 0.03, 0.14, -0.45 + k * 0.14, 0.4, 0), 0x9aa0aa));
+    wheels(0.95, 0.34);
+  } else if (kind === 'ambulance') { // fourgon blanc à bandes rouges, croix
+    P.push(paint(box(0.7, 0.32, 0.32, -0.04, 0.06, 0), 0xf7f8fa));
+    P.push(paint(box(0.18, 0.2, 0.32, 0.36, 0.06, 0), 0xf7f8fa));
+    P.push(paint(box(0.12, 0.1, 0.33, 0.38, 0.15, 0), 0x2a3a50));
+    P.push(paint(box(0.86, 0.05, 0.33, 0.02, 0.17, 0), 0xe2475b));
+    P.push(paint(box(0.16, 0.05, 0.005, -0.08, 0.28, 0.163), 0xe2475b), paint(box(0.05, 0.16, 0.005, -0.08, 0.225, 0.163), 0xe2475b));
+    P.push(paint(box(0.16, 0.05, 0.005, -0.08, 0.28, -0.163), 0xe2475b), paint(box(0.05, 0.16, 0.005, -0.08, 0.225, -0.163), 0xe2475b));
+    wheels(0.7, 0.3);
+  } else { // voiture de police blanche et bleue
+    P.push(paint(box(0.64, 0.14, 0.3, 0, 0.06, 0), 0xf2f4f8));
+    P.push(paint(box(0.64, 0.05, 0.31, 0, 0.1, 0), 0x2b4ea2));
+    P.push(paint(box(0.34, 0.12, 0.26, -0.03, 0.2, 0), 0xf2f4f8));
+    P.push(paint(box(0.3, 0.09, 0.27, -0.03, 0.21, 0), 0x2a3a50));
+    wheels(0.62, 0.3);
+  }
+  return mergeGeometries(P);
+}
+const SERVICE_GEOS = { fire: serviceGeo('fire'), ambulance: serviceGeo('ambulance'), police: serviceGeo('police') };
+const SERVICE_HOME = { fire: 'firestation', ambulance: 'hospital', police: 'police' };
+const SIREN_Y = { fire: 0.39, ambulance: 0.4, police: 0.33 };
+const emergencies = [];
+// Case de chaussée la plus proche d'un point (par les cases praticables)
+function nearestRoad(x, y) {
+  const seen = new Set([`${x},${y}`]), q = [[x, y]];
+  while (q.length) {
+    const [cx, cy] = q.shift();
+    if (roadAt(cx, cy)) return { x: cx, y: cy };
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = cx + dx, ny = cy + dy, k = `${nx},${ny}`;
+      if (seen.has(k) || !T(nx, ny)) continue;
+      seen.add(k); q.push([nx, ny]);
+    }
+  }
+  return null;
+}
+// Itinéraire par la chaussée seulement (parcours en largeur)
+function roadRoute(a, b) {
+  const key = (x, y) => y * W + x, prev = new Map([[key(a.x, a.y), -1]]), q = [a];
+  while (q.length) {
+    const c = q.shift();
+    if (c.x === b.x && c.y === b.y) {
+      const out = []; for (let k = key(c.x, c.y); k !== -1; k = prev.get(k)) out.unshift({ x: k % W, y: Math.floor(k / W) });
+      return out;
+    }
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = c.x + dx, ny = c.y + dy, k = key(nx, ny);
+      if (!roadAt(nx, ny) || prev.has(k)) continue;
+      prev.set(k, key(c.x, c.y)); q.push({ x: nx, y: ny });
+    }
+  }
+  return null;
+}
+function dispatch(kind, tx, ty, key, minutes = null) {
+  const old = emergencies.find(e => e.key === key && e.state !== 'back');
+  if (old) { if (minutes) old.until = world.minutes + minutes; return; }
+  if (kind === 'police' && emergencies.filter(e => e.kind === 'police').length >= 3) return;
+  const base = map.buildings.find(b => b.type === SERVICE_HOME[kind]);
+  if (!base) return;
+  const from = nearestRoad(base.entrances[0].x, base.entrances[0].y), to = nearestRoad(Math.round(tx), Math.round(ty));
+  if (!from || !to) return;
+  const route = roadRoute(from, to);
+  if (!route) return;
+  // déjà un véhicule garé là : on se gare une place avant (pas l'un dans l'autre)
+  for (let n = emergencies.filter(e => e.state !== 'back' && e.to.x === to.x && e.to.y === to.y).length; n > 0 && route.length > 2; n--) route.pop();
+  const mesh = new THREE.Mesh(SERVICE_GEOS[kind], mats.solid);
+  const l1 = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.05, 0.08), SIREN.r), l2 = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.05, 0.08), SIREN.b);
+  l1.position.set(kind === 'fire' ? 0.42 : -0.03, SIREN_Y[kind], 0.06); l2.position.set(kind === 'fire' ? 0.42 : -0.03, SIREN_Y[kind], -0.06);
+  mesh.add(l1, l2); mesh.userData.noTap = true;
+  mesh.position.set(route[0].x, 0.005, route[0].y);
+  scene.add(mesh);
+  emergencies.push({ kind, key, mesh, l1, l2, route, i: 0, t: 0, state: 'go', until: minutes ? world.minutes + minutes : null, from, to });
+}
+function recall(key) { for (const e of emergencies) if (e.key === key && e.state !== 'back') e.until = world.minutes; }
+function updateEmergencies(dt, rate) {
+  const now = performance.now();
+  api.emergencies = emergencies; // (débogage : state.city3d.emergencies)
+  for (const e of emergencies) {
+    const on = Math.floor(now / 220) % 2 === 0;
+    e.l1.material = on ? SIREN.r : SIREN.off; e.l2.material = on ? SIREN.off : SIREN.b;
+    if (e.state === 'stay') {
+      if (e.until != null && world.minutes >= e.until) { // fin de l'intervention : retour à la base
+        const back = roadRoute(e.route[e.route.length - 1], e.from);
+        if (!back) { e.done = true; continue; }
+        e.route = back; e.i = 0; e.t = 0; e.state = 'back';
+      }
+      continue;
+    }
+    if (rate <= 0) continue;
+    e.t += dt * 3.2;
+    while (e.t >= 1 && e.i < e.route.length - 1) { e.t -= 1; e.i++; }
+    if (e.i >= e.route.length - 1) {
+      if (e.state === 'go') { e.state = 'stay'; e.t = 0; } else { e.done = true; continue; }
+    }
+    const a = e.route[Math.min(e.i, e.route.length - 1)], b = e.route[Math.min(e.i + 1, e.route.length - 1)];
+    const dx = b.x - a.x, dy = b.y - a.y, tt = e.state === 'stay' ? 0 : Math.min(1, e.t);
+    if (dx || dy) {
+      e.mesh.position.set(a.x + dx * tt - dy * LANE.car, 0.005, a.y + dy * tt + dx * LANE.car);
+      e.mesh.rotation.y = Math.atan2(-dy, dx);
+    }
+  }
+  for (const e of emergencies) if (e.done) scene.remove(e.mesh);
+  for (let i = emergencies.length - 1; i >= 0; i--) if (emergencies[i].done) emergencies.splice(i, 1);
+}
+// Interventions : délit vu par la police, garde à vue (incendies : voir showFire / hideFire)
+if (!opts.demo) {
+  world.on('crime', e => { if (e.outcome === 'seen' || e.outcome === 'caught') dispatch('police', e.actor.px, e.actor.py, `crime:${e.actor.id}`, 30); });
+  world.on('custody', e => dispatch('police', e.actor.px, e.actor.py, `custody:${e.actor.id}`, 20));
+  world.on('arrested', e => dispatch('police', e.actor.px, e.actor.py, `arrest:${e.actor.id}`, 20));
 }
 
 // ---------- Jour / nuit ----------
@@ -1070,8 +1329,15 @@ api.showFire = b => {
     c.position.set(t.x + (k - 0.5) * 0.3, (tops[b.id] || 2) + 0.2, t.y + (k - 0.5) * 0.2); c.userData.phase = Math.random() * 6; g.add(c);
   }
   g.userData.noTap = true; scene.add(g); fires[b.id] = g;
+  // les pompiers arrivent de la caserne, une ambulance se tient prête
+  const t0 = b.entrances[0] || b.tiles[0];
+  dispatch('fire', t0.x, t0.y, `fire:${b.id}`);
+  dispatch('ambulance', t0.x, t0.y, `amb:${b.id}`);
 };
-api.hideFire = b => { const g = fires[b.id]; if (g) { scene.remove(g); delete fires[b.id]; } };
+api.hideFire = b => {
+  const g = fires[b.id]; if (g) { scene.remove(g); delete fires[b.id]; }
+  recall(`fire:${b.id}`); recall(`amb:${b.id}`); // feu éteint : retour à la base (l'ambulance repart aussi)
+};
 function ping(x, z) {
   const m = new THREE.Mesh(new THREE.RingGeometry(0.12, 0.2, 24).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, depthWrite: false }));
   m.position.set(x, 0.12, z); m.userData.noTap = true; scene.add(m);
@@ -1433,6 +1699,7 @@ function updateAlive(dt) {
   const rate = opts.demo ? speed : (world.paused ? 0 : (world.speed || 1));
   updateWalkers(dt, rate);
   if (rate > 0) updateDucks(dt);
+  updateEmergencies(dt, rate);
   updateWeather(dt);
   if (rate > 0) updatePigeons(dt);
   aliveTick -= dt;
@@ -1508,10 +1775,19 @@ function frame() {
     if (!show) continue;
     const mx = a.px - v.last.x, my = a.py - v.last.y;
     const moving = Math.hypot(mx, my) > 0.0005;
-    if (moving) v.g.rotation.y = Math.atan2(mx, my);
+    if (moving) { v.g.rotation.y = Math.atan2(mx, my); v.dir = [mx, my]; }
     v.last.x = a.px; v.last.y = a.py;
-    v.phase += dt * (moving ? 14 : 2);
-    v.g.position.set(a.px, 0.08 + (moving ? Math.abs(Math.sin(v.phase)) * 0.02 : 0), a.py);
+    // Sur son véhicule : vélo / trottinette / scooter sous la personne, voiture à sa place ; on roule sur sa voie
+    const vk = a.vehicle && a.riding && a.path.length ? a.vehicle : null;
+    if (v.vehKey !== vk) setVehicle(v, vk, a);
+    const tile = T(Math.round(a.px), Math.round(a.py));
+    let lane = 0;
+    if (vk && tile && tile.ground === 'road') lane = vk === 'voiture' || vk === 'scooter' ? LANE.car : LANE.bike;
+    v.lane += (lane - v.lane) * Math.min(1, dt * 6);
+    const d = v.dir ? Math.hypot(v.dir[0], v.dir[1]) || 1 : 1;
+    const ox = v.dir ? -(v.dir[1] / d) * v.lane : 0, oz = v.dir ? (v.dir[0] / d) * v.lane : 0;
+    v.phase += dt * (moving && !vk ? 14 : 2);
+    v.g.position.set(a.px + ox, 0.08 + (moving && !vk ? Math.abs(Math.sin(v.phase)) * 0.02 : 0), a.py + oz);
     for (const ch of v.g.children) if (ch.userData.bob) { ch.position.y = 0.55 + Math.sin(performance.now() / 180) * 0.04; ch.rotation.y += dt * 2; }
   }
   for (const [id, v] of people) if (!world.actorById(id)) { scene.remove(v.g); people.delete(id); }

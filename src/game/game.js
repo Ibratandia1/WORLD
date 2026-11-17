@@ -28,7 +28,7 @@ export class GameController {
       this.tlTick = 0;
       // Le joueur attend au feu rouge : on le lui dit (une fois par attente)
       const pw = state.player && state.player.waitLight;
-      if (pw && !this.saidWait) this.floatText(t('🚦 Feu rouge : on attend pour traverser'), '#e2475b');
+      if (pw && !this.saidWait) this.floatText(t(pw === 'car' ? '🚦 Feu rouge : on attend le vert' : '🚦 Feu rouge : on attend pour traverser'), '#e2475b');
       this.saidWait = pw;
     }
     this.syncInterior();

@@ -7,12 +7,12 @@ import { vehicleOf, itemById } from './catalog.js';
 import { newDayHousing } from './housing.js';
 import { chatterLine } from './social.js';
 import { priceMul, isClosed } from './city.js';
-import { walkMayGo, JAYWALK_FINE } from './traffic.js';
+import { walkMayGo, carMayGo, JAYWALK_FINE } from './traffic.js';
 import { credit } from './budget.js';
 import { isPolice, onDuty } from './safety.js';
 
 export const MIN_PER_SEC = 1;    // minutes de jeu par seconde réelle (vitesse x1) : une journée ≈ 24 min
-const WALK = 1.6;                // cases parcourues par minute de jeu
+const WALK = 1.1;                // cases parcourues par minute de jeu, à pied (vélo ×2,1, voiture ×3,8 sur la chaussée)
 const DEFAULT_SKIP = 10;         // accélération quand le joueur est occupé (sauf si l'action en précise une)
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -238,16 +238,34 @@ export class World extends Emitter {
     a.moving = a.path.length > 0;
   }
 
+  // Vitesse sur un tronçon (cases / minute de jeu) : à pied lentement ; un véhicule n'a sa vraie vitesse que sur la
+  // chaussée (vélo au pas sur le trottoir, voiture garée : on finit à pied jusqu'à la porte)
+  speedOn(a, v, ct, nt) {
+    if (!v) return WALK;
+    const road = ct.ground === 'road' && nt.ground === 'road';
+    if (road) return WALK * v.vehicle.speed;
+    if ((v.vehicle.mode || 'bike') === 'bike') return WALK * Math.min(v.vehicle.speed, 1.35);
+    return WALK;
+  }
+
   move(a, dt) {
     const v = vehicleOf(a);
-    let budget = WALK * dt * (v ? v.vehicle.speed : 1);
-    while (budget > 0 && a.path.length) {
+    const motorized = v && v.vehicle.mode === 'motor';
+    if (!this.jset) this.jset = new Set(this.map.junctions.map(j => `${j.x},${j.y}`));
+    let time = dt; // minutes de jeu à dépenser sur le chemin
+    while (time > 0 && a.path.length) {
       const t = a.path[0];
-      // Code de la route : au bord du trottoir, on attend que les voitures aient le rouge
       const nt = this.map.tiles[t.y][t.x], ct = this.map.tiles[Math.round(a.py)][Math.round(a.px)];
-      if (nt.ground === 'road' && ct.ground !== 'road') {
+      // Piétons : au bord du trottoir, on attend que les voitures aient le rouge
+      if (!v && nt.ground === 'road' && ct.ground !== 'road') {
         if (nt.crossing && !walkMayGo(this, nt.crossing)) { a.waitLight = true; break; }
-        if (!nt.crossing && !v) this.jaywalk(a); // traverser hors des passages piétons
+        if (!nt.crossing) this.jaywalk(a); // traverser hors des passages piétons
+      }
+      // Véhicules (vélo compris) sur la chaussée : arrêt avant le passage piéton quand le feu est rouge
+      if (v && ct.ground === 'road' && nt.crossing && !ct.crossing && !this.jset.has(`${Math.round(a.px)},${Math.round(a.py)}`)) {
+        const { jx, jy, axis } = nt.crossing;
+        const toward = Math.abs(jx - t.x) + Math.abs(jy - t.y) < Math.abs(jx - a.px) + Math.abs(jy - a.py);
+        if (toward && !carMayGo(this, jx, jy, axis)) { a.waitLight = 'car'; break; }
       }
       a.waitLight = false;
       const dx = t.x - a.px, dy = t.y - a.py;
@@ -255,17 +273,20 @@ export class World extends Emitter {
       const sdx = dx - dy; // direction horizontale à l'écran
       if (Math.abs(sdx) > 0.01) a.facing = sdx > 0 ? 1 : -1;
       if (Math.abs(dx + dy) > 0.01) a.away = dx + dy < 0; // s'éloigne (vers le haut de l'écran) : vu de dos
+      const spd = this.speedOn(a, v, ct, nt);
+      const budget = spd * time;
+      a.riding = !!v && (motorized ? ct.ground === 'road' || nt.ground === 'road' : true); // (affichage : sur son véhicule)
       if (d <= budget) {
         a.px = t.x; a.py = t.y;
         a.path.shift();
-        budget -= d;
+        time -= d / spd;
       } else {
         a.px += (dx / d) * budget;
         a.py += (dy / d) * budget;
-        budget = 0;
+        time = 0;
       }
     }
-    if (!a.path.length) this.arrive(a);
+    if (!a.path.length) { a.riding = false; this.arrive(a); }
   }
 
   // Traversée hors des passages piétons : amende si un·e agent·e de police en service le voit
@@ -351,7 +372,8 @@ export class World extends Emitter {
       isGoal = (gx, gy) => (this.map.entranceMap.get(`${gx},${gy}`) || []).some(i => ids.has(i));
     }
 
-    const res = findPath(this.map, { x: a.px, y: a.py }, isGoal);
+    const veh = vehicleOf(a);
+    const res = findPath(this.map, { x: a.px, y: a.py }, isGoal, veh ? veh.vehicle.mode || 'bike' : 'walk');
     if (!res) return this.fail(a, id, 'Chemin introuvable');
 
     this.cancel(a, true);

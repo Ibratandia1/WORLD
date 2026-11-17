@@ -15,10 +15,11 @@ export const CATALOG = [
   { id: 'solaires', shop: 'fashion', cat: 'Accessoires', name: 'Lunettes de soleil', icon: '🕶️', price: 40, look: { accessory: 'solaires' } },
 
   // Garage Roue Libre (véhicules)
-  { id: 'trottinette', shop: 'garage', cat: 'Véhicules', name: 'Trottinette', icon: '🛴', price: 120, vehicle: { speed: 1.4, weekly: 0 } },
-  { id: 'velo', shop: 'garage', cat: 'Véhicules', name: 'Vélo de ville', icon: '🚲', price: 250, vehicle: { speed: 1.7, weekly: 0 } },
-  { id: 'scooter', shop: 'garage', cat: 'Véhicules', name: 'Scooter', icon: '🛵', price: 1400, vehicle: { speed: 2.2, weekly: 15 } },
-  { id: 'voiture', shop: 'garage', cat: 'Véhicules', name: 'Petite citadine', icon: '🚗', price: 6500, vehicle: { speed: 2.8, weekly: 40 } },
+  // mode : 'bike' = piste cyclable (et trottoir au pas), 'motor' = sur la chaussée seulement (à pied pour rejoindre la porte)
+  { id: 'trottinette', shop: 'garage', cat: 'Véhicules', name: 'Trottinette', icon: '🛴', price: 120, vehicle: { speed: 1.6, weekly: 0, mode: 'bike' } },
+  { id: 'velo', shop: 'garage', cat: 'Véhicules', name: 'Vélo de ville', icon: '🚲', price: 250, vehicle: { speed: 2.1, weekly: 0, mode: 'bike' } },
+  { id: 'scooter', shop: 'garage', cat: 'Véhicules', name: 'Scooter', icon: '🛵', price: 1400, vehicle: { speed: 3, weekly: 15, mode: 'motor' } },
+  { id: 'voiture', shop: 'garage', cat: 'Véhicules', name: 'Petite citadine', icon: '🚗', price: 6500, vehicle: { speed: 3.8, weekly: 40, mode: 'motor' } },
 
   // Supérette
   { id: 'smartphone', shop: 'shop', cat: 'Objets', name: 'Smartphone', icon: '📱', price: 300, item: 'phone' },
