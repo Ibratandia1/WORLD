@@ -306,7 +306,8 @@ export async function sendChat(npc, text, topic = null) {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ card: c, history: log.slice(0, -1), message: text }),
       });
-      if (r.ok) { res = await r.json(); aiAvailable = true; } else if (r.status === 503) aiAvailable = false;
+      // sans serveur (jeu en ligne sur GitHub Pages) ou sans clé : réponses intégrées
+      if (r.ok) { res = await r.json(); aiAvailable = true; } else aiAvailable = false;
     } catch { aiAvailable = false; }
   }
   let choices = [];
