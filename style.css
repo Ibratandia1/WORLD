@@ -637,3 +637,40 @@ body.v3d #game, body.v3d #game canvas { pointer-events: none; } /* la couche 2D 
 .lab3d.zone { margin: -10px 0 0 -10px; opacity: .95; }
 .lab3d.exit { background: #3fae73; margin: -10px 0 0 -30px; cursor: pointer; font-size: 12px; padding: 4px 10px; }
 #box.mini .mini-hint { margin: 5px 0 0; font-size: 10.5px; opacity: .7; text-align: center; }
+
+/* Épingles v2 : pictogramme blanc sur pastille colorée (identique sur tous les téléphones) */
+.pin3d .ic { background: var(--pc, #7a6f96) !important; border: 2.5px solid #fff !important; box-shadow: 0 3px 8px rgba(30,30,60,.4) !important;
+  width: 28px !important; height: 28px !important; left: -16px !important; top: -40px !important; padding: 5px; box-sizing: border-box; }
+.pin3d .ic svg { width: 100%; height: 100%; display: block; }
+.pin3d .job { left: 6px !important; top: -48px !important; width: 15px; height: 15px; background: #2f9e5f; border: 2px solid #fff; border-radius: 50%; padding: 2px; box-sizing: border-box; }
+.pin3d .job svg { width: 100%; height: 100%; display: block; }
+.pin3d .tag { display: none; position: absolute; left: 50%; top: 4px; transform: translateX(-50%); font: 800 10.5px system-ui, sans-serif; font-style: normal;
+  color: #fff; background: var(--pc); padding: 2px 7px; border-radius: 8px; border: 1.5px solid #fff; white-space: nowrap; box-shadow: 0 2px 6px rgba(30,30,60,.3); }
+.pin3d.pin-home .tag, .pin3d.pin-work .tag { display: block; }
+.pin3d.pin-home .ic, .pin3d.pin-work .ic { width: 38px !important; height: 38px !important; left: -21px !important; top: -52px !important; padding: 7px; border-width: 3px !important; }
+.pin3d.pin-home::after, .pin3d.pin-work::after { border-top-width: 12px; left: -7px; }
+.pin3d.pin-home { z-index: 3; } .pin3d.pin-work { z-index: 2; }
+
+/* Fiche d'un commerce v2 : état, carte du poste, personnes en service */
+#box.mini { width: min(320px, 44vw); }
+#box.mini .mini-place { display: flex; flex-direction: column; gap: 6px; margin-top: 2px; }
+.mp-status { align-self: flex-start; font: 700 11px system-ui, sans-serif; padding: 3px 9px 3px 8px; border-radius: 999px; }
+.mp-status::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+.mp-status.on { background: #e3f6ea; color: #1f7a45; } .mp-status.on::before { background: #34c759; }
+.mp-status.off { background: #fde8eb; color: #a3263a; } .mp-status.off::before { background: #e2475b; }
+.mp-job { display: flex; align-items: center; gap: 8px; background: #f5f2fd; border: 1px solid #e4dcfa; border-radius: 12px; padding: 6px 8px; }
+.mp-job.mine { background: #e8f0ff; border-color: #c7d8ff; }
+.mp-job .mp-ic { width: 26px; height: 26px; flex: none; display: flex; }
+.mp-job .mp-ic .ic { width: 26px; height: 26px; }
+.mp-job > div { flex: 1; min-width: 0; line-height: 1.2; }
+.mp-job b { display: block; font-size: 12.5px; color: #3d3357; }
+.mp-job small { font-size: 11px; color: #7a6f96; }
+.mp-job button { flex: none; padding: 5px 10px !important; min-height: 0 !important; border-radius: 10px !important; background: #6c4ee0 !important; color: #fff !important; }
+.mp-job button > span, .mp-job button small, .mp-job button em { display: none !important; }
+.mp-job button b, .mp-job button strong { color: #fff; font-size: 11.5px; }
+.mp-staff { display: flex; flex-wrap: wrap; gap: 5px; }
+.mp-who { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px 2px 2px !important; min-height: 0 !important; border-radius: 999px !important;
+  background: #fff !important; border: 1px solid #e4dcfa !important; font: 600 11px system-ui, sans-serif; color: #3d3357; }
+.mp-who i { width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: #fff;
+  font: 800 10px system-ui, sans-serif; font-style: normal; text-shadow: 0 1px 2px rgba(0,0,0,.4); }
+#box.mini .mini-row .leave button { background: #3d3357 !important; color: #fff !important; }

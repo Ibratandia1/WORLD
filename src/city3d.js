@@ -26,6 +26,7 @@ import { createInterior3D } from './interior3d.js';
 import { t as tr } from './i18n.js';
 
 import { TYPES } from './map/types.js';
+import { PIN_GLYPHS } from './icons.js';
 import { freeUnits, isClosed } from './sim/city.js';
 import { sellerAt, openings } from './sim/jobs.js';
 
@@ -105,6 +106,7 @@ function paint(geo, color, top = null) {
   geo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
   return geo;
 }
+const shade = (c, k) => { const o = new THREE.Color(c); o.multiplyScalar(k); return o.getHex(); };
 const box = (w, h, d, x, y, z) => new THREE.BoxGeometry(w, h, d).translate(x, y + h / 2, z);
 // Toit à la Mansart : tronc de pyramide (zinc / ardoise)
 function mansard(w, d, h, inset, x, y, z) {
@@ -493,6 +495,19 @@ function building(r, type, seed, bid = null) {
   const upper = Math.max(1, floors - (y > base ? 1 : 0));
   const h = upper * FLOOR;
   wallGeos.push(paint(wallUV(box(w, h, d, x, y, z), w, h, d, y - base), stone));
+  // Détails haussmanniens : soubassement de pierre, bandeau au-dessus du rez-de-chaussée,
+  // balcons filants en fer forgé au 2e et au dernier étage (sur tout le tour de l'immeuble)
+  const wallBase = y;
+  if (wallBase === base) solidGeos.push(paint(box(w + 0.03, 0.14, d + 0.03, x, base, z), shade(stone, 0.82)));
+  solidGeos.push(paint(box(w + 0.05, 0.035, d + 0.05, x, wallBase === base ? base + FLOOR : wallBase, z), shade(stone, 1.05)));
+  if (upper >= 3) {
+    for (const lvl of [wallBase + FLOOR * (wallBase === base ? 2 : 1), wallBase + h - FLOOR]) {
+      solidGeos.push(paint(box(w + 0.12, 0.025, d + 0.12, x, lvl, z), shade(stone, 0.95)));          // dalle du balcon
+      for (const [bw, bd, ox, oz] of [[w + 0.12, 0.012, 0, d / 2 + 0.06], [w + 0.12, 0.012, 0, -d / 2 - 0.06], [0.012, d + 0.12, w / 2 + 0.06, 0], [0.012, d + 0.12, -w / 2 - 0.06, 0]]) {
+        solidGeos.push(paint(box(bw, 0.075, bd, x + ox, lvl + 0.025, z + oz), 0x2a2c33));             // garde-corps
+      }
+    }
+  }
   y += h;
   // corniche + toit à la Mansart en zinc, cheminées
   solidGeos.push(paint(box(w + 0.08, 0.06, d + 0.08, x, y, z), 0xd8cfbd));
@@ -502,6 +517,22 @@ function building(r, type, seed, bid = null) {
   roofGeos.push(paint(mansard(w + 0.02, d + 0.02, roofH, Math.min(0.32, Math.min(w, d) * 0.3), x, y, z), rcol));
   if (bid != null) tops[bid] = Math.max(tops[bid] || 0, y + roofH);
   if (bid != null) landmark(type, r, x, z, w, d, base, y);
+  // Lucarnes dans le toit en zinc (petites fenêtres à fronton), réparties sur les longs côtés
+  if (roofH > 0.2) {
+    const inset = Math.min(0.32, Math.min(w, d) * 0.3);
+    const along = w >= d;
+    const len = along ? w : d, n = Math.max(1, Math.floor(len / 0.55));
+    for (let k = 0; k < n; k++) {
+      const t = (k + 0.5) / n - 0.5;
+      for (const sgn of [1, -1]) {
+        const dx = along ? t * (len - 0.3) : sgn * (w / 2 - inset * 0.55);
+        const dz = along ? sgn * (d / 2 - inset * 0.55) : t * (len - 0.3);
+        // (toNonIndexed : les toits à la Mansart sont « non indexés », il faut le même format pour les fusionner)
+        roofGeos.push(paint(box(along ? 0.13 : 0.1, 0.15, along ? 0.1 : 0.13, x + dx, y + roofH * 0.18, z + dz), 0xe9e4da).deleteAttribute('uv').toNonIndexed());
+        roofGeos.push(paint(box(along ? 0.09 : 0.02, 0.09, along ? 0.02 : 0.09, x + dx + (along ? 0 : sgn * 0.051), y + roofH * 0.18 + 0.03, z + dz + (along ? sgn * 0.051 : 0)), 0x3f4d63).deleteAttribute('uv').toNonIndexed());
+      }
+    }
+  }
   if (roofH > 0.2) {
     const n = 1 + (seed % 2);
     for (let k = 0; k < n; k++) {
@@ -846,7 +877,7 @@ if (!opts.demo) {
   for (const b of map.buildings) {
     const el = document.createElement('div');
     el.className = 'pin3d';
-    el.innerHTML = '<i class="ic"></i><b class="st"></b><s class="job">💼</s>';
+    el.innerHTML = `<i class="ic"></i><b class="st"></b><s class="job">${PIN_GLYPHS.work}</s><em class="tag"></em>`;
     el.onclick = e => { e.stopPropagation(); opts.onPlace && opts.onPlace(b); };
     pinsEl.appendChild(el);
     const cx = b.tiles.reduce((s, t) => s + t.x, 0) / b.tiles.length, cz = b.tiles.reduce((s, t) => s + t.y, 0) / b.tiles.length;
@@ -906,6 +937,31 @@ function ping(x, z) {
   const tick = () => { const k = (performance.now() - t0) / 700; if (k >= 1) { scene.remove(m); return; } m.scale.setScalar(1 + k * 1.2); m.material.opacity = 0.9 * (1 - k); requestAnimationFrame(tick); };
   tick();
 }
+const marks = { home: null, work: null };
+function footprintRing(b, color) {
+  const xs = b.tiles.map(t => t.x), zs = b.tiles.map(t => t.y);
+  const x0 = Math.min(...xs) - 0.62, x1 = Math.max(...xs) + 0.62, z0 = Math.min(...zs) - 0.62, z1 = Math.max(...zs) + 0.62;
+  const sh = new THREE.Shape([new THREE.Vector2(x0, z0), new THREE.Vector2(x1, z0), new THREE.Vector2(x1, z1), new THREE.Vector2(x0, z1)]);
+  const hole = new THREE.Path([new THREE.Vector2(x0 + 0.12, z0 + 0.12), new THREE.Vector2(x1 - 0.12, z0 + 0.12), new THREE.Vector2(x1 - 0.12, z1 - 0.12), new THREE.Vector2(x0 + 0.12, z1 - 0.12)]);
+  sh.holes.push(hole);
+  const geo = new THREE.ShapeGeometry(sh).rotateX(Math.PI / 2).translate(0, 0.12, 0);
+  const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide }));
+  m.userData.noTap = true; m.userData.bid = b.id; m.renderOrder = 2;
+  scene.add(m);
+  return m;
+}
+function updateMarks() {
+  const p = opts.player;
+  if (!p) return;
+  const want = { home: p.home != null ? p.home : null, work: p.job && !p.job.street ? p.job.building : null };
+  for (const k of ['home', 'work']) {
+    if (marks[k] && marks[k].userData.bid === want[k]) continue;
+    if (marks[k]) { scene.remove(marks[k]); marks[k].geometry.dispose(); marks[k] = null; }
+    if (want[k] != null) marks[k] = footprintRing(world.building(want[k]), k === 'home' ? 0xffc21a : 0x3d84ff);
+  }
+  const k = 0.55 + Math.sin(performance.now() / 400) * 0.3;
+  for (const m of Object.values(marks)) if (m) m.material.opacity = k;
+}
 let pinTick = 0;
 function updateGame(dt) {
   if (opts.demo) return;
@@ -921,6 +977,7 @@ function updateGame(dt) {
     if (d.length() < 0.02) camGoal.t = null;
     else { d.multiplyScalar(Math.min(1, dt * 5)); controls.target.add(d); camera.position.add(d); }
   }
+  updateMarks();
   // épingles : état (icône, couleur, ouvert / fermé, poste libre) une fois par seconde, position à chaque image
   pinTick -= dt;
   const p = opts.player;
@@ -928,25 +985,30 @@ function updateGame(dt) {
     pinTick = 1;
     for (const pin of pins) {
       const b = pin.b;
-      let icon = TYPES[b.type].icon, color = PIN_COLORS[b.type] || '#7a6f96', show = true, open = null, job = false;
+      // pictogramme vectoriel de la couleur du lieu ; chez toi (or) et ton travail (bleu) : plus grands, avec une étiquette
+      let icon = b.type, color = PIN_COLORS[b.type] || '#7a6f96', show = true, open = null, job = false, role = '';
       if (b.type === 'home') {
         const mine = p && b.id === p.home;
         show = mine || freeUnits(world, b) > 0;
-        icon = mine ? (p.housing === 'own' ? '🔑' : '🏠') : '🔑';
-        if (mine) color = '#f2b705';
+        icon = mine ? 'home' : 'key';
+        if (mine) { color = '#f0a500'; role = 'home'; }
       } else {
         const closed = isClosed(world, b.id);
-        if (closed) { icon = '🔒'; color = '#8a8f99'; }
-        if (p && p.job && p.job.building === b.id) color = '#f2b705';
+        if (closed) { icon = 'lock'; color = '#8a8f99'; }
+        if (p && p.job && p.job.building === b.id) { color = '#2f6fe0'; role = 'work'; }
         const staffed = b.jobs && b.type !== 'office' && !['police', 'firestation', 'prison'].includes(b.type);
         open = closed ? false : staffed ? !!sellerAt(world, b) : null;
-        job = !closed && openings(world, b) > 0;
+        job = !closed && !role && openings(world, b) > 0;
       }
       pin.show = show;
-      const st = `${icon}|${color}|${open}|${job}`;
+      pin.role = role;
+      const st = `${icon}|${color}|${open}|${job}|${role}`;
       if (st !== pin.state) {
         pin.state = st;
-        pin.el.querySelector('.ic').textContent = icon;
+        pin.el.querySelector('.ic').innerHTML = PIN_GLYPHS[icon] || PIN_GLYPHS.office;
+        pin.el.classList.toggle('pin-home', role === 'home');
+        pin.el.classList.toggle('pin-work', role === 'work');
+        pin.el.querySelector('.tag').textContent = role === 'home' ? tr('Chez toi') : role === 'work' ? tr('Ton travail') : '';
         pin.el.style.setProperty('--pc', color);
         const s = pin.el.querySelector('.st');
         s.style.display = open == null ? 'none' : ''; s.style.background = open ? '#34c759' : '#e2475b';
@@ -960,7 +1022,7 @@ function updateGame(dt) {
   const list = pins.map(pin => ({ pin, s: project(pin.pos) })).sort((a, b) => prio(b.pin.b) - prio(a.pin.b));
   for (const { pin, s } of list) {
     let ok = pin.show && s.front && s.x > -40 && s.x < innerWidth + 40 && s.y > -40 && s.y < innerHeight + 40;
-    if (ok) ok = !placed.some(q => Math.abs(q.x - s.x) < 34 && Math.abs(q.y - s.y) < 38);
+    if (ok && !pin.role) ok = !placed.some(q => Math.abs(q.x - s.x) < 34 && Math.abs(q.y - s.y) < 40);
     pin.el.style.display = ok ? '' : 'none';
     if (ok) { placed.push(s); pin.el.style.transform = `translate(${s.x}px, ${s.y}px)`; }
   }

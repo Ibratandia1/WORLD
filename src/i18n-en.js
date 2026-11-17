@@ -265,6 +265,7 @@ export const EN_EXTRA = {
   'Tu ne t’es pas présenté·e au travail.': 'You didn’t show up for work.', 'Tu es arrivé·e en retard.': 'You arrived late.',
   'Tu es parti·e bien avant la fin de ton service.': 'You left well before the end of your shift.',
   'Au 3e avertissement, c’est le renvoi.': 'On the 3rd warning, you’re fired.',
+  'Chez toi': 'Home', 'Ton travail': 'Your job',
   'Réfectoire': 'Canteen', '👆 Touche le comptoir ou un meuble pour agir': '👆 Tap the counter or a piece of furniture to act', 'Fermé : personne en service': 'Closed: nobody on duty', 'Accepter un pot-de-vin': 'Accept a bribe', 'Réservé aux agents publics': 'Public servants only',
   'Seulement pendant le service': 'Only during your shift', 'Moins': 'Less',
   '⚠️ Routine : livré à lui-même, ton personnage peut mal tourner (vols, pots-de-vin, jeux, absences)…': '⚠️ Routine: left to themselves, your character may go astray (theft, bribes, gambling, absences)…',

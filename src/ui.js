@@ -590,15 +590,35 @@ export class UI {
   // Petite fiche d'un lieu vu de l'intérieur : l'emploi et qui travaille ici
   miniPlaceHTML(b) {
     const p = this.player, w = this.world;
-    const lines = [];
-    if (p.job && p.job.building === b.id) lines.push(`💼 ${L('Ton travail', 'Your job')} · ${fmtShift(p.job)}`);
-    else if (b.jobs) {
-      const n = openings(w, b);
-      lines.push(`<span class="mini-job">💼 ${esc(t(JOB_TITLES[b.type] || 'Poste'))} · ${L(`${b.jobs.wage} €/h`, `€${b.jobs.wage}/h`)} · ${n ? L(`${n} poste${n > 1 ? 's' : ''}`, `${n} opening${n > 1 ? 's' : ''}`) : t('complet')}${n ? this.actBtn('apply', { building: b.id }, 'Postuler') : ''}</span>`);
-    }
     const staff = w.actors.filter(o => o !== p && o.inside === b.id && (o.doing === 'work' || o.doing === 'overtime'));
-    lines.push(staff.length ? `👤 ${staff.map(o => esc(o.name)).join(', ')} ${L('en service', 'on duty')}` : `🔴 ${L('Personne en service', 'Nobody on duty')}`);
-    return `<div class="mini-place">${lines.map(l => `<p>${l}</p>`).join('')}</div>`;
+    // 1. Ouvert / fermé, avec l'heure (fin du service le plus tardif aujourd'hui, ou prochaine ouverture)
+    let status;
+    if (staff.length) {
+      const d0 = (w.day - 1) * 1440;
+      // fermeture = fin du dernier service du jour, toutes équipes confondues (matin et soir)
+      const crew = w.actors.filter(o => o.job && o.job.building === b.id && !o.job.street && isWorkday(o.job, w.day));
+      const end = Math.max(...(crew.length ? crew : staff).map(o => (o.job ? d0 + (o.job.start + o.job.hours) * 60 : 0)));
+      const h = Math.floor((end % 1440) / 60);
+      status = `<div class="mp-status on">${L(`Ouvert · ferme à ${h}h`, `Open · closes at ${h}:00`)}</div>`;
+    } else {
+      const n = nextOpening(w, b);
+      const hh = n ? Math.floor((n.start % 1440) / 60) : null;
+      status = `<div class="mp-status off">${n ? L(`Fermé · ouvre ${n.day === w.day ? '' : 'demain '}à ${hh}h`, `Closed · opens ${n.day === w.day ? '' : 'tomorrow '}at ${hh}:00`) : L('Fermé', 'Closed')}</div>`;
+    }
+    // 2. Le poste (ou ton propre travail ici)
+    let job = '';
+    if (p.job && p.job.building === b.id) {
+      job = `<div class="mp-job mine"><span class="mp-ic">${icon('briefcase')}</span><div><b>${L('Ton travail', 'Your job')}</b><small>${fmtShift(p.job)} · ${p.job.days.map(d => dayShort(d)).join(' ')}</small></div></div>`;
+    } else if (b.jobs) {
+      const n = openings(w, b);
+      job = `<div class="mp-job"><span class="mp-ic">${icon('briefcase')}</span><div><b>${esc(t(JOB_TITLES[b.type] || 'Poste'))}</b><small>${L(`${b.jobs.wage} €/h`, `€${b.jobs.wage}/h`)} · ${n ? L(`${n} poste${n > 1 ? 's' : ''} libre${n > 1 ? 's' : ''}`, `${n} opening${n > 1 ? 's' : ''}`) : t('complet')}</small></div>${n ? this.actBtn('apply', { building: b.id }, 'Postuler') : ''}</div>`;
+    }
+    // 3. Qui est là : pastilles de couleur (la couleur de leur tenue), on les touche pour leur parler
+    const hex = c => '#' + (c ?? 0x7a6f96).toString(16).padStart(6, '0');
+    const people = staff.length
+      ? `<div class="mp-staff">${staff.map(o => `<button data-person="${o.id}" class="mp-who"><i style="background:${hex(o.look && o.look.body)}">${esc(o.name[0])}</i>${esc(o.name)}</button>`).join('')}</div>`
+      : '';
+    return `<div class="mini-place">${status}${job}${people}</div>`;
   }
 
   // Mairie : le maire, la politique, les caisses, les élections (vote, candidature), les décisions du maire

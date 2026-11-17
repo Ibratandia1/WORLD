@@ -3,6 +3,30 @@
 
 const S = (body, vb = '0 0 24 24') => `<svg class="ic" viewBox="${vb}" aria-hidden="true">${body}</svg>`;
 
+// Pictogrammes blancs des épingles de la carte (sur une pastille de la couleur du lieu), façon plans modernes
+const G = body => `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+export const PIN_GLYPHS = {
+  cafe: G('<path d="M5 9h11v5a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5z" fill="#fff"/><path d="M16 10.5h1.5a2.5 2.5 0 0 1 0 5H16"/><path d="M8 3.5c0 1.5 1.5 1.5 1.5 3M11.5 3.5c0 1.5 1.5 1.5 1.5 3"/>'),
+  bakery: G('<path d="M3.5 15.5c2-6 15-6 17 0-2 2-4.5 2.5-8.5 2.5s-6.5-.5-8.5-2.5z" fill="#fff"/><path d="M8 11.5l1.5 4M12 10.8v4.7M16 11.5l-1.5 4" stroke="#c98a3a"/>'),
+  shop: G('<path d="M3 4h2.5l2.2 10.5h10l2-7.5H6.6"/><circle cx="9.5" cy="19" r="1.6" fill="#fff"/><circle cx="16.5" cy="19" r="1.6" fill="#fff"/>'),
+  fashion: G('<path d="M12 6.5a2 2 0 1 0-2-2"/><path d="M12 6.5 3.5 13h17z"/><path d="M8 13l-1.5 7h11L16 13" fill="#fff"/>'),
+  garage: G('<path d="M14.5 5.5a4 4 0 0 0 5 5L11 19a2.1 2.1 0 0 1-3-3l8.5-8.5a4 4 0 0 0-2-2z" fill="#fff"/>'),
+  office: G('<rect x="3.5" y="7.5" width="17" height="11.5" rx="2" fill="#fff"/><path d="M9 7.5V5.5h6v2" /><path d="M3.5 12.5h17" stroke-opacity=".35" stroke="#000"/>'),
+  metro: G('<path d="M5 19V5l7 8 7-8v14" stroke-width="2.6"/>'),
+  cityhall: G('<path d="M3 9 12 4l9 5z" fill="#fff"/><path d="M5.5 11v6M10 11v6M14 11v6M18.5 11v6M3.5 19.5h17"/>'),
+  police: G('<path d="M12 3 4.5 6v5.5c0 4.5 3.2 7.8 7.5 9.5 4.3-1.7 7.5-5 7.5-9.5V6z" fill="#fff"/><path d="m12 8.5 1.2 2.5 2.7.3-2 1.8.6 2.7-2.5-1.4-2.5 1.4.6-2.7-2-1.8 2.7-.3z" fill="#2b3a6b" stroke="none"/>'),
+  hospital: G('<path d="M9.5 4h5v5.5H20v5h-5.5V20h-5v-5.5H4v-5h5.5z" fill="#fff"/>'),
+  firestation: G('<path d="M12 3c1 3.5 5 5.5 5 10a5 5 0 0 1-10 0c0-2.3 1.2-3.6 2.4-4.6.3 1.6 1 2.5 2 2.8-.6-2.9.2-5.6.6-8.2z" fill="#fff"/>'),
+  prison: G('<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 4v16M15 4v16M4 12h16"/>'),
+  school: G('<path d="M2.5 9.5 12 5l9.5 4.5L12 14z" fill="#fff"/><path d="M6.5 11.5v4c1.5 1.6 3.4 2.3 5.5 2.3s4-.7 5.5-2.3v-4M21 9.5v5"/>'),
+  court: G('<path d="M12 4v16M7.5 20h9M4 7.5h16"/><path d="M6 7.5 3.5 13a3 3 0 0 0 5 0zM18 7.5 15.5 13a3 3 0 0 0 5 0z" fill="#fff"/>'),
+  bank: G('<path d="M16.5 7.5a5 5 0 1 0 0 9"/><path d="M5.5 10.5h8M5.5 13.5h8"/>'),
+  home: G('<path d="M3.5 11 12 4l8.5 7"/><path d="M6 9.5V20h12V9.5" fill="#fff"/><path d="M10.2 20v-5h3.6v5" stroke="#000" stroke-opacity=".35"/>'),
+  key: G('<circle cx="8" cy="12" r="4" fill="#fff"/><path d="M12 12h8.5M17.5 12v3M20.5 12v2.5"/>'),
+  lock: G('<rect x="5" y="10.5" width="14" height="10" rx="2" fill="#fff"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/>'),
+  work: G('<rect x="3.5" y="7.5" width="17" height="11.5" rx="2" fill="#fff"/><path d="M9 7.5V5.5h6v2"/>'),
+};
+
 export const ICONS = {
   clock: S('<circle cx="12" cy="12" r="9.5" fill="#7b5cf0"/><circle cx="12" cy="12" r="7.5" fill="#fff"/><path d="M12 7v5l3.2 2" stroke="#3d3357" stroke-width="2" fill="none" stroke-linecap="round"/>'),
   sun: S('<g stroke="#f2b33c" stroke-width="2" stroke-linecap="round"><path d="M12 1.8v2.6M12 19.6v2.6M1.8 12h2.6M19.6 12h2.6M4.8 4.8l1.8 1.8M17.4 17.4l1.8 1.8M4.8 19.2l1.8-1.8M17.4 6.6l1.8-1.8"/></g><circle cx="12" cy="12" r="5.2" fill="#ffc93c" stroke="#f2a33a" stroke-width="1.2"/>'),
