@@ -22,6 +22,7 @@ import { cityPulse } from './city/render.js';
 import { TUTORIAL, TUT_REWARD, TUT_FINAL, DREAMS, tutStep, tutReady, dreamClaimable, nextDream, DAILY, DAILY_REWARD, DAILY_BONUS, dailyFor, levelOf, LEVELS, LEVEL_TITLES } from './sim/goals.js';
 import { TAX_POLICIES, AID_POLICIES, CAMPAIGN_FEE, PROJECTS } from './sim/gov.js';
 import { CATALOG } from './sim/catalog.js';
+import { SAVINGS_RATE } from './sim/bank.js';
 import { canReach } from './sim/actions.js';
 import { ROLE_TITLES } from './sim/social.js';
 import { jobTitle, sellerAt, nextOpening, weekdayOf, taxRate, PROPERTY_TAX, nextShift } from './sim/jobs.js';
@@ -527,11 +528,19 @@ export class UI {
       firestation: () => { const n = w.safety ? Object.keys(w.safety.fires).length : 0; return n ? L(`🔥 ${n} incendie${n > 1 ? 's' : ''} en cours !`, `🔥 ${n} fire${n > 1 ? 's' : ''} burning!`) : t('🚒 Aucun incendie. Les pompiers veillent.'); },
       prison: () => { const n = w.actors.filter(o => jailed(w, o)).length; return L(`⛓️ ${n} détenu${n > 1 ? 's' : ''}`, `⛓️ ${n} inmate${n > 1 ? 's' : ''}`); },
       school: () => L(`🎓 Ton niveau d’études : ${p.education ?? 1}/3 · cours du soir : 3 cours = 1 diplôme`, `🎓 Your education level: ${p.education ?? 1}/3 · evening classes: 3 classes = 1 diploma`),
+      court: () => {
+        const j = w.justice, s = j ? j.stats : { trials: 0, guilty: 0, acquitted: 0 };
+        const next = w.actors.filter(o => o.trial).sort((x, y) => x.trial.at - y.trial.at)[0];
+        const nx = next ? L(`<br>⚖️ Prochain procès : ${esc(next.isPlayer ? 'toi' : next.name)}, jour ${Math.floor(next.trial.at / 1440) + 1} à 10h`, `<br>⚖️ Next trial: ${esc(next.isPlayer ? 'you' : next.name)}, day ${Math.floor(next.trial.at / 1440) + 1} at 10:00`) : '';
+        return L(`⚖️ ${s.trials} procès · ${s.guilty} condamnation${s.guilty > 1 ? 's' : ''} · ${s.acquitted} relaxe${s.acquitted > 1 ? 's' : ''}`, `⚖️ ${s.trials} trial${s.trials > 1 ? 's' : ''} · ${s.guilty} conviction${s.guilty > 1 ? 's' : ''} · ${s.acquitted} acquittal${s.acquitted > 1 ? 's' : ''}`) + nx;
+      },
+      bank: () => L(`🏦 En poche : ${money(Math.round(p.money))} € · épargne : ${money(Math.round(p.bank || 0))} € (+${SAVINGS_RATE * 100} %/sem.)${p.loan > 0 ? ` · prêt : ${money(Math.round(p.loan))} €` : ''}`,
+        `🏦 Cash: €${money(Math.round(p.money))} · savings: €${money(Math.round(p.bank || 0))} (+${SAVINGS_RATE * 100}%/wk)${p.loan > 0 ? ` · loan: €${money(Math.round(p.loan))}` : ''}`),
     };
     if (SERVICE[b.type]) note = `${note}<p>${SERVICE[b.type]()}</p>`;
     if (w.safety && w.safety.burning(b.id)) note = `<p class="status bad">${L('🔥 En feu ! Personne ne peut entrer.', '🔥 On fire! Nobody can go in.')}</p>${note}`;
     // Commerce : ouvert seulement s'il y a quelqu'un au comptoir
-    if (['cafe', 'bakery', 'shop', 'fashion', 'garage', 'cityhall', 'hospital', 'school'].includes(b.type)) {
+    if (['cafe', 'bakery', 'shop', 'fashion', 'garage', 'cityhall', 'hospital', 'school', 'court', 'bank'].includes(b.type)) {
       const s = sellerAt(w, b, p);
       let status;
       if (s) status = L(`🟢 Ouvert · ${esc(s.name)} au comptoir`, `🟢 Open · ${esc(s.name)} at the counter`);
@@ -559,7 +568,7 @@ export class UI {
     let leave = '';
     if (inside) {
       if (!note) note = `<p>${t('Touche un meuble ou une personne.')}</p>`;
-      leave = `<div class="leave">${this.choiceHTML('data-leave class="c-civic"', '🚶', b.type === 'home' ? 'Sortir dans la rue' : 'Sortir de la boutique', '', true)}</div>`;
+      leave = `<div class="leave">${this.choiceHTML('data-leave class="c-civic"', '🚶', b.type === 'home' ? 'Sortir dans la rue' : ['cafe', 'bakery', 'shop', 'fashion', 'garage'].includes(b.type) ? 'Sortir de la boutique' : 'Sortir', '', true)}</div>`;
     }
     const icon = b.type === 'home' && b.id === p.home ? (p.housing === 'own' ? '🔑' : '🏠') : TYPES[b.type].icon;
     return `${this.head(icon, b.name, !inside)}${jobTop}${note}<div class="choices">${buttons.join('')}</div>${this.shopHTML(b, inside)}${b.type === 'cityhall' ? this.govHTML(b, inside) : ''}${leave}`;
@@ -640,9 +649,13 @@ export class UI {
         this.actBtn('use_vehicle', { item: null }, 'Marcher', '🚶')}${vehicles.map(v => this.actBtn('use_vehicle', { item: v.id }, v.name, v.icon)).join('')}</div></div>`
       : `<div class="sec"><b>${t('🚲 Déplacements')}</b><p>${t('À pied. Vélos, scooters et voitures au Garage Roue Libre.')}</p></div>`;
 
+    const clean = w.city ? Math.round(w.city.cleanliness) : 100;
+    const cash = `<div class="sec"><b>${t('🏦 Mon argent')}</b><p>${L(`En poche : ${money(Math.round(p.money))} € · épargne à la banque : ${money(Math.round(p.bank || 0))} €`, `Cash: €${money(Math.round(p.money))} · bank savings: €${money(Math.round(p.bank || 0))}`)}${p.loan > 0 ? `<br>${L(`Prêt à rembourser : ${money(Math.round(p.loan))} € (prélevé le lundi)`, `Loan to repay: €${money(Math.round(p.loan))} (taken on Monday)`)}` : ''}
+      <br>${L(`🗑️ Propreté du quartier : ${clean} %`, `🗑️ Neighbourhood cleanliness: ${clean}%`)}${p.trial ? `<br><span class="bad">${L(`⚖️ Procès jour ${Math.floor(p.trial.at / 1440) + 1} à 10h${p.trial.lawyer != null ? ' · avocat·e engagé·e' : ''}`, `⚖️ Trial on day ${Math.floor(p.trial.at / 1440) + 1} at 10:00${p.trial.lawyer != null ? ' · lawyer hired' : ''}`)}</span>` : ''}</p>
+      ${p.trial && p.trial.lawyer == null ? `<div class="choices">${this.actBtn('hire_lawyer')}</div>` : ''}</div>`;
     const routine = `<div class="sec"><b>${t('🔁 Routine automatique')}</b><p>${t('Ton personnage mange, dort et va travailler tout seul. Tu peux toujours reprendre la main.')}</p>
       <div class="choices">${this.choiceHTML('data-routine', p.routine ? '⏹️' : '▶️', p.routine ? 'Désactiver la routine' : 'Activer la routine', '', true)}</div></div>`;
-    return `${this.head('📋', 'Ma vie')}${this.dreamsHTML()}${job}${home}${ride}${routine}`;
+    return `${this.head('📋', 'Ma vie')}${this.dreamsHTML()}${job}${home}${cash}${ride}${routine}`;
   }
 
   // ---------- Objectifs : rêves (dans « Ma vie ») et carte d'objectif ----------
@@ -760,7 +773,7 @@ export class UI {
     const p = this.player, w = this.world;
     const walk = b => Math.max(1, Math.round(Math.min(...b.entrances.map(e => Math.abs(e.x - p.px) + Math.abs(e.y - p.py))) / 1.6));
     const GROUPS = [['☕ Manger et boire', ['cafe', 'bakery']], ['🛍️ Boutiques', ['shop', 'fashion', 'garage']],
-      ['💼 Travail', ['office']], ['🏛️ Services', ['cityhall', 'metro']], ['🏠 Logements', ['home']]];
+      ['💼 Travail', ['office']], ['🏛️ Services', ['cityhall', 'court', 'bank', 'police', 'hospital', 'firestation', 'school', 'prison', 'metro']], ['🏠 Logements', ['home']]];
     const status = b => {
       if (b.type === 'home') {
         if (b.id === p.home) return t('🏠 chez toi');

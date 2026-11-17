@@ -115,7 +115,7 @@ export function drawBuildingTile(g, lg, cx, cy, h, T, info) {
   }
 
   // Mairie : colonnes de pierre au rez-de-chaussée, fronton, grande porte, horloge et drapeau
-  if (type === 'cityhall') {
+  if (type === 'cityhall' || type === 'court') { // colonnes de pierre (mairie, tribunal)
     for (const side of sides) {
       const base = side === 'L' ? T.left : T.right;
       q(g, face(side, 0, 26), shade(base, 0.9));
@@ -136,6 +136,19 @@ export function drawBuildingTile(g, lg, cx, cy, h, T, info) {
     }
   }
 
+  // Banque : soubassement de marbre vert, bandeau doré, grande porte vitrée
+  if (type === 'bank') {
+    for (const side of sides) {
+      q(g, face(side, 0, 10), shade(0x2f5d4a, dim(side)));
+      q(g, face(side, 24, 28), shade(0xd9b04c, dim(side)));
+      q(g, face(side, 0, 20, 0.36, 0.64), shade(0x24453a, dim(side)));
+      q(lg, face(side, 1, 19, 0.38, 0.62), 0xfff1c2);
+    }
+  }
+  if (type === 'court' && info.door) { // balance de la justice au-dessus de la porte
+    q(g, face('L', h - 26, h - 24, 0.38, 0.62), 0xb8963c); q(g, face('L', h - 30, h - 24, 0.495, 0.505), 0xb8963c);
+    q(g, face('L', h - 23, h - 21, 0.36, 0.44), 0xb8963c); q(g, face('L', h - 23, h - 21, 0.56, 0.64), 0xb8963c);
+  }
   // Services publics : chacun reconnaissable de loin
   if (type === 'police') {
     for (const side of sides) {
@@ -393,7 +406,7 @@ export function drawStreetDecor(scene, map, lights, darks, season = 'printemps')
   // décor animé (jets d'eau) : reste en dessin vivant
   const live = (x, y, extra) => { const g = twin(scene, depthAt(x, y) + extra, darks); const s = toScreen(x, y); scene.cullables.push({ objs: [g, darks[darks.length - 1]], x: s.x, y: s.y }); return g; };
   ensureLightTextures(scene);
-  const spots = { benches: [], fountains: [], statues: [], trees: [] }; // objets de la rue avec lesquels on peut interagir
+  const spots = { benches: [], fountains: [], statues: [], trees: [], bins: [] }; // objets de la rue avec lesquels on peut interagir
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
@@ -460,6 +473,18 @@ export function drawStreetDecor(scene, map, lights, darks, season = 'printemps')
         const pool = scene.add.image(b.x, b.y + 2, 'lamp_pool').setScale(0.5).setDepth(0.6).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0);
         lights.push(halo, pool);
         scene.cullables.push({ objs: [halo, pool], x: b.x, y: b.y });
+      } else if (side && t.ground === 'pave' && along % 8 === 5) {
+        // Poubelles de rue (anneau vert et sac transparent, comme à Paris) : touchables
+        const px = x + side[0] * 0.3, py = y + side[1] * 0.3;
+        const b = toScreen(px, py);
+        spots.bins.push({ x, y, px, py });
+        const g = add(px, py, 2, [-8, -24, 8, 4]);
+        g.fillStyle(0x000000, 0.15); g.fillEllipse(b.x, b.y + 1, 9, 3);
+        g.fillStyle(0x2e6b4a); g.fillRect(b.x - 1, b.y - 20, 2, 21);
+        g.fillStyle(0xdfe6ea, 0.85); g.fillRect(b.x - 4, b.y - 15, 8, 11);
+        g.fillStyle(0xbac4cc, 0.9); g.fillRect(b.x - 4, b.y - 8, 8, 3);
+        g.fillStyle(0x3f9a5c); g.fillEllipse(b.x, b.y - 16, 10, 4);
+        g.fillStyle(0x2e6b4a); g.fillEllipse(b.x, b.y - 16.5, 7, 2);
       } else if (side && t.ground === 'pave' && along % 4 === 0 && r() < 0.7) {
         // Bacs à fleurs
         const px = x + (side[0] ? side[0] * 0.3 : 0.1), py = y + (side[1] ? side[1] * 0.3 : 0.1);

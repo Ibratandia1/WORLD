@@ -50,20 +50,30 @@ export class Safety {
       w.emit('robbed', { actor: victim, thief: victim.victimOf === a.id ? a : null, amount: loot, kind });
     }
     w.emit('crime', { actor: a, kind, victim, outcome });
-    if (outcome === 'arrested') this.arrest(cop, a);
+    if (outcome === 'arrested') this.arrest(cop, a, true);
     return outcome;
   }
 
-  // Envoyer quelqu'un en prison (appelé par l'action arrest, ou en flagrant délit)
-  arrest(cop, a) {
+  // Arrestation (action arrest, ou flagrant délit) : garde à vue puis procès s'il y a un tribunal
+  arrest(cop, a, flagrant = false) {
     const w = this.w;
-    const prison = w.map.buildings.find(b => b.type === 'prison');
+    this.stats.arrests++;
+    if (w.justice && w.justice.court) return w.justice.custody(cop, a, flagrant);
     const days = PRISON_DAYS(a.wanted || 1);
     const fine = Math.min(Math.max(0, Math.round(a.money)), 50 * days);
+    this.imprison(a, days, fine);
+    if (w.city) w.city.post('🚔', `${cop ? cop.name + ' a arrêté' : 'Arrestation de'} ${a.name} : ${days} jour${days > 1 ? 's' : ''} de prison et ${fine} € d’amende.`);
+    w.emit('arrested', { actor: a, cop, days, fine });
+  }
+
+  // Conduire quelqu'un à la Maison d'arrêt (après un procès, ou directement sans tribunal)
+  imprison(a, days, fine) {
+    const w = this.w;
+    const prison = w.map.buildings.find(b => b.type === 'prison');
     a.money -= fine;
     w.treasury = (w.treasury || 0) + fine;
     a.wanted = 0;
-    this.stats.arrests++;
+    a.jailUntil = null;
     w.cancel(a, true);
     if (prison) {
       const e = prison.entrances[0];
@@ -72,8 +82,6 @@ export class Safety {
       a.jailUntil = w.minutes + days * 1440;
       a.current = { id: 'jail', params: {}, remaining: days * 1440, total: days * 1440, buildingId: prison.id, cost: 0 };
     }
-    if (w.city) w.city.post('🚔', `${cop ? cop.name + ' a arrêté' : 'Arrestation de'} ${a.name} : ${days} jour${days > 1 ? 's' : ''} de prison et ${fine} € d’amende.`);
-    w.emit('arrested', { actor: a, cop, days, fine });
   }
 
   // ---------- Incendies ----------

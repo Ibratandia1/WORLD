@@ -17,6 +17,7 @@ const ITEM_NAMES = {
   worktable: 'Plan de travail', sacks: 'Sacs de farine', bench: 'Banc', shelf: 'Rayon', fridgeglass: 'Frigo vitré', rack: 'Portant',
   foldtable: 'Table de pliage', fitting: 'Cabine d’essayage', carshow: 'Véhicule exposé', tires: 'Pneus', workbench: 'Établi',
   bike: 'Vélo', cakes: 'Gâteaux', rug: 'Tapis',
+  safe: 'Coffre-fort', glasscounter: 'Guichet', atm: 'Distributeur de billets', judgebench: 'Estrade du juge', bar: 'Barre', bin: 'Poubelle',
 };
 const genericActions = k => {
   if (['chair', 'stool', 'bench', 'sofa', 'armchair'].includes(k)) return ['sit_here', 'inspect'];

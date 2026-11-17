@@ -459,6 +459,7 @@ body.text-large #quest { font-size: 13px; }
 #box[data-theme="police"] { --theme: #2b3a6b; } #box[data-theme="hospital"] { --theme: #e2475b; }
 #box[data-theme="firestation"] { --theme: #c0392b; } #box[data-theme="prison"] { --theme: #5f6066; }
 #box[data-theme="school"] { --theme: #e5a33a; } #box[data-theme="metro"] { --theme: #2f7d5b; }
+#box[data-theme="court"] { --theme: #4a5266; } #box[data-theme="bank"] { --theme: #2f7d5b; }
 #box[data-theme="life"] { --theme: #7b5cf0; } #box[data-theme="map"] { --theme: #2a9d8f; }
 #box[data-theme="people"] { --theme: #e86a8c; } #box[data-theme="person"] { --theme: #e86a8c; }
 #box[data-theme="event"] { --theme: #f08a3c; } #box[data-theme="object"] { --theme: #9b6ee8; }
@@ -582,4 +583,17 @@ body.wide-box #dock { max-width: calc(100vw - min(480px, 50vw) - 70px); }
 #floors { bottom: auto; top: 50%; transform: translateY(-50%); flex-direction: column; }
 @media (max-height: 420px) {
   #dock { top: auto !important; bottom: max(6px, env(safe-area-inset-bottom)); gap: 4px; }
+}
+/* Icônes plus grandes et plus lisibles */
+.ic { width: 21px; height: 21px; filter: drop-shadow(0 1px 0 rgba(255, 255, 255, .6)); }
+#controls button .ic, #side button .ic, #dock button .ic { width: 23px; height: 23px; }
+#controls button, #side button, #dock button { width: 38px; height: 38px; }
+#p-money .ic { width: 25px; height: 25px; }
+#welcome .lang-pick h2 small { display: block; font-size: 13px; color: var(--ink-soft); font-weight: 600; margin-top: 2px; }
+#welcome .lang-pick .btns button { font-size: 16px; padding: 12px 22px; }
+@media (max-height: 420px) {
+  .ic { width: 18px; height: 18px; }
+  #controls button .ic, #side button .ic, #dock button .ic { width: 20px; height: 20px; }
+  #controls button, #side button, #dock button { width: 33px; height: 33px; }
+  #p-money .ic { width: 22px; height: 22px; }
 }

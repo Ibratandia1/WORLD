@@ -4,8 +4,24 @@ import { openCustomizer } from './customize.js';
 import { newGame } from './save.js';
 import { state } from './state.js';
 import { t } from './i18n.js';
+import { setSetting } from './settings.js';
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+// Tout premier écran d'une nouvelle partie : choisir sa langue (avant la création du personnage et l'introduction)
+export function chooseLanguage(next) {
+  const el = document.getElementById('welcome');
+  el.innerHTML = `<div class="card lang-pick"><div class="wic">🌍</div><h2>Choisis ta langue<br><small>Choose your language</small></h2>
+    <div class="btns"><button class="main" data-l="fr">🇫🇷 Français</button><button class="main" data-l="en">🇬🇧 English</button></div></div>`;
+  el.classList.remove('hidden');
+  el.onclick = e => {
+    const b = e.target.closest('button[data-l]');
+    if (!b) return;
+    setSetting('lang', b.dataset.l);
+    el.classList.add('hidden'); el.onclick = null;
+    next();
+  };
+}
 
 // Écran d'accueil quand une partie existe : continuer, changer de look, ou recommencer.
 export function showStart() {

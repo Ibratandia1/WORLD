@@ -1,6 +1,11 @@
 import { Actor } from './actor.js';
 import { weeklyRent, occupants } from './housing.js';
-import { openings } from './jobs.js';
+import { openings, shiftNow } from './jobs.js';
+
+// Propreté des rues
+const DIRT_PER_ACTOR = 0.0005; // points perdus par minute et par habitant (~40 / jour pour 60 habitants)
+const BINMAN_CLEAN = 0.13;     // par minute et par éboueur en tournée, × la saleté (plus c'est sale, plus il y a à ramasser)
+export const isBinman = a => !!(a.job && a.job.street && /^Éboueur/.test(a.job.title || ''));
 
 // La ville vivante : les commerces vivent de leurs clients (prix qui bougent, faillites, reprises),
 // des habitants arrivent quand il y a du travail et des logements, d'autres partent quand la vie devient trop dure.
@@ -12,7 +17,7 @@ const FAIL_AVG = 1.5;        // clients par jour en dessous desquels le commerce
 const REOPEN_DAYS = [3, 5];  // jours avant qu'un repreneur rouvre le local
 export const VAT = 0.15;     // TVA prélevée sur les ventes des commerces (pour la ville)
 const HARD_DAYS = 4;        // jours difficiles d'affilée avant de quitter le quartier
-const STAY_ROLES = new Set(['police', 'postman', 'landlord', 'mayor']);
+const STAY_ROLES = new Set(['police', 'postman', 'landlord', 'mayor', 'binman']);
 
 // Noms de remplacement quand un local est repris (inventés)
 const NEW_NAMES = {
@@ -54,6 +59,7 @@ export class CityLife {
     this.gone = [];       // ids des habitants partis (pour les sauvegardes)
     this.born = 0;        // compteur des nouveaux arrivants (ids stables)
     this.arrivalAt = null;
+    this.cleanliness = 85; // propreté des rues, 0–100
     for (const b of world.map.buildings) if (b.jobs && b.type !== 'office' && b.type !== 'cityhall') this.biz[b.id] = this.blank(1);
 
     world.on('done', e => this.onSale(e));
@@ -127,7 +133,30 @@ export class CityLife {
       this.arrivalAt = null;
       this.arrive();
     }
+    // Propreté : une fois par minute de jeu
+    const m = Math.floor(this.w.minutes);
+    if (this.lastMin == null) this.lastMin = m;
+    const dt = Math.min(60, m - this.lastMin);
+    if (dt >= 1) { this.lastMin = m; this.dirt(dt); }
   }
+
+  // ---------- Propreté des rues ----------
+  // Les habitants salissent un peu ; les éboueurs en tournée vident les poubelles et nettoient.
+  dirt(dt) {
+    const w = this.w;
+    const before = this.cleanliness;
+    let rate = -DIRT_PER_ACTOR * w.actors.length;
+    if (w.festivals && w.festivals.active && w.festivals.active.size) rate *= 2; // les fêtes, ça salit
+    for (const a of w.actors) if (isBinman(a) && a.outdoors && shiftNow(a.job, w)) rate += BINMAN_CLEAN * (1 - this.cleanliness / 100);
+    this.cleanliness = Math.max(0, Math.min(100, this.cleanliness + rate * dt));
+    // Rues sales : le moral de ceux qui sont dehors en pâtit
+    if (this.cleanliness < 35) for (const a of w.actors) if (a.outdoors) a.mood = Math.max(0, a.mood - 0.006 * dt);
+    if (before >= 40 && this.cleanliness < 40) this.post('🗑️', 'Les poubelles débordent dans le quartier. Il manque des éboueurs !');
+    if (before < 75 && this.cleanliness >= 75 && this.dirtyNews) this.post('✨', 'Les rues du Marais sont de nouveau propres. Merci aux éboueurs !');
+    if (this.cleanliness < 40) this.dirtyNews = true; else if (this.cleanliness >= 75) this.dirtyNews = false;
+  }
+
+  clean(n) { this.cleanliness = Math.min(100, this.cleanliness + n); }
 
   close(b, s) {
     const w = this.w;
@@ -201,6 +230,7 @@ export class CityLife {
   snapshot() {
     return {
       biz: this.biz, news: this.news, seq: this.seq || 0, gone: this.gone, born: this.born, arrivalAt: this.arrivalAt,
+      cleanliness: this.cleanliness, dirtyNews: !!this.dirtyNews,
       names: Object.fromEntries(this.w.map.buildings.map(b => [b.id, b.name])),
     };
   }
@@ -213,6 +243,8 @@ export class CityLife {
     this.gone = s.gone || [];
     this.born = s.born || 0;
     this.arrivalAt = s.arrivalAt ?? null;
+    this.cleanliness = s.cleanliness ?? 85;
+    this.dirtyNews = !!s.dirtyNews;
     for (const [id, name] of Object.entries(s.names || {})) { const b = this.w.building(+id); if (b) b.name = name; }
   }
 }

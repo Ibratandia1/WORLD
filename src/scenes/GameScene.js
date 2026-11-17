@@ -55,6 +55,7 @@ export class GameScene extends Phaser.Scene {
     this.season = this.world.season;
     this.spots = drawStreetDecor(this, this.map, this.lights, this.darks, this.season);
     this.makeSnowLayer();
+    this.makeLitter();
     this.world.on('season', s => this.setSeason(s));
     // Fêtes du quartier : décors créés au début, retirés à la fin
     this.fest = new FestDecor(this);
@@ -90,6 +91,7 @@ export class GameScene extends Phaser.Scene {
     if (!this.world.paused) { this.traffic.update(delta, this.world.hour); this.birds.update(delta, this.world.actors); }
     this.crowd.update(delta, this.world.hour, findPath, this.world.paused, this.world.weather);
     this.updateSnow(delta);
+    if ((this.litterTick = (this.litterTick || 0) + delta) > 1500) { this.litterTick = 0; this.updateLitter(); }
     if (!this.world.paused) this.fest.update(delta);
     if ((this.lightTick = (this.lightTick || 0) + delta) > 400) { this.lightTick = 0; this.syncLights(); }
     this.syncViews(time);
@@ -337,6 +339,47 @@ export class GameScene extends Phaser.Scene {
     if (s === this.season) return;
     this.season = s;
     for (const t of this.spots.trees) t.redraw(s);
+  }
+
+  // Déchets : sacs au pied des poubelles et papiers sur les trottoirs quand la propreté baisse (world.city.cleanliness).
+  // Posés au sol (profondeur < 0,55 : la nuit les assombrit avec le sol).
+  makeLitter() {
+    const r = (() => { let s = 4242; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
+    if (!this.textures.exists('litter_0')) {
+      const cols = [[0xf4f1e8, 0xd8d2c0], [0x7fb8e0, 0x5b8def], [0xe8504d, 0xb83c3a], [0x3a3f4a, 0x23262d]];
+      cols.forEach(([a, b], i) => {
+        const g = this.make.graphics({ add: false });
+        if (i === 3) { g.fillStyle(a); g.fillEllipse(7, 6, 13, 9); g.fillStyle(0x50566a); g.fillEllipse(5, 4, 5, 3); g.fillStyle(b); g.fillRect(6, 0, 2, 3); }
+        else { g.fillStyle(b); g.fillRect(1, 2, 6, 4); g.fillStyle(a); g.fillRect(0, 1, 6, 4); }
+        g.generateTexture(`litter_${i}`, i === 3 ? 14 : 8, i === 3 ? 11 : 7); g.destroy();
+      });
+    }
+    this.litter = [];
+    const put = (x, y, kind, th) => {
+      const s = toScreen(x, y);
+      const img = this.add.image(s.x, s.y, `litter_${kind}`).setDepth(0.52).setVisible(false);
+      if (kind !== 3) img.setAngle(r() * 360);
+      this.litter.push({ img, th });
+    };
+    // sacs qui débordent au pied des poubelles
+    for (const b of this.spots.bins) {
+      put(b.px + 0.2, b.py + 0.15, 3, 45); put(b.px - 0.18, b.py + 0.22, 3, 30); put(b.px + 0.3, b.py - 0.1, 0, 55);
+    }
+    // papiers et canettes sur les trottoirs et les places
+    const { w, h, tiles } = this.map;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const t = tiles[y][x];
+      if (!t.walk || (t.ground !== 'pave' && t.ground !== 'cobble') || r() > 0.09) continue;
+      put(x + r() - 0.5, y + r() - 0.5, Math.floor(r() * 3), 25 + r() * 50);
+    }
+    this.updateLitter();
+  }
+
+  updateLitter() {
+    const c = this.world.city ? this.world.city.cleanliness : 100;
+    if (this.litterLevel != null && Math.abs(this.litterLevel - c) < 0.5) return;
+    this.litterLevel = c;
+    for (const l of this.litter) l.img.setVisible(c < l.th);
   }
 
   // Neige au sol : elle s'accumule quand il neige et fond ensuite (plus vite au soleil)
@@ -650,6 +693,8 @@ export class GameScene extends Phaser.Scene {
     if (f) return state.ui.showObject({ name: 'Fontaine', icon: '⛲', actions: ['wish_fountain'], at: f });
     const bench = this.spots.benches.find(s => nearScreen(s.x, s.y, 16));
     if (bench) return state.ui.showObject({ name: 'Banc', icon: '🪑', actions: ['sit_bench', 'feed_pigeons'], at: bench });
+    const bin = this.spots.bins.find(s => nearScreen(s.px, s.py, 14));
+    if (bin) return state.ui.showObject({ name: 'Poubelle', icon: '🗑️', actions: ['use_bin', 'pick_litter'], at: bin });
 
     for (const { b, c } of this.bubbles) {
       if (!c.visible) continue;

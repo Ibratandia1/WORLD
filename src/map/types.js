@@ -16,5 +16,7 @@ export const TYPES = {
   firestation: { icon: '🚒', height: 66, left: 0xc65a46, right: 0xa8473a, roof: 0x5a4a48, firstFloor: 34 },
   prison: { icon: '⛓️', height: 58, left: 0xb9b6ae, right: 0x9c998f, roof: 0x5f6066, firstFloor: 99 },
   school: { icon: '🏫', height: 64, left: 0xf3e3c3, right: 0xd9c6a0, roof: 0xb5654a, firstFloor: 14 },
+  court: { icon: '⚖️', height: 84, left: 0xe2e5ea, right: 0xc4c9d2, roof: 0x4a5266, firstFloor: 34 },
+  bank: { icon: '🏦', height: 74, left: 0xe9e1cf, right: 0xcdc3ad, roof: 0x2f5d4a, firstFloor: 30 },
   garage: { icon: '🚲', height: 46, left: 0xc9ced8, right: 0xaab0bc, roof: 0x5f6c86, awning: 0x2f7d5b, firstFloor: 30 },
 };

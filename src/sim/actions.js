@@ -1,4 +1,4 @@
-import { shiftNow, shiftOf, todayLog, isWorkday, fmtShift, openings, makeJob, nextShift, DAY_NAMES, weekdayOf, sellerAt, incomeTax } from './jobs.js';
+import { shiftNow, shiftOf, todayLog, isWorkday, fmtShift, openings, makeJob, nextShift, DAY_NAMES, weekdayOf, sellerAt, incomeTax, roleTitle } from './jobs.js';
 import { weeklyRent, occupants } from './housing.js';
 import { addRel, near, rel, reply, tip as jobTip, canPause } from './social.js';
 import { itemById, hasPhone } from './catalog.js';
@@ -6,6 +6,8 @@ import { isClosed, freeUnits } from './city.js';
 import { AID_EVERY, CAMPAIGN_FEE, TAX_POLICIES, AID_POLICIES, PROJECTS } from './gov.js';
 import { TUTORIAL, TUT_REWARD, TUT_FINAL, DREAMS, tutReady, dreamDone, dailyFor, dailyDone, DAILY_REWARD, DAILY_BONUS, levelOf, LEVEL_TITLES, XP } from './goals.js';
 import { isPolice } from './safety.js';
+import { isLawyer, LAWYER_FEE } from './justice.js';
+import { LOAN_STEP, LOAN_MAX, LOAN_RATE } from './bank.js';
 
 // RÈGLE D'OR : toutes les actions du jeu sont ici, et le joueur comme les PNJ
 // passent par world.perform(acteur, id, params). Un futur joueur en ligne
@@ -23,6 +25,8 @@ const target = (w, p) => w.actorById(p.who);
 
 // Petites descriptions des meubles (action « Regarder »)
 export const ITEM_FLAVOR = {
+  safe: 'Le coffre-fort. Il paraît qu’il est inviolable.', glasscounter: 'Le guichet, derrière sa vitre.', atm: 'Le distributeur de billets.',
+  judgebench: 'L’estrade du juge, et son marteau.', bar: 'La barre, où l’on témoigne.', bin: 'Une poubelle bien vidée.',
   desk: 'Un bureau bien rangé… presque.', chair: 'Une chaise solide.', stool: 'Un tabouret un peu bancal.',
   plant: 'Une plante verte qui aimerait un peu d’eau.', bigplant: 'Une grande plante, fière de ses feuilles.',
   meeting: 'La grande table des réunions interminables.', counter: 'Le comptoir, bien astiqué.', coffee: 'Ça sent bon le café.',
@@ -162,6 +166,7 @@ export const ACTIONS = {
       if (Math.random() > Math.max(0.05, Math.min(0.95, chance))) return `${who}refusé… Réessaie un autre jour.`;
       const colleagues = w.actors.filter(o => o.job && o.job.building === b.id).length;
       a.job = makeJob(b, b.jobs.wage, w.day, colleagues % 2 === 1, (colleagues * 2) % 7); // équipe du matin ou du soir, jours décalés
+      const rt = roleTitle(b.type, colleagues); if (rt) a.job.title = rt; // juge, avocat·e, greffier·ère, conseiller·ère…
       w.emit('hired', { actor: a, building: b, wage: b.jobs.wage });
       return `${who}embauché·e !`;
     },
@@ -721,6 +726,104 @@ export const ACTIONS = {
     },
   },
 
+  // ---------- Justice ----------
+  hire_lawyer: {
+    icon: '👩‍⚖️', label: `Engager un·e avocat·e (${LAWYER_FEE} €)`, instant: true, cost: LAWYER_FEE, custom: true,
+    can: (a, w) => {
+      if (!a.trial) return 'Tu n’as pas de procès';
+      if (a.trial.lawyer != null) return 'Tu as déjà un·e avocat·e';
+      if (!w.actors.some(o => o !== a && isLawyer(o))) return 'Aucun·e avocat·e dans le quartier';
+      return true;
+    },
+    effect: (a, w) => {
+      const list = w.actors.filter(o => o !== a && isLawyer(o));
+      const l = list.sort((x, y) => ((a.relations[y.id] || 0) - (a.relations[x.id] || 0)))[0];
+      l.money += LAWYER_FEE; a.trial.lawyer = l.id;
+      return `${l.name} assurera ta défense au procès.`;
+    },
+  },
+  jury_vote: {
+    icon: '⚖️', label: 'Voter au procès', instant: true, custom: true,
+    can: (a, w, p) => {
+      const t = target(w, p);
+      if (!t || !t.trial) return 'Plus de procès en cours';
+      if (!t.trial.jury.includes(a.id)) return 'Tu ne fais pas partie du jury';
+      if (t.trial.votes[a.id] != null) return 'Tu as déjà voté';
+      return true;
+    },
+    effect: (a, w, p) => {
+      const t = target(w, p);
+      w.justice.vote(a, t, p.verdict === 'guilty');
+      a.karma += 0.3;
+      return p.verdict === 'guilty' ? `Ton avis : ${t.name} est coupable.` : `Ton avis : ${t.name} est innocent·e.`;
+    },
+  },
+  attend_trial: {
+    icon: '🏛️', label: 'Assister à une audience', place: { type: 'court' }, duration: 45, skip: 4, seller: true,
+    effect: a => { a.mood += 3; a.karma += 0.2; return 'Une audience passionnante. La justice est rendue au nom du peuple français.'; },
+  },
+  legal_advice: {
+    icon: '📜', label: 'Conseil juridique (30 €)', place: { type: 'court' }, duration: 20, cost: 30, seller: true,
+    effect: a => { a.mood += 2; if (a.rentLate) a.rentLate = Math.max(0, a.rentLate - 2); return 'Un·e avocat·e t’explique tes droits. Tu y vois plus clair.'; },
+  },
+
+  // ---------- Banque ----------
+  deposit: {
+    icon: '🏦', label: 'Déposer mon argent', place: { type: 'bank' }, duration: 5, seller: true,
+    can: (a, w, p) => (bankAmount(a, 'deposit', p) <= 0 ? 'Rien à déposer (on garde 20 € en poche)' : true),
+    effect: (a, w, p) => {
+      const n = bankAmount(a, 'deposit', p);
+      a.money -= n; a.bank = (a.bank || 0) + n;
+      return `+${n} € sur ton compte épargne (${Math.round(a.bank)} €). À l’abri des pickpockets !`;
+    },
+  },
+  withdraw: {
+    icon: '💶', label: 'Retirer 100 €', place: { type: 'bank' }, duration: 5, seller: true,
+    can: (a, w, p) => (bankAmount(a, 'withdraw', p) <= 0 ? 'Ton compte épargne est vide' : true),
+    effect: (a, w, p) => {
+      const n = bankAmount(a, 'withdraw', p);
+      a.bank -= n; a.money += n;
+      return `${n} € retirés (reste ${Math.round(a.bank)} € sur ton compte)`;
+    },
+  },
+  take_loan: {
+    icon: '📝', label: `Emprunter ${LOAN_STEP} €`, place: { type: 'bank' }, duration: 20, seller: true,
+    can: a => {
+      if (!a.job) return 'Il faut un emploi pour emprunter';
+      if ((a.loan || 0) + LOAN_STEP > LOAN_MAX) return `Plafond atteint (${LOAN_MAX} € de prêt)`;
+      if (a.rentLate > 0) return 'Paie d’abord ton loyer en retard';
+      return true;
+    },
+    effect: a => {
+      a.loan = (a.loan || 0) + LOAN_STEP; a.money += LOAN_STEP;
+      return `Prêt accordé : +${LOAN_STEP} €. Remboursement automatique chaque lundi (${Math.round(LOAN_RATE * 100)} % d’intérêts par semaine).`;
+    },
+  },
+  repay_loan: {
+    icon: '✅', label: 'Rembourser mon prêt', place: { type: 'bank' }, duration: 5, seller: true,
+    can: a => (!(a.loan > 0) ? 'Tu n’as pas de prêt' : a.money + (a.bank || 0) < 1 ? 'Pas assez d’argent' : true),
+    effect: a => {
+      const fromCash = Math.min(a.loan, Math.max(0, a.money));
+      a.money -= fromCash; a.loan -= fromCash;
+      const fromBank = Math.min(a.loan, Math.max(0, a.bank || 0));
+      a.bank = (a.bank || 0) - fromBank; a.loan -= fromBank;
+      const n = Math.round(fromCash + fromBank);
+      return a.loan > 0 ? `${n} € remboursés (reste ${Math.round(a.loan)} €)` : `${n} € remboursés : prêt soldé !`;
+    },
+  },
+
+  // ---------- Propreté ----------
+  pick_litter: {
+    icon: '🗑️', label: 'Ramasser les déchets', here: true, duration: 15, skip: 3,
+    can: (a, w) => (!a.outdoors ? 'Seulement dehors' : w.city && w.city.cleanliness >= 96 ? 'Les rues sont déjà propres' : true),
+    effect: (a, w) => { if (w.city) w.city.clean(3); a.mood += 2; a.karma += 0.5; return 'Les rues sont un peu plus propres. Merci !'; },
+  },
+  use_bin: {
+    icon: '🗑️', label: 'Jeter un papier', instant: true,
+    can: a => (a.outdoors ? true : 'Seulement dehors'),
+    effect: (a, w) => { if (w.city) w.city.clean(0.3); a.karma += 0.1; return 'Hop, à la poubelle.'; },
+  },
+
   // ---------- Pompiers ----------
   extinguish: {
     icon: '🚒', label: 'Éteindre l’incendie', place: { param: 'building' }, duration: 40, skip: 6, custom: true,
@@ -818,6 +921,16 @@ export const ACTIONS = {
     effect: a => { a.mood += 5; a.karma += 0.2; return 'Marianne veille sur le quartier.'; },
   },
 };
+
+// Montant d'une opération bancaire : params.amount (nombre ou 'all'), sinon le geste par défaut
+function bankAmount(a, kind, p = {}) {
+  if (kind === 'deposit') {
+    const max = Math.floor(Math.max(0, a.money - 20));
+    return p.amount === 'all' || p.amount == null ? max : Math.min(max, Math.floor(p.amount));
+  }
+  const max = Math.floor(Math.max(0, a.bank || 0));
+  return p.amount === 'all' ? max : Math.min(max, Math.floor(p.amount ?? 100));
+}
 
 // Petit texte « prochain service » réutilisé par l'UI et les événements
 export function nextShiftText(a, w) {

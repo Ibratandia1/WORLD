@@ -60,6 +60,36 @@ export const FLOOR_ITEMS = {
     block(g, x, y - 0.25, 0.2, 0.12, 1, 0xffffff, 13);
   },
   counter(g, x, y) { block(g, x, y, 1, 0.6, 18, WOOD); },
+  // Banque : coffre-fort, guichet vitré, distributeur de billets
+  safe(g, x, y) {
+    block(g, x, y, 0.8, 0.7, 30, { top: 0x9aa3ad, left: 0x6f7882, right: 0x5a626b });
+    block(g, x, y + 0.36, 0.5, 0.02, 20, { top: 0x7e8892, left: 0x87919b, right: 0x7e8892 }, 5);
+    const s = toScreen(x, y + 0.37);
+    g.fillStyle(0xd9b04c); g.fillCircle(s.x - 2, s.y - 16, 4); g.fillStyle(0x6f5a20); g.fillCircle(s.x - 2, s.y - 16, 1.5);
+  },
+  glasscounter(g, x, y) {
+    block(g, x, y, 1, 0.6, 18, { top: 0xe9e1cf, left: 0x2f5d4a, right: 0x274d3d });
+    block(g, x, y - 0.22, 1, 0.04, 22, { top: 0xdff1ff, left: 0xc4e3f7, right: 0xaed4ee }, 18, 0.55);
+  },
+  atm(g, x, y) {
+    block(g, x, y, 0.5, 0.4, 30, { top: 0x4a5266, left: 0x3a4256, right: 0x2f3546 });
+    block(g, x, y + 0.21, 0.32, 0.02, 9, { top: 0x7fd0ff, left: 0x7fd0ff, right: 0x5fb0e0 }, 17);
+    block(g, x, y + 0.21, 0.2, 0.02, 2, 0x3fae73, 10);
+  },
+  // Tribunal : estrade du juge, banc des jurés, barre
+  judgebench(g, x, y) {
+    block(g, x, y, 1.2, 0.8, 8, { top: 0xb98458, left: 0x8a5a3c, right: 0x734a32 });
+    block(g, x, y, 1.1, 0.5, 24, { top: 0x9a6a44, left: 0x6e4528, right: 0x5b391f }, 8);
+    block(g, x, y - 0.05, 0.12, 0.12, 4, 0x3a2a1a, 32); // marteau
+  },
+  bar(g, x, y) {
+    block(g, x - 0.4, y, 0.06, 0.06, 18, 0x8a5a3c); block(g, x + 0.4, y, 0.06, 0.06, 18, 0x8a5a3c);
+    block(g, x, y, 0.95, 0.1, 3, { top: 0xb98458, left: 0x8a5a3c, right: 0x734a32 }, 18);
+  },
+  // Poubelle (intérieur)
+  bin(g, x, y) {
+    block(g, x, y, 0.3, 0.3, 12, { top: 0x3a3f4a, left: 0x5f6b7a, right: 0x4e5866 });
+  },
   // Mairie : urne transparente, drapeau sur pied, buste de Marianne
   urne(g, x, y) {
     block(g, x, y, 0.7, 0.5, 14, { top: 0xb98458, left: 0x8a5a3c, right: 0x734a32 });

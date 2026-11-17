@@ -6,6 +6,13 @@ const landlordName = w => { const l = roleOf(w, 'landlord'); return l ? l.name :
 import { nextShiftText } from './actions.js';
 import { MAYOR_PAY } from './gov.js';
 import { festById } from './festivals.js';
+import { LAWYER_FEE, JUROR_PAY } from './justice.js';
+
+// « demain », « lundi »… pour une minute absolue
+const dayWord = (w, at) => {
+  const d = Math.floor(at / 1440) + 1;
+  return d === w.day ? 'aujourd’hui' : d === w.day + 1 ? 'demain' : ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'][(d - 1) % 7];
+};
 
 // Les décisions arrivent par événements, et chaque événement naît d'une situation réelle :
 // l'heure, le lieu, la météo, les besoins, le travail, le loyer, les gens autour.
@@ -46,6 +53,7 @@ export const EVENTS = [
     text: a => `« Tu devais commencer à ${a.job.start}h. On t’attend ! »`,
     when: (a, w) => {
       if (!a.job || a.job.street || !isWorkday(a.job, w.day)) return null;
+      if (a.jailUntil && w.minutes < a.jailUntil) return null; // en garde à vue ou en prison : personne n'appelle
       const s = shiftOf(a.job, w.day), log = todayLog(a.job, w.day);
       const coming = a.doing === 'work' || (a.plan && a.plan.id === 'work');
       return !coming && !log.excused && log.arrived == null && w.minutes > s.start + 20 && w.minutes < s.end - 60;
@@ -308,6 +316,39 @@ const PUSHED = {
   arrested: (a, w, e) => ({
     icon: '⛓️', title: 'Arrêté·e !',
     text: `${e.cop ? `${e.cop.name} t’a passé les menottes. ` : ''}${e.days} jour${e.days > 1 ? 's' : ''} à la Maison d’arrêt et ${e.fine} € d’amende. Ton travail risque d’en souffrir…`,
+    choices: OK,
+  }),
+  custody: (a, w, e) => ({
+    icon: '🚔', title: 'Garde à vue',
+    text: `${e.cop ? `${e.cop.name} t’a passé les menottes. ` : ''}Tu passes la nuit au commissariat. Procès au Tribunal ${dayWord(w, e.at)} à 10h : un jury de 3 habitants décidera. Un·e avocat·e augmente beaucoup tes chances.`,
+    choices: [{ icon: '👩‍⚖️', label: `Engager un·e avocat·e (${LAWYER_FEE} €)`, action: 'hire_lawyer' }, { icon: '🤞', label: 'Me défendre seul·e' }],
+    ttl: 600,
+  }),
+  jurySummons: (a, w, e) => ({
+    icon: '⚖️', title: 'Convocation : juré·e',
+    text: `Tu es tiré·e au sort pour le jury du procès de ${e.accused.name} (${e.accused.trial && e.accused.trial.flagrant ? 'pris·e en flagrant délit' : 'sur plainte'}), ${dayWord(w, e.at)} à 10h. Ton avis ? Indemnité : ${JUROR_PAY} €.`,
+    choices: [
+      { icon: '🔨', label: 'Coupable', action: 'jury_vote', params: { who: e.accused.id, verdict: 'guilty' } },
+      { icon: '🕊️', label: 'Innocent·e', action: 'jury_vote', params: { who: e.accused.id, verdict: 'innocent' } },
+    ],
+    ttl: 600,
+  }),
+  verdict: (a, w, e) => ({
+    icon: '⚖️', title: e.guilty ? 'Coupable' : 'Relaxé·e !',
+    text: e.guilty
+      ? `Le jury a voté ${e.yes} contre ${e.no}. ${e.days} jour${e.days > 1 ? 's' : ''} à la Maison d’arrêt et ${e.fine} € d’amende. Ton travail risque d’en souffrir…`
+      : `Le jury a voté ${e.no} contre ${e.yes} en ta faveur${e.lawyer ? ` : merci ${e.lawyer.name} !` : '.'} Tu es libre.`,
+    choices: OK,
+  }),
+  juryDone: (a, w, e) => ({
+    icon: '⚖️', title: 'Fin du procès', text: `${e.accused.name} est ${e.guilty ? 'déclaré·e coupable' : 'relaxé·e'}. Tu touches ${JUROR_PAY} € d’indemnité de juré·e.`, choices: OK,
+  }),
+  bankStatement: (a, w, e) => ({
+    icon: '🏦', title: 'Relevé de la banque',
+    text: [
+      e.interest ? `Intérêts de ton épargne : +${e.interest.toFixed(2)} € (compte : ${Math.round(e.bank)} €).` : '',
+      e.paid ? `Remboursement du prêt : ${e.paid} € (reste ${Math.round(e.loan)} €).` : '',
+    ].filter(Boolean).join(' '),
     choices: OK,
   }),
   released: () => ({ icon: '🔓', title: 'Libéré·e', text: 'Tu as purgé ta peine. Tu peux sortir de la Maison d’arrêt.', choices: OK }),

@@ -24,7 +24,16 @@ export const SHIFTS = {
   firestation: { start: 8, alt: 16, hours: 8, days: [0, 1, 2, 3, 4], rotate: true },
   prison: { start: 7, alt: 15, hours: 8, days: [0, 1, 2, 3, 4], rotate: true },
   school: { start: 8, hours: 8, days: [0, 1, 2, 3, 4] },
+  court: { start: 9, hours: 8, days: [0, 1, 2, 3, 4] },
+  bank: { start: 9, hours: 8, days: [0, 1, 2, 3, 4, 5] },
 };
+
+// Plusieurs métiers dans un même lieu : le titre dépend de l'ordre d'embauche
+export function roleTitle(type, rank) {
+  if (type === 'court') return rank === 0 ? 'Juge' : rank === 3 ? 'Greffier·ère' : 'Avocat·e';
+  if (type === 'bank') return rank === 0 ? 'Conseiller·ère bancaire' : 'Guichetier·ère';
+  return null;
+}
 
 // ---------- Impôts ----------
 // Impôt sur le revenu prélevé à la source : barème simplifié et progressif selon le salaire horaire
@@ -63,6 +72,7 @@ export const JOB_TITLES = {
   office: 'Employé·e de bureau', cafe: 'Serveur·se', bakery: 'Boulanger·ère', shop: 'Caissier·ère',
   fashion: 'Vendeur·se', garage: 'Mécanicien·ne', cityhall: 'Agent·e de la mairie',
   police: 'Agent·e de police', hospital: 'Soignant·e', firestation: 'Pompier·ère', prison: 'Surveillant·e', school: 'Enseignant·e',
+  court: 'Avocat·e', bank: 'Guichetier·ère',
 };
 
 // Intitulé d'un poste (les métiers de rue ont leur propre titre)

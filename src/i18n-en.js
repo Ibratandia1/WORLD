@@ -2,6 +2,9 @@
 // qui contiennent des noms ou des nombres (événements, messages, journal, refus).
 // Pour ajouter une phrase : la copier telle qu'elle apparaît en français, et mettre l'anglais en face.
 
+const DAYS_EN = { 'aujourd’hui': 'today', demain: 'tomorrow', lundi: 'on Monday', mardi: 'on Tuesday', mercredi: 'on Wednesday', jeudi: 'on Thursday', vendredi: 'on Friday', samedi: 'on Saturday', dimanche: 'on Sunday' };
+const dayEn = d => DAYS_EN[d] || d;
+
 export const EN_EXTRA = {
   // ---------- Création du personnage ----------
   'Crée ton personnage': 'Create your character', 'Ton style': 'Your style', 'Prénom': 'First name', 'Ton prénom': 'Your first name',
@@ -222,10 +225,35 @@ export const EN_EXTRA = {
   'Avec plaisir !': 'With pleasure!', 'Merci, c’est gentil !': 'Thanks, that’s kind!', 'Je ne vois rien en ce moment, désolé·e.': 'I don’t know of anything right now, sorry.', 'Bonjour ! On se connaît ?': 'Hello! Do we know each other?', 'Salut !': 'Hi!', 'Oh, toi !': 'Oh, it’s you!', 'Hey !': 'Hey!',
   'Je travaille, là ! On se voit après ?': 'I’m working! See you later?', 'Je cherche du travail, si tu entends parler de quelque chose…': 'I’m looking for work, if you hear of anything…',
   'Toujours un plaisir de te voir !': 'Always a pleasure to see you!', 'Belle journée dans le Marais, non ?': 'Lovely day in the Marais, isn’t it?',
+  // --- Justice, banque, propreté ---
+  'Juge': 'Judge', 'Avocat·e': 'Lawyer', 'Greffier·ère': 'Court clerk', 'Conseiller·ère bancaire': 'Bank advisor', 'Guichetier·ère': 'Bank teller', 'Éboueur·se': 'Bin collector',
+  'Voter au procès': 'Vote at the trial', 'Assister à une audience': 'Attend a hearing', 'Conseil juridique (30 €)': 'Legal advice (€30)',
+  'Déposer mon argent': 'Deposit my money', 'Retirer 100 €': 'Withdraw €100', 'Rembourser mon prêt': 'Repay my loan',
+  'Ramasser les déchets': 'Pick up litter', 'Jeter un papier': 'Throw away a wrapper', 'Poubelle': 'Bin',
+  'Tu n’as pas de procès': 'You have no trial', 'Tu as déjà un·e avocat·e': 'You already have a lawyer', 'Aucun·e avocat·e dans le quartier': 'No lawyer in the neighbourhood',
+  'Plus de procès en cours': 'No trial in progress any more', 'Tu ne fais pas partie du jury': 'You’re not on the jury',
+  'Rien à déposer (on garde 20 € en poche)': 'Nothing to deposit (you keep €20 in your pocket)', 'Ton compte épargne est vide': 'Your savings account is empty',
+  'Il faut un emploi pour emprunter': 'You need a job to borrow', 'Paie d’abord ton loyer en retard': 'Pay your late rent first', 'Tu n’as pas de prêt': 'You have no loan',
+  'Les rues sont déjà propres': 'The streets are already clean', 'Tu es en garde à vue': 'You’re in police custody',
+  'Une audience passionnante. La justice est rendue au nom du peuple français.': 'A gripping hearing. Justice is rendered in the name of the French people.',
+  'Un·e avocat·e t’explique tes droits. Tu y vois plus clair.': 'A lawyer explains your rights. Things are clearer now.',
+  'Les rues sont un peu plus propres. Merci !': 'The streets are a little cleaner. Thanks!', 'Hop, à la poubelle.': 'In the bin it goes.',
+  'Garde à vue': 'Police custody', 'Me défendre seul·e': 'Defend myself', 'Convocation : juré·e': 'Summons: juror', 'Coupable': 'Guilty', 'Innocent·e': 'Innocent',
+  'Relaxé·e !': 'Acquitted!', 'Fin du procès': 'End of the trial', 'Relevé de la banque': 'Bank statement', '🏦 Mon argent': '🏦 My money',
+  'Les poubelles débordent dans le quartier. Il manque des éboueurs !': 'Bins are overflowing in the neighbourhood. We need more bin collectors!',
+  'Les rues du Marais sont de nouveau propres. Merci aux éboueurs !': 'The streets of the Marais are clean again. Thanks to the bin collectors!',
+  'Salle d’audience': 'Courtroom', 'audience publique': 'public hearing', 'Greffe': 'Clerk’s office', 'dépôts et retraits': 'deposits and withdrawals',
+  'Conseiller': 'Advisor', 'prêts': 'loans', 'Salle des coffres': 'Vault', 'Estrade du juge': 'Judge’s bench', 'Banc des jurés': 'Jury box', 'Barre': 'Witness stand',
+  'Table de la défense': 'Defence table', 'Bancs du public': 'Public benches', 'Bureau du conseiller': 'Advisor’s desk', 'Coffre-fort': 'Safe', 'Distributeur de billets': 'Cash machine',
+  'Le coffre-fort. Il paraît qu’il est inviolable.': 'The safe. They say it’s unbreakable.', 'Le guichet, derrière sa vitre.': 'The counter, behind its glass.',
+  'Le distributeur de billets.': 'The cash machine.', 'L’estrade du juge, et son marteau.': 'The judge’s bench, and the gavel.', 'La barre, où l’on témoigne.': 'The stand, where witnesses testify.',
+  'Une poubelle bien vidée.': 'A freshly emptied bin.', 'Tribunal du Marais': 'Marais Courthouse', 'Banque Pavé d’Or': 'Golden Cobble Bank',
 };
 
 // Modèles : [expression, remplacement] — $1, $2… = morceaux repris ; ⟦…⟧ = morceau traduit à son tour
 export const EN_PATTERNS = [
+  [/^Le jury a voté (\d+) contre (\d+) en ta faveur : merci (.+) ! Tu es libre\.$/, 'The jury voted $1 to $2 in your favour: thank you $3! You’re free.'],
+  [/^Le jury a voté (\d+) contre (\d+) en ta faveur\. Tu es libre\.$/, 'The jury voted $1 to $2 in your favour. You’re free.'],
   [/^(.+?) : « (.+) »$/, '$1: “⟦$2⟧”'],
   [/^« (.+) »$/, '“⟦$1⟧”'],
   [/^(.+), ton responsable, appelle$/, '$1, your manager, is calling'],
@@ -316,6 +344,27 @@ export const EN_PATTERNS = [
   [/^(.+), (\d+)\/(\d+) (.+)$/, '$1, $2/$3 ⟦$4⟧'], [/^(\d+)\/(\d+) (.+)$/, '$1/$2 ⟦$3⟧'], [/^(\d+) ici$/, '$1 here'],
   [/^aujourd’hui à (\d+)h$/, 'today at $1:00'], [/^demain à (\d+)h$/, 'tomorrow at $1:00'],
   [/^(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche) à (\d+)h$/, (m, d, h) => `${({ lundi: 'Monday', mardi: 'Tuesday', mercredi: 'Wednesday', jeudi: 'Thursday', vendredi: 'Friday', samedi: 'Saturday', dimanche: 'Sunday' })[d]} at ${h}:00`],
+  // Justice, banque
+  [/^Engager un·e avocat·e \((\d+) €\)$/, 'Hire a lawyer (€$1)'], [/^Emprunter (\d+) €$/, 'Borrow €$1'], [/^Plafond atteint \((\d+) € de prêt\)$/, 'Limit reached (€$1 of loans)'],
+  [/^(.+) assurera ta défense au procès\.$/, '$1 will defend you at the trial.'],
+  [/^Ton avis : (.+) est coupable\.$/, 'Your verdict: $1 is guilty.'], [/^Ton avis : (.+) est innocent·e\.$/, 'Your verdict: $1 is innocent.'],
+  [/^\+(\d+) € sur ton compte épargne \((\d+) €\)\. À l’abri des pickpockets !$/, '+€$1 in your savings account (€$2). Safe from pickpockets!'],
+  [/^(\d+) € retirés \(reste (\d+) € sur ton compte\)$/, '€$1 withdrawn (€$2 left in your account)'],
+  [/^Prêt accordé : \+(\d+) €\. Remboursement automatique chaque lundi \((\d+) % d’intérêts par semaine\)\.$/, 'Loan granted: +€$1. Automatic repayment every Monday ($2% interest per week).'],
+  [/^(\d+) € remboursés \(reste (\d+) €\)$/, '€$1 repaid (€$2 left)'], [/^(\d+) € remboursés : prêt soldé !$/, '€$1 repaid: loan cleared!'],
+  [/^Tu passes la nuit au commissariat\. Procès au Tribunal (.+) à 10h : un jury de 3 habitants décidera\. Un·e avocat·e augmente beaucoup tes chances\.$/,
+    (m, d) => `You spend the night at the police station. Trial at the courthouse ${dayEn(d)} at 10:00: a jury of 3 residents will decide. A lawyer greatly improves your chances.`],
+  [/^Tu es tiré·e au sort pour le jury du procès de (.+) \((pris·e en flagrant délit|sur plainte)\), (.+) à 10h\. Ton avis \? Indemnité : (\d+) €\.$/,
+    (m, n, how, d, f) => `You’ve been drawn for the jury in the trial of ${n} (${how === 'sur plainte' ? 'after a complaint' : 'caught red-handed'}), ${dayEn(d)} at 10:00. Your verdict? Allowance: €${f}.`],
+  [/^Le jury a voté (\d+) contre (\d+)\. (\d+) jours? à la Maison d’arrêt et (\d+) € d’amende\. Ton travail risque d’en souffrir…$/, 'The jury voted $1 to $2. $3 day(s) in prison and a €$4 fine. Your job may suffer…'],
+  [/^(.+) est (déclaré·e coupable|relaxé·e)\. Tu touches (\d+) € d’indemnité de juré·e\.$/, (m, n, v, f) => `${n} is ${v === 'relaxé·e' ? 'acquitted' : 'found guilty'}. You receive a €${f} juror allowance.`],
+  [/^Intérêts de ton épargne : \+([\d.]+) € \(compte : (\d+) €\)\.(.*)$/, 'Savings interest: +€$1 (balance: €$2).⟦$3⟧'],
+  [/^ ?Remboursement du prêt : (\d+) € \(reste (\d+) €\)\.$/, ' Loan repayment: €$1 (€$2 left).'],
+  [/^(.+) a arrêté (.+)\. Garde à vue, puis procès au Tribunal\.$/, '$1 arrested $2. Custody, then trial at the courthouse.'],
+  [/^Arrestation de (.+)\. Garde à vue, puis procès au Tribunal\.$/, '$1 arrested. Custody, then trial at the courthouse.'],
+  [/^Procès de (.+) : coupable \((\d+) voix contre (\d+)\)\. (\d+) jours? de prison et (\d+) € d’amende\.$/, 'Trial of $1: guilty ($2 votes to $3). $4 day(s) in prison and a €$5 fine.'],
+  [/^Procès de (.+) : relaxé·e \((\d+) voix contre (\d+)\), bien défendu·e par (.+)\.$/, 'Trial of $1: acquitted ($2 votes to $3), well defended by $4.'],
+  [/^Procès de (.+) : relaxé·e \((\d+) voix contre (\d+)\)\.$/, 'Trial of $1: acquitted ($2 votes to $3).'],
   [/^(.+) · (.+)$/, '⟦$1⟧ · ⟦$2⟧'],
   // une ligne qui commence par une icône (journal, titres) : on traduit le reste
   [/^(\p{Extended_Pictographic}[️‍\p{Extended_Pictographic}]*) (.+)$/u, '$1 ⟦$2⟧'],

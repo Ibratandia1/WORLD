@@ -111,6 +111,7 @@ export class World extends Emitter {
     if (this.day !== prevDay) this.newDay();
     if (this.city) this.city.update();
     if (this.festivals) this.festivals.update();
+    if (this.justice) this.justice.tick(); // procès avant les sorties de prison / garde à vue
     if (this.safety) this.safety.tick();
     for (const d of this.directors) d.update(dt);
   }
@@ -279,7 +280,7 @@ export class World extends Emitter {
     const def = ACTIONS[id];
     if (!def) return 'Action inconnue';
     // En prison, on attend sa sortie
-    if (a.jailUntil && this.minutes < a.jailUntil && id !== 'jail') return 'Tu es en prison';
+    if (a.jailUntil && this.minutes < a.jailUntil && id !== 'jail' && id !== 'hire_lawyer') return a.trial ? 'Tu es en garde à vue' : 'Tu es en prison';
     if (def.can) {
       const c = def.can(a, this, params);
       if (c !== true) return c;

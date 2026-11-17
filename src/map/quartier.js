@@ -13,7 +13,7 @@ export const QUARTIER = {
   name: 'Le Marais',
   layout: 3, // version du tracé : quand elle change, les sauvegardes replacent les passants sur le nouveau plan
 
-  order: 'ACKOSBMDGEPRFLYV' + 'HNUIJQ' + 'Z' + '12345',
+  order: 'ACKOSBMDGEPRFLYV' + 'HNUIJQ' + 'Z' + '12345' + '67',
 
   // Lieux des fêtes du quartier (centre de la place)
   places: {
@@ -69,6 +69,9 @@ export const QUARTIER = {
     3: { type: 'firestation', name: 'Caserne des pompiers', jobs: { slots: 4, wage: 16, edu: 1 } },
     4: { type: 'prison', name: 'Maison d’arrêt', jobs: { slots: 3, wage: 15, edu: 0 } },
     5: { type: 'school', name: 'École des Archives', jobs: { slots: 4, wage: 15, edu: 2 } },
+    // --- Justice et argent ---
+    6: { type: 'court', name: 'Tribunal du Marais', jobs: { slots: 6, wage: 21, edu: 3 } },
+    7: { type: 'bank', name: 'Banque Pavé d’Or', jobs: { slots: 3, wage: 17, edu: 2 } },
   },
 
   rows: [
@@ -79,9 +82,9 @@ export const QUARTIER = {
     '=====================...............',
     '.........=..........================',
     'XAA.:CCX.=.OOOO.:BB.......=.........',
-    'XAA.:CCX.=.OOOO.:BBXSSSXX.=.GGXXFFXX',
-    'XAX.:.XX.=.OOOO.:..XSSSXX.=.GGXXFFXX',
-    'XX.:.XKK.=.XXXX.:::.SS111.=.GGG.5555',
+    'XAA.:CCX.=.OOOO.:BBXSSS66.=.GGXXFFXX',
+    'XAX.:.XX.=.OOOO.:..XSSS66.=.GGXXFFXX',
+    'XX.:.XKK.=.7777.:::.SS111.=.GGG.5555',
     'X.:.33KK.=.HHHXT..:.XX111.=.XX.:.555',
     '.:.33333.=.HHHX.X.:.PP111.=.DD.:.LLX',
     '.........=......X.:.PP111.=.DD.:.LLX',

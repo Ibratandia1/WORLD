@@ -87,6 +87,24 @@ export const PEOPLE = [
     look: { body: 0x9b6ee8, hairColor: 0xdddddd, hairStyle: 'carre', skin: 0xf6d7c3, legs: 0x3b3b4f, accessory: 'lunettes' } },
   { name: 'Romain', home: 'I', job: { at: '5', wage: 15 }, money: 350, education: 2,
     look: { body: 0x4bbf8b, hairColor: 0x7a4a2a, hairStyle: 'boucles', skin: 0xf0c4a0, legs: 0x3a4766, accessory: 'aucun' } },
+  // --- Justice et banque ---
+  { name: 'Juge Lambert', home: 'J', job: { at: '6', wage: 26, title: 'Juge' }, money: 4000, education: 3,
+    look: { body: 0x1e1e24, hairColor: 0xdddddd, hairStyle: 'court', skin: 0xf0c8a8, legs: 0x1e1e24, accessory: 'lunettes', outfit: 'costume' } },
+  { name: 'Me Haddad', home: 'H', job: { at: '6', wage: 22, title: 'Avocat·e' }, money: 2200, education: 3,
+    look: { body: 0x2b3245, hairColor: 0x1c1410, hairStyle: 'chignon', skin: 0xb57a52, legs: 0x2b3245, accessory: 'aucun', outfit: 'veste' } },
+  { name: 'Me Rossi', home: 'F', job: { at: '6', wage: 22, title: 'Avocat·e' }, money: 1900, education: 3,
+    look: { body: 0x333a4a, hairColor: 0x7a4a2a, hairStyle: 'court', skin: 0xf1c7a3, legs: 0x2a2f3d, accessory: 'aucun', outfit: 'costume' } },
+  { name: 'Nicolas', home: 'I', job: { at: '6', wage: 16, title: 'Greffier·ère' }, money: 500, education: 2,
+    look: { body: 0x5b8def, hairColor: 0xb5651d, hairStyle: 'boucles', skin: 0xf6d3b8, legs: 0x3a4766, accessory: 'lunettes' } },
+  { name: 'M. Fontaine', home: 'D', job: { at: '7', wage: 19, title: 'Conseiller·ère bancaire' }, money: 3000, education: 2,
+    look: { body: 0x2f5d4a, hairColor: 0x4a3020, hairStyle: 'court', skin: 0xd9a77e, legs: 0x2a2f3d, accessory: 'aucun', outfit: 'costume' } },
+  { name: 'Sarah', home: 'B', job: { at: '7', wage: 15, title: 'Guichetier·ère' }, money: 600, education: 2,
+    look: { body: 0xd9b04c, hairColor: 0x111111, hairStyle: 'queue', skin: 0x8a5634, legs: 0x323246, accessory: 'aucun' } },
+  // --- Les éboueurs (tournée dans les rues : ils vident les poubelles) ---
+  { name: 'Momo', home: 'Q', money: 300, role: 'binman', street: { title: 'Éboueur·se', icon: '🗑️', start: 5, hours: 8, days: [0, 1, 2, 3, 4, 5], wage: 14 },
+    look: { body: 0x7fd36f, hairColor: 0x111111, hairStyle: 'casquette', skin: 0x5e3a24, legs: 0x2e6b4a, accessory: 'aucun', build: 'fort' } },
+  { name: 'Lina', home: 'Q', money: 260, role: 'binman', street: { title: 'Éboueur·se', icon: '🗑️', start: 13, hours: 8, days: [1, 2, 3, 4, 5, 6], wage: 14 },
+    look: { body: 0x7fd36f, hairColor: 0xb5651d, hairStyle: 'queue', skin: 0xf1c7a3, legs: 0x2e6b4a, accessory: 'aucun' } },
   // --- Un peu de délinquance, comme partout ---
   { name: 'Dédé', home: 'Q', job: null, money: 15, karma: -4,
     look: { body: 0x333a4a, hairColor: 0x1c1410, hairStyle: 'casquette', skin: 0xd9a77e, legs: 0x2a2f3d, accessory: 'solaires', outfit: 'sweat', build: 'mince' } },
@@ -103,6 +121,7 @@ export function spawnPeople(world, profile = null) {
     if (p.job) {
       const n = staff[p.job.at] = (staff[p.job.at] || 0) + 1;
       job = makeJob(map.byLetter[p.job.at], p.job.wage, 0, !isPlayer && n % 2 === 0);
+      if (p.job.title) job.title = p.job.title;
     }
     if (p.street) job = makeStreetJob({ ...p.street, base: map.byLetter.M.id }, 0);
     world.addActor(new Actor({

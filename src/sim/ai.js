@@ -126,6 +126,14 @@ export function decide(a, w, opts = {}) {
   }
   if (!player && (!a.job || a.job.street) && a.money < 120 && w.check(a, 'allocation') === true) return { id: 'allocation' };
 
+  // 4c. Banque : on met de côté le surplus, on retire quand la poche est vide, on emprunte pour un loyer en retard
+  if (!player && w.bank && h >= 9 && h < 17) {
+    const bankDo = (id, amount) => { const c = shop(a, w, id); if (!c) return null; c.params.amount = amount; return w.check(a, id, c.params) === true ? c : null; };
+    if (a.money > 700 && Math.random() < 0.3) { const c = bankDo('deposit', Math.floor(a.money - 300)); if (c) return c; }
+    if (a.money < 40 && (a.bank || 0) >= 1) { const c = bankDo('withdraw', Math.min(150, Math.floor(a.bank))); if (c) return c; }
+    if (a.rentDue > a.money && !(a.loan > 0) && a.job && Math.random() < 0.3) { const c = shop(a, w, 'take_loan'); if (c) return c; }
+  }
+
   // 5. Chercher du travail (on postule un peu partout, pas toujours au même endroit), ou reprendre ses études
   if (!a.job && a.role !== 'landlord' && h >= 8 && h < 18) {
     if ((a.education ?? 1) < 2 && a.money > 60 && Math.random() < 0.25) { const c = shop(a, w, 'study'); if (c) return c; }

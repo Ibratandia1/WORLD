@@ -271,7 +271,60 @@ export const LAYOUTS = {
       { k: 'bench', x: 9, y: 2 }, { k: 'bench', x: 0, y: 6 }, { k: 'bench', x: 9, y: 6 }, { k: 'plant', x: 10, y: 7 }, { k: 'cooler', x: 6, y: 0 },
     ],
     stations: [S(1, 0, ['work']), S(3, 0, ['work']), S(2, 5, ['work'], { pose: 'type' }), S(4, 5, ['work'], { pose: 'type' }),
-      S(2, 2, ['report', 'any']), S(9, 2, ['any'], { seat: true }), S(0, 6, ['any'], { seat: true })],
+      S(2, 2, ['report', 'any']), S(9, 2, ['jail'], { seat: true }), S(8, 1, ['jail']), S(10, 1, ['jail']), S(0, 6, ['any'], { seat: true })],
+  },
+
+  // Tribunal : salle d'audience (estrade du juge, banc des jurés, barre, public), greffe
+  court: {
+    w: 13, h: 9, wallH: 100, wall: 0xf1ece2, floor: [0xcdb592, 0xc2a984], entrance: { x: 6, y: 8 },
+    winL: [2, 6], winR: [2, 10],
+    zones: [
+      { x: 0, y: 0, w: 9, h: 6, floor: [0xb98a5e, 0xae7f54], walls: false, wall: 0x4a5266, label: 'Salle d’audience', icon: '⚖️', sub: 'audience publique' },
+      { x: 10, y: 0, w: 3, h: 4, floor: [0xdbe4ef, 0xcfdae8], wall: 0x4a5266, label: 'Greffe', icon: '📜', sub: '', doors: [[10, 3]] },
+    ],
+    items: [
+      { k: 'judgebench', x: 4, y: 0, action: 'attend_trial', name: 'Estrade du juge' }, { k: 'armchair', x: 4, y: 1, c: 0x7a2a2a },
+      { k: 'flagstand', x: 2, y: 0 }, { k: 'flagstand', x: 6, y: 0 }, { k: 'bust', x: 8, y: 0 },
+      { k: 'frame', wall: 'R', at: 4, c: 0x2b4ea2 }, { k: 'clock', wall: 'R', at: 7 },
+      { k: 'bench', x: 0, y: 2, name: 'Banc des jurés' }, { k: 'bench', x: 0, y: 3, name: 'Banc des jurés' },
+      { k: 'bar', x: 4, y: 3, action: 'attend_trial', name: 'Barre' },
+      { k: 'desk', x: 7, y: 2, action: 'legal_advice', name: 'Table de la défense' }, { k: 'chair', x: 7, y: 3 },
+      ...[2, 4, 6].map(x => ({ k: 'bench', x, y: 5, action: 'attend_trial', name: 'Bancs du public' })),
+      { k: 'desk', x: 11, y: 2 }, { k: 'chair', x: 11, y: 1 }, { k: 'bookshelf', x: 12, y: 0 }, { k: 'bookshelf', x: 11, y: 0 },
+      { k: 'bigplant', x: 12, y: 8 }, { k: 'bigplant', x: 0, y: 8 }, { k: 'bin', x: 9, y: 8 },
+    ],
+    stations: [
+      S(4, 1, ['work'], { pose: 'sit' }), S(7, 3, ['work', 'legal_advice'], { seat: true }), S(11, 1, ['work'], { pose: 'type', seat: true }), S(5, 3, ['work']),
+      S(0, 2, ['any'], { seat: true }), S(0, 3, ['any'], { seat: true }),
+      ...[2, 4, 6].map(x => S(x, 5, ['attend_trial', 'any'], { seat: true })), S(3, 3, ['legal_advice', 'any']),
+    ],
+  },
+
+  // Banque : guichets vitrés, coffre-fort, bureau du conseiller (prêts), distributeur
+  bank: {
+    w: 12, h: 8, wallH: 96, wall: 0xf3eee2, floor: [0xe7e0d0, 0xddd4c0], entrance: { x: 5, y: 7 },
+    winL: [2, 5], winR: [2, 8],
+    zones: [
+      { x: 0, y: 0, w: 6, h: 2, floor: [0xe9efe9, 0xdfe8df], walls: false, wall: 0x2f5d4a, label: 'Guichets', icon: '🏦', sub: 'dépôts et retraits' },
+      { x: 8, y: 0, w: 4, h: 4, floor: [0xd8e6dc, 0xcbdccf], wall: 0x2f5d4a, label: 'Conseiller', icon: '📝', sub: 'prêts', doors: [[8, 3]] },
+      { x: 0, y: 4, w: 3, h: 4, floor: [0xbfc4cc, 0xb3b9c2], wall: 0x5f6066, label: 'Salle des coffres', icon: '🔐', sub: '', doors: [[2, 4]] },
+    ],
+    items: [
+      ...[0, 1, 2, 3, 4, 5].map(x => ({ k: 'glasscounter', x, y: 1, action: x % 2 ? 'withdraw' : 'deposit', name: 'Guichet' })),
+      { k: 'register', x: 1, y: 1, on: true }, { k: 'register', x: 4, y: 1, on: true },
+      { k: 'frame', wall: 'R', at: 2.5, c: 0xd9b04c }, { k: 'clock', wall: 'R', at: 5 },
+      { k: 'bossdesk', x: 10, y: 2, action: 'take_loan', name: 'Bureau du conseiller' }, { k: 'chair', x: 10, y: 3 }, { k: 'armchair', x: 10, y: 1 },
+      { k: 'bookshelf', x: 11, y: 0 }, { k: 'plant', x: 9, y: 0 },
+      { k: 'safe', x: 0, y: 5, action: 'deposit', name: 'Coffre-fort' }, { k: 'safe', x: 1, y: 7 },
+      { k: 'atm', x: 7, y: 6, action: 'withdraw', name: 'Distributeur' },
+      { k: 'bench', x: 5, y: 4 }, { k: 'bench', x: 7, y: 4 }, { k: 'rug', x: 5, y: 5.5, flat: true, c: 0x2f5d4a, w: 1.2, d: 2.4 },
+      { k: 'bigplant', x: 11, y: 7 }, { k: 'plant', x: 3, y: 7 }, { k: 'bin', x: 9, y: 7 },
+    ],
+    stations: [
+      S(1, 0, ['work']), S(4, 0, ['work']), S(10, 1, ['work'], { pose: 'sit' }), S(3, 0, ['work'], { prio: -1 }),
+      S(1, 2, ['deposit', 'withdraw', 'any']), S(4, 2, ['deposit', 'withdraw', 'any']), S(10, 3, ['take_loan', 'repay_loan'], { seat: true }),
+      S(7, 7, ['withdraw', 'any']), S(5, 4, ['any'], { seat: true }), S(7, 4, ['any'], { seat: true }),
+    ],
   },
 
   hospital: {
