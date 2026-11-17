@@ -266,6 +266,11 @@ export const EN_EXTRA = {
   'Tu es parti·e bien avant la fin de ton service.': 'You left well before the end of your shift.',
   'Au 3e avertissement, c’est le renvoi.': 'On the 3rd warning, you’re fired.',
   'Chez toi': 'Home', 'Ton travail': 'Your job',
+  'Happy hour −30 %': 'Happy hour −30%', 'Invendus du jour −40 %': 'Today’s leftovers −40%', 'Plat du jour': 'Dish of the day', 'Spécialité': 'Special',
+  'Carte de fidélité': 'Loyalty card', 'Blanquette de veau': 'Veal blanquette', 'Croque-monsieur salade': 'Croque-monsieur and salad', 'Quiche lorraine': 'Quiche lorraine',
+  'Bœuf bourguignon': 'Beef bourguignon', 'Soupe à l’oignon': 'French onion soup', 'Omelette aux champignons': 'Mushroom omelette', 'Salade niçoise': 'Niçoise salad',
+  'Tarte aux pommes': 'Apple tart', 'Pain aux raisins': 'Raisin swirl', 'Éclair au chocolat': 'Chocolate éclair', 'Chausson aux pommes': 'Apple turnover',
+  'Flan pâtissier': 'Custard tart', 'Paris-brest': 'Paris-brest', 'Pain de campagne': 'Country loaf',
   'Réfectoire': 'Canteen', '👆 Touche le comptoir ou un meuble pour agir': '👆 Tap the counter or a piece of furniture to act', 'Fermé : personne en service': 'Closed: nobody on duty', 'Accepter un pot-de-vin': 'Accept a bribe', 'Réservé aux agents publics': 'Public servants only',
   'Seulement pendant le service': 'Only during your shift', 'Moins': 'Less',
   '⚠️ Routine : livré à lui-même, ton personnage peut mal tourner (vols, pots-de-vin, jeux, absences)…': '⚠️ Routine: left to themselves, your character may go astray (theft, bribes, gambling, absences)…',
@@ -288,6 +293,7 @@ export const EN_EXTRA = {
 
 // Modèles : [expression, remplacement] — $1, $2… = morceaux repris ; ⟦…⟧ = morceau traduit à son tour
 export const EN_PATTERNS = [
+  [/^(.+) t’offre ce passage : ([\d.]+) € remboursés\. Merci de ta fidélité !$/, '$1 treats you this time: €$2 refunded. Thanks for your loyalty!'],
   // jours abrégés (« Lun Mar Mer ») ; avertissement du responsable « Nom : « raison » » suivi d'une phrase
   [/^((?:Lun|Mar|Mer|Jeu|Ven|Sam|Dim)(?: (?:Lun|Mar|Mer|Jeu|Ven|Sam|Dim))*)$/, (m, d) => d.split(' ').map(x => ({ Lun: 'Mon', Mar: 'Tue', Mer: 'Wed', Jeu: 'Thu', Ven: 'Fri', Sam: 'Sat', Dim: 'Sun' })[x]).join(' ')],
   [/^(.+) : « (.+) » (.+)$/, '$1: “⟦$2⟧” ⟦$3⟧'],

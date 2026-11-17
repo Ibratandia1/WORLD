@@ -47,7 +47,21 @@ const randomLook = () => ({
 });
 
 // Prix pratiqué par un commerce (multiplicateur selon sa clientèle)
-export const priceMul = (w, id) => (w.city && w.city.biz[id] ? w.city.biz[id].price : 1);
+export const priceMul = (w, id) => (w.city && w.city.biz[id] ? w.city.biz[id].price : 1) * promoMul(w, id);
+// Promotions selon l'heure (les PNJ en profitent aussi : ils choisissent leurs commerces selon les prix)
+export function promo(w, id) {
+  const b = w.building(id), h = w.hour;
+  if (!b) return null;
+  if (b.type === 'cafe' && h >= 17 && h < 19) return { mul: 0.7, label: 'Happy hour −30 %' };
+  if (b.type === 'bakery' && h >= 18) return { mul: 0.6, label: 'Invendus du jour −40 %' };
+  return null;
+}
+const promoMul = (w, id) => { const p = promo(w, id); return p ? p.mul : 1; };
+// Plat du jour (café) et spécialité (boulangerie) : changent chaque jour
+const DISHES = ['Blanquette de veau', 'Croque-monsieur salade', 'Quiche lorraine', 'Bœuf bourguignon', 'Soupe à l’oignon', 'Omelette aux champignons', 'Salade niçoise'];
+const SPECIALS = ['Tarte aux pommes', 'Pain aux raisins', 'Éclair au chocolat', 'Chausson aux pommes', 'Flan pâtissier', 'Paris-brest', 'Pain de campagne'];
+export const dishOfDay = (w, b) => (b.type === 'cafe' ? DISHES : b.type === 'bakery' ? SPECIALS : null)?.[(w.day + b.id) % 7] || null;
+export const LOYALTY_EVERY = 5;
 export const isClosed = (w, id) => !!(w.city && w.city.biz[id] && w.city.biz[id].closed);
 export const freeUnits = (w, b) => (b.type === 'home' ? Math.max(0, (b.units || 1) - occupants(w, b).length) : 0);
 
@@ -76,6 +90,12 @@ export class CityLife {
     if (!s) return;
     s.today.n++;
     s.today.sales += e.cost;
+    const a = e.actor;
+    if (a) {
+      a.loyalty = a.loyalty || {};
+      const n = a.loyalty[e.where] = (a.loyalty[e.where] || 0) + 1;
+      if (n % LOYALTY_EVERY === 0) { a.money += e.cost; this.w.emit('loyalty', { actor: a, building: this.w.building(e.where), amount: Math.round(e.cost * 10) / 10 }); }
+    }
     // TVA : une part de chaque vente revient au Trésor de la ville
     const vat = e.cost * VAT;
     credit(this.w, 'vat', vat);

@@ -5,7 +5,7 @@ import { openCustomizer } from './customize.js';
 import { fmtShift, DAY_SHORT, MAX_WARNINGS, RAISE_EVERY, JOB_TITLES, openings, isWorkday } from './sim/jobs.js';
 import { rel, level, near } from './sim/social.js';
 import { weeklyRent, occupants, LATE_EVICT } from './sim/housing.js';
-import { freeUnits, isClosed } from './sim/city.js';
+import { freeUnits, isClosed, promo, dishOfDay, LOYALTY_EVERY } from './sim/city.js';
 import { Sound } from './audio.js';
 import { t, LANGS, tLines } from './i18n.js';
 const tr = s => t(s); // (dans personHTML, « t » désigne la personne : on traduit avec tr)
@@ -618,7 +618,14 @@ export class UI {
     const people = staff.length
       ? `<div class="mp-staff">${staff.map(o => `<button data-person="${o.id}" class="mp-who"><i style="background:${hex(o.look && o.look.body)}">${esc(o.name[0])}</i>${esc(o.name)}</button>`).join('')}</div>`
       : '';
-    return `<div class="mini-place">${status}${job}${people}</div>`;
+    const pr = promo(w, b.id), dish = dishOfDay(w, b);
+    const loyal = b.jobs && ['cafe', 'bakery', 'shop', 'fashion', 'garage'].includes(b.type) ? ((p.loyalty && p.loyalty[b.id]) || 0) % LOYALTY_EVERY : null;
+    const extras = [
+      pr ? `<span class="mp-chip promo">🏷️ ${esc(t(pr.label))}</span>` : '',
+      dish ? `<span class="mp-chip dish">${b.type === 'cafe' ? '🍲' : '🥐'} ${esc(t(b.type === 'cafe' ? 'Plat du jour' : 'Spécialité'))} : ${esc(t(dish))}</span>` : '',
+      loyal != null ? `<span class="mp-chip loyal" title="${esc(t('Carte de fidélité'))}">⭐ ${'★'.repeat(loyal)}${'☆'.repeat(LOYALTY_EVERY - 1 - loyal)} 🎁</span>` : '',
+    ].join('');
+    return `<div class="mini-place">${status}${extras ? `<div class="mp-chips">${extras}</div>` : ''}${job}${people}</div>`;
   }
 
   // Mairie : le maire, la politique, les caisses, les élections (vote, candidature), les décisions du maire

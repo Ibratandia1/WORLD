@@ -199,7 +199,7 @@ export const ACTIONS = {
     icon: '🍽️', label: 'Déjeuner', place: { type: 'cafe' }, duration: 40, cost: 12, seller: true,
     can: a => (a.hunger < 15 ? 'Tu n’as pas faim' : true),
     effect: (a, w, p) => {
-      a.hunger -= 45; a.energy += 5; a.mood += 5;
+      a.hunger -= 45; a.energy += 5; a.mood += 7; // (plat du jour : un peu plus de plaisir)
       const t = p && p.with && w.actorById(p.with);
       if (t) { addRel(a, t, 8); a.mood += 6; t.mood += 6; return `Bon moment avec ${t.name} · ❤ +8`; }
       return null;

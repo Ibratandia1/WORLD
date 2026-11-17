@@ -674,3 +674,9 @@ body.v3d #game, body.v3d #game canvas { pointer-events: none; } /* la couche 2D 
 .mp-who i { width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: #fff;
   font: 800 10px system-ui, sans-serif; font-style: normal; text-shadow: 0 1px 2px rgba(0,0,0,.4); }
 #box.mini .mini-row .leave button { background: #3d3357 !important; color: #fff !important; }
+
+/* Fiche du commerce : promotions, plat du jour, carte de fidélité */
+.mp-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.mp-chip { font: 700 10.5px system-ui, sans-serif; padding: 2px 8px; border-radius: 999px; background: #f2eefc; color: #4a3d7a; }
+.mp-chip.promo { background: #ffe9c2; color: #9a5a00; } .mp-chip.dish { background: #fff3e6; color: #8a4b1a; }
+.mp-chip.loyal { background: #fff8d6; color: #8a6d00; letter-spacing: 1px; }

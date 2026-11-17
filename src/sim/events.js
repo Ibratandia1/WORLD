@@ -291,6 +291,11 @@ const PUSHED = {
     text: `${e.cop ? `${e.cop.name} t’a passé les menottes. ` : ''}${e.days} jour${e.days > 1 ? 's' : ''} à la Maison d’arrêt et ${e.fine} € d’amende. Ton travail risque d’en souffrir…`,
     choices: OK,
   }),
+  loyalty: (a, w, e) => ({
+    icon: '⭐', title: 'Carte de fidélité',
+    text: `${e.building.name} t’offre ce passage : ${e.amount} € remboursés. Merci de ta fidélité !`,
+    choices: OK,
+  }),
   jaywalk: (a, w, e) => ({
     icon: '🚦', title: 'Amende : traversée interdite',
     text: `${e.cop.name} : « On traverse sur les passages piétons, au feu rouge pour les voitures ! » Amende de ${e.fine} €.`,
