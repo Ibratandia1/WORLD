@@ -29,11 +29,89 @@ export const SHIFTS = {
   bank: { start: 9, hours: 8, days: [0, 1, 2, 3, 4, 5] },
 };
 
-// Plusieurs métiers dans un même lieu : le titre dépend de l'ordre d'embauche
+// (ancien système : titre selon l'ordre d'embauche — gardé pour les vieilles sauvegardes)
 export function roleTitle(type, rank) {
   if (type === 'court') return rank === 0 ? 'Juge' : rank === 3 ? 'Greffier·ère' : 'Avocat·e';
   if (type === 'bank') return rank === 0 ? 'Conseiller·ère bancaire' : 'Guichetier·ère';
   return null;
+}
+
+// ---------- Postes : plusieurs métiers dans un même lieu ----------
+// Le premier poste de la liste est le poste d'entrée (il prend les places qui restent) ; les autres ont 1 place
+// (ou `n`) et demandent : un diplôme (edu 0–3, cours du soir), une formation (cert, à l'école) ou de l'expérience
+// (exp = jours travaillés dans ce métier). `pay` = écart avec le salaire de base du lieu (€/h).
+export const POSITIONS = {
+  cafe: [{ id: 'serveur', title: 'Serveur·se', pay: 0 }, { id: 'barista', title: 'Barista', pay: 2, cert: 'barista' }, { id: 'gerant', title: 'Gérant·e du café', pay: 6, exp: 15 }],
+  bakery: [{ id: 'vendeur', title: 'Vendeur·se en boulangerie', pay: -1 }, { id: 'boulanger', title: 'Boulanger·ère', pay: 2, cert: 'boulangerie' }, { id: 'chef', title: 'Chef boulanger·ère', pay: 6, cert: 'boulangerie', exp: 20 }],
+  shop: [{ id: 'caissier', title: 'Caissier·ère', pay: 0 }, { id: 'rayon', title: 'Chef·fe de rayon', pay: 3, exp: 10 }, { id: 'gerant', title: 'Gérant·e de magasin', pay: 6, edu: 1, exp: 25 }],
+  fashion: [{ id: 'vendeur', title: 'Vendeur·se', pay: 0 }, { id: 'conseil', title: 'Conseiller·ère mode', pay: 2, cert: 'vente' }, { id: 'resp', title: 'Responsable de boutique', pay: 6, exp: 20 }],
+  garage: [{ id: 'apprenti', title: 'Apprenti·e mécanicien·ne', pay: -2 }, { id: 'meca', title: 'Mécanicien·ne', pay: 1, cert: 'mecanique' }, { id: 'chef', title: 'Chef·fe d’atelier', pay: 6, cert: 'mecanique', exp: 20 }],
+  office: [{ id: 'assistant', title: 'Assistant·e', pay: 0 }, { id: 'compta', title: 'Comptable', pay: 3, edu: 2, cert: 'compta' }, { id: 'projet', title: 'Chef·fe de projet', pay: 6, edu: 2, exp: 15 }, { id: 'direction', title: 'Directeur·rice', pay: 12, edu: 3, exp: 30 }],
+  cityhall: [{ id: 'accueil', title: 'Agent·e d’accueil', pay: 0 }, { id: 'secretaire', title: 'Secrétaire de mairie', pay: 3, edu: 1, exp: 10 }, { id: 'dgs', title: 'Directeur·rice des services', pay: 8, edu: 2, exp: 25 }],
+  police: [{ id: 'agent', title: 'Agent·e de police', pay: 0 }, { id: 'brigadier', title: 'Brigadier·ère', pay: 3, exp: 20 }, { id: 'commissaire', title: 'Commissaire', pay: 9, edu: 3, exp: 30 }],
+  hospital: [{ id: 'aide', title: 'Aide-soignant·e', pay: -2, edu: 1 }, { id: 'infirmier', title: 'Infirmier·ère', pay: 1, n: 2, edu: 2, cert: 'secourisme' }, { id: 'medecin', title: 'Médecin', pay: 10, edu: 3, exp: 10 }],
+  firestation: [{ id: 'pompier', title: 'Pompier·ère', pay: 0, cert: 'secourisme' }, { id: 'sergent', title: 'Sergent·e', pay: 4, exp: 20 }, { id: 'capitaine', title: 'Capitaine', pay: 8, edu: 2, exp: 35 }],
+  prison: [{ id: 'surveillant', title: 'Surveillant·e', pay: 0 }, { id: 'chef', title: 'Chef·fe de détention', pay: 5, edu: 1, exp: 20 }],
+  school: [{ id: 'animateur', title: 'Animateur·rice', pay: -3, edu: 1 }, { id: 'prof', title: 'Enseignant·e', pay: 1, n: 2, edu: 2 }, { id: 'directeur', title: 'Directeur·rice d’école', pay: 7, edu: 3, exp: 20 }],
+  court: [{ id: 'greffier', title: 'Greffier·ère', pay: -4, edu: 2 }, { id: 'avocat', title: 'Avocat·e', pay: 1, n: 3, edu: 3, cert: 'droit' }, { id: 'juge', title: 'Juge', pay: 8, edu: 3, exp: 30 }],
+  bank: [{ id: 'guichet', title: 'Guichetier·ère', pay: 0, edu: 1 }, { id: 'conseil', title: 'Conseiller·ère bancaire', pay: 3, edu: 2, cert: 'compta' }, { id: 'directeur', title: 'Directeur·rice d’agence', pay: 9, edu: 3, exp: 25 }],
+};
+// Formations courtes à l'école (une séance de 3 h, payante) : ouvrent les postes qualifiés
+export const CERTS = {
+  barista: { name: 'Formation barista', cost: 60 },
+  boulangerie: { name: 'CAP boulangerie', cost: 120 },
+  vente: { name: 'Formation vente et conseil', cost: 50 },
+  mecanique: { name: 'CAP mécanique', cost: 140 },
+  compta: { name: 'Formation comptabilité', cost: 150, edu: 1 },
+  secourisme: { name: 'Brevet de secourisme', cost: 40 },
+  droit: { name: 'Examen du barreau', cost: 250, edu: 3 },
+};
+// Postes réels d'un lieu, selon son nombre de places (le poste d'entrée garde au moins une place)
+export function positionsOf(b) {
+  const list = POSITIONS[b.type];
+  if (!list || !b.jobs) return [];
+  let left = b.jobs.slots - 1;
+  const out = [];
+  for (const p of list.slice(1)) {
+    const n = Math.min(p.n || 1, left);
+    if (n <= 0) break;
+    out.push({ ...p, slots: n, wage: b.jobs.wage + p.pay });
+    left -= n;
+  }
+  return [{ ...list[0], slots: left + 1, wage: b.jobs.wage + list[0].pay }, ...out];
+}
+// Poste d'un contrat (anciens contrats : retrouvé par son intitulé, sinon poste d'entrée)
+export function posOf(w, job) {
+  if (!job || job.building == null) return null;
+  const list = positionsOf(w.building(job.building));
+  return list.find(p => p.id === job.pos) || list.find(p => p.title === job.title) || list[0] || null;
+}
+// Expérience dans un métier (jours travaillés) ; les habitants déjà en poste comptent leurs jours d'ancienneté
+export function expOf(w, a, type) {
+  if (!a.exp) {
+    a.exp = {};
+    if (a.job && !a.job.street) { const t = w.building(a.job.building)?.type; if (t) a.exp[t] = Math.max(0, w.day - (a.job.since || 0)) + (a.isPlayer ? 0 : 15); }
+  }
+  return a.exp[type] || 0;
+}
+export function freeSlots(w, b, posId) {
+  const pos = positionsOf(b).find(p => p.id === posId);
+  if (!pos) return 0;
+  const taken = w.actors.filter(a => a.job && a.job.building === b.id && posOf(w, a.job)?.id === posId).length;
+  return Math.max(0, pos.slots - taken - (posId === positionsOf(b)[0].id && w.economy ? w.economy.cut(b.id) : 0));
+}
+// Remplit-on les conditions d'un poste ? true, ou la raison (texte affiché)
+export function qualifies(w, a, b, pos) {
+  const edu = pos.edu ?? (b.jobs.edu || 0);
+  if (edu > (a.education ?? 1)) return `Diplôme requis : niveau ${edu} (cours du soir à l’école)`;
+  if (pos.cert && !(a.certs || []).includes(pos.cert)) return `Formation requise : ${CERTS[pos.cert].name} (à l’école)`;
+  if (pos.exp && expOf(w, a, b.type) < pos.exp) return `Expérience requise : ${pos.exp} jours dans le métier (tu en as ${expOf(w, a, b.type)})`;
+  return true;
+}
+// Meilleur poste libre accessible (le mieux payé), ou null
+export function bestPosition(w, a, b) {
+  return positionsOf(b).filter(p => freeSlots(w, b, p.id) > 0 && qualifies(w, a, b, p) === true && !(a.job && a.job.building === b.id && posOf(w, a.job)?.id === p.id))
+    .sort((x, y) => y.wage - x.wage)[0] || null;
 }
 
 // ---------- Impôts ----------
@@ -53,7 +131,10 @@ export function incomeTax(w, a, gross) {
   // sont payés par le Trésor : c'est l'impôt qui fait tourner la ville
   if (isPublicJob(w, a.job)) debit(w, 'wages', gross);
   // Les entreprises privées paient des cotisations sur les salaires qu'elles versent (elles aussi selon la politique du maire)
-  else credit(w, 'payroll', gross * PAYROLL_RATE * (w.gov ? w.gov.taxMul : 1));
+  else {
+    credit(w, 'payroll', gross * PAYROLL_RATE * (w.gov ? w.gov.taxMul : 1));
+    if (w.economy && a.job && !a.job.street) w.economy.paid(a.job.building, gross * (1 + PAYROLL_RATE)); // c'est l'entreprise qui paie
+  }
   return gross - tax;
 }
 
@@ -140,6 +221,7 @@ export const fmtShift = job => `${job.start}h–${job.start + job.hours}h`;
 export function openings(w, b) {
   if (!b.jobs) return 0;
   if (w.city && w.city.biz[b.id] && w.city.biz[b.id].closed) return 0; // local fermé (faillite)
+  if (POSITIONS[b.type]) return positionsOf(b).reduce((t, p) => t + freeSlots(w, b, p.id), 0);
   const taken = w.actors.filter(a => a.job && a.job.building === b.id).length;
   return Math.max(0, b.jobs.slots - taken);
 }
@@ -173,6 +255,8 @@ export function reviewDay(w, a) {
     }
   } else {
     job.streak++;
+    const bt = w.building(job.building)?.type; // un jour de plus d'expérience dans ce métier
+    if (bt) { expOf(w, a, bt); a.exp[bt] = (a.exp[bt] || 0) + 1; }
     if (job.streak % RAISE_EVERY === 0) {
       if (job.warnings > 0) job.warnings--;
       if (job.wage + 1 <= Math.round((job.baseWage || job.wage) * RAISE_CAP)) {

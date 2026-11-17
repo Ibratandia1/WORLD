@@ -10,6 +10,7 @@ import { Festivals } from './sim/festivals.js';
 import { Safety } from './sim/safety.js';
 import { Justice } from './sim/justice.js';
 import { Bank } from './sim/bank.js';
+import { Economy } from './sim/economy.js';
 import { settings, onSettings } from './settings.js';
 import { t } from './i18n.js';
 import { UI } from './ui.js';
@@ -30,6 +31,7 @@ new Government(world); // la mairie : maire, impôts, aides, élections (world.g
 new Safety(world); // délits, police, prison, incendies (world.safety)
 new Justice(world); // garde à vue, procès, jury, avocats (world.justice)
 new Bank(world); // épargne, intérêts, prêts (world.bank)
+new Economy(world); // trésorerie des commerces, marché du travail et du logement (world.economy)
 // Mode test (?test dans l'adresse) : partie neuve, jamais sauvegardée — la vraie partie n'est pas touchée
 const TEST = new URLSearchParams(location.search).has('test');
 const resumed = TEST ? false : loadGame(world, [director]); // reprend la dernière partie s'il y en a une
@@ -72,12 +74,19 @@ import('./city3d.js').then(({ startCity3D }) => {
     player, saver: settings().saver,
     onFrame: ms => game.update(ms), // le monde avance à chaque image
     // Toucher un lieu : on y va et on entre directement ; un logement qui n'est pas le tien ouvre sa petite fiche (louer)
+    // (toucher un lieu = y aller : si on ne peut pas entrer, on marche jusqu'à la porte et la fiche s'ouvre)
     onPlace: b => {
-      if (b.type === 'home' && b.id !== player.home) return state.ui.showPlace(b);
+      if (player.inside === b.id) return;
+      state.city3d.setFollow(true);
+      const walkToDoor = () => {
+        const e = [...b.entrances].sort((u, v) => Math.hypot(u.x - player.px, u.y - player.py) - Math.hypot(v.x - player.px, v.y - player.py))[0];
+        if (e && Math.hypot(e.x - player.px, e.y - player.py) > 0.6) world.perform(player, 'goto', { x: e.x, y: e.y });
+      };
+      if (b.type === 'home' && b.id !== player.home) { walkToDoor(); return state.ui.showPlace(b); }
       const ok = world.check(player, 'enter', { building: b.id });
       if (ok === true) { state.ui.closePanels && state.ui.closePanels(); world.perform(player, 'enter', { building: b.id }); return state.ui.render(); }
-      if (player.inside === b.id) return;
       state.city3d.floatText(t(typeof ok === 'string' ? ok : 'Pas possible'), '#e2475b');
+      walkToDoor();
       state.ui.showPlace(b); // fermé, en feu… : la fiche dit quand ça ouvre
     },
     onPerson: a => state.ui.showPerson(a),

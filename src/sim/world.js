@@ -315,7 +315,7 @@ export class World extends Emitter {
         const muls = [...this.placeIds(a, def.place, params)].map(id => priceMul(this, id));
         if (muls.length) mul = Math.min(...muls);
       }
-      c = Math.round(c * mul * 10) / 10;
+      c = Math.round(c * mul * (this.economy ? this.economy.cpi : 1) * 10) / 10; // (cpi : niveau général des prix)
     }
     return c;
   }

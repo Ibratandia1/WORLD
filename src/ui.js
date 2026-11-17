@@ -2,7 +2,7 @@ import { ACTIONS, nextShiftText } from './sim/actions.js';
 import { TYPES } from './map/types.js';
 import { state } from './state.js';
 import { openCustomizer } from './customize.js';
-import { fmtShift, DAY_SHORT, MAX_WARNINGS, RAISE_EVERY, JOB_TITLES, openings, isWorkday } from './sim/jobs.js';
+import { fmtShift, DAY_SHORT, MAX_WARNINGS, RAISE_EVERY, JOB_TITLES, openings, isWorkday, POSITIONS, CERTS, positionsOf, posOf, freeSlots, qualifies, bestPosition, expOf } from './sim/jobs.js';
 import { rel, level, near } from './sim/social.js';
 import { weeklyRent, occupants, LATE_EVICT } from './sim/housing.js';
 import { freeUnits, isClosed, promo, dishOfDay, LOYALTY_EVERY } from './sim/city.js';
@@ -86,6 +86,8 @@ export class UI {
     });
     $('b-look').onclick = () => openCustomizer();
     $('b-center').onclick = () => state.scene && state.scene.centerOnPlayer();
+    $('b-rotl').onclick = () => state.city3d && state.city3d.rotateBy(Math.PI / 4);
+    $('b-rotr').onclick = () => state.city3d && state.city3d.rotateBy(-Math.PI / 4);
     $('b-routine').onclick = () => {
       player.routine = !player.routine; player.thinkIn = 0; this.syncControls(); this.refresh(true);
       if (player.routine) this.floatNote(t('⚠️ Routine : livré à lui-même, ton personnage peut mal tourner (vols, pots-de-vin, jeux, absences)…'));
@@ -510,10 +512,12 @@ export class UI {
     if (b.jobs && !(p.job && p.job.building === b.id)) {
       const n = openings(w, b);
       const title = JOB_TITLES[b.type] || 'Poste';
-      jobTop = `<div class="jobtop"><span>💼 ${esc(t(title))} · ${b.jobs.wage} €/h · ${n ? `${n} poste${n > 1 ? 's' : ''} libre${n > 1 ? 's' : ''}` : 'complet'}</span>${this.actBtn('apply', { building: b.id }, 'Postuler')}</div>`;
+      jobTop = POSITIONS[b.type] ? this.jobsHTML(b) : `<div class="jobtop"><span>💼 ${esc(t(title))} · ${b.jobs.wage} €/h · ${n ? `${n} poste${n > 1 ? 's' : ''} libre${n > 1 ? 's' : ''}` : 'complet'}</span>${this.actBtn('apply', { building: b.id }, 'Postuler')}</div>`;
     } else if (p.job && p.job.building === b.id) {
       note = `<p>${L('Ton travail', 'Your job')} · ${fmtShift(p.job)} · ${p.job.days.map(d => dayShort(d)).join(' ')}</p>`;
+      if (POSITIONS[b.type]) jobTop = this.jobsHTML(b); // évoluer ici : promotion
     }
+    if (b.type === 'school') jobTop += this.trainHTML(b); // formations courtes
 
     // Logement
     if (b.type === 'home') {
@@ -618,9 +622,10 @@ export class UI {
     if (p.job && p.job.building === b.id) {
       job = `<div class="mp-job mine"><span class="mp-ic">${icon('briefcase')}</span><div><b>${L('Ton travail', 'Your job')}</b><small>${fmtShift(p.job)} · ${p.job.days.map(d => dayShort(d)).join(' ')}</small></div></div>`;
     } else if (b.jobs) {
-      const n = openings(w, b);
-      job = `<div class="mp-job"><span class="mp-ic">${icon('briefcase')}</span><div><b>${esc(t(JOB_TITLES[b.type] || 'Poste'))}</b><small>${L(`${b.jobs.wage} €/h`, `€${b.jobs.wage}/h`)} · ${n ? L(`${n} poste${n > 1 ? 's' : ''} libre${n > 1 ? 's' : ''}`, `${n} opening${n > 1 ? 's' : ''}`) : t('complet')}</small></div>${n ? this.actBtn('apply', { building: b.id }, 'Postuler') : ''}</div>`;
+      job = this.jobsHTML(b);
     }
+    if (p.job && p.job.building === b.id && POSITIONS[b.type]) job += this.jobsHTML(b);
+    if (b.type === 'school') job += this.trainHTML(b);
     // 3. Qui est là : pastilles de couleur (la couleur de leur tenue), on les touche pour leur parler
     const hex = c => '#' + (c ?? 0x7a6f96).toString(16).padStart(6, '0');
     const people = staff.length
@@ -634,6 +639,46 @@ export class UI {
       loyal != null ? `<span class="mp-chip loyal" title="${esc(t('Carte de fidélité'))}">⭐ ${'★'.repeat(loyal)}${'☆'.repeat(LOYALTY_EVERY - 1 - loyal)} 🎁</span>` : '',
     ].join('');
     return `<div class="mini-place">${status}${extras ? `<div class="mp-chips">${extras}</div>` : ''}${job}${people}</div>`;
+  }
+
+  // Postes d'un lieu : intitulé, salaire, places, conditions (vert = rempli, rouge = manquant).
+  // On touche une ligne pour la choisir, un seul bouton « Postuler » (ou « Demander une promotion »).
+  jobsHTML(b) {
+    const p = this.player, w = this.world;
+    const list = positionsOf(b);
+    if (!list.length) return '';
+    const mine = p.job && p.job.building === b.id ? posOf(w, p.job) : null;
+    const bonus = w.economy ? w.economy.wageBonus(b.id) : 0;
+    this.selPos = this.selPos || {};
+    const best = bestPosition(w, p, b);
+    let sel = list.find(x => x.id === this.selPos[b.id]) || best || list.find(x => freeSlots(w, b, x.id) > 0) || list[0];
+    const rows = list.map(pos => {
+      const free = freeSlots(w, b, pos.id), isMine = mine && mine.id === pos.id;
+      const req = [];
+      const edu = pos.edu ?? (b.jobs.edu || 0);
+      if (edu) req.push([edu <= (p.education ?? 1), `🎓 ${L(`niv. ${edu}`, `lvl ${edu}`)}`]);
+      if (pos.cert) req.push([(p.certs || []).includes(pos.cert), `📜 ${t(CERTS[pos.cert].name)}`]);
+      if (pos.exp) req.push([expOf(w, p, b.type) >= pos.exp, `⏳ ${L(`${pos.exp} j d’expérience`, `${pos.exp} days’ experience`)}`]);
+      const reqs = req.length ? req.map(([ok, txt]) => `<i class="${ok ? 'ok' : 'no'}">${esc(txt)}</i>`).join('') : `<i class="ok">${t('Ouvert à tous')}</i>`;
+      const state = isMine ? `<em class="me">${t('ton poste')}</em>` : free ? `<em class="free">${L(`${free} libre${free > 1 ? 's' : ''}`, `${free} open`)}</em>` : `<em class="full">${t('pris')}</em>`;
+      return `<button class="mp-pos${pos === sel ? ' sel' : ''}" data-pos="${pos.id}" data-pb="${b.id}"><span><b>${esc(t(pos.title))}</b> · ${pos.wage + (isMine ? 0 : bonus)} €/h ${state}</span><span class="req">${reqs}</span></button>`;
+    }).join('');
+    const promo = mine && sel.wage > p.job.wage;
+    const btn = mine && !promo ? '' : this.actBtn('apply', { building: b.id, pos: sel.id }, mine ? 'Demander une promotion' : 'Postuler');
+    const head = `<div class="mp-poshead">${icon('briefcase')} <b>${t(mine ? 'Évoluer ici' : 'Postes')}</b>${bonus ? `<small>${L(`+${bonus} €/h à l’embauche (on recrute !)`, `+€${bonus}/h signing bonus`)}</small>` : ''}</div>`;
+    return `<div class="mp-posts">${head}${rows}${btn ? `<div class="mp-posbtn">${btn}</div>` : ''}</div>`;
+  }
+
+  // École : formations courtes (une ligne par formation, un seul bouton)
+  trainHTML(b) {
+    const p = this.player, w = this.world;
+    this.selCert = this.selCert || Object.keys(CERTS).find(id => !(p.certs || []).includes(id)) || 'secourisme';
+    const rows = Object.entries(CERTS).map(([id, c]) => {
+      const has = (p.certs || []).includes(id);
+      const opens = Object.entries(POSITIONS).flatMap(([, list]) => list.filter(x => x.cert === id).map(x => t(x.title)));
+      return `<button class="mp-pos${id === this.selCert ? ' sel' : ''}" data-cert="${id}"><span><b>${esc(t(c.name))}</b> · ${Math.round(c.cost * (w.economy ? w.economy.cpi : 1))} € ${has ? `<em class="me">✓ ${t('obtenu')}</em>` : ''}</span><span class="req"><i class="${(c.edu || 0) <= (p.education ?? 1) ? 'ok' : 'no'}">${c.edu ? `🎓 ${L(`niv. ${c.edu}`, `lvl ${c.edu}`)}` : t('Ouvert à tous')}</i><i class="ok">→ ${esc([...new Set(opens)].slice(0, 2).join(', '))}</i></span></button>`;
+    }).join('');
+    return `<div class="mp-posts"><div class="mp-poshead">📜 <b>${t('Formations (3 h)')}</b></div>${rows}<div class="mp-posbtn">${this.actBtn('train', { at: b.id, cert: this.selCert }, 'Suivre la formation')}</div></div>`;
   }
 
   // Mairie : le maire, la politique, les caisses, les élections (vote, candidature), les décisions du maire
@@ -934,6 +979,8 @@ export class UI {
     if (now - (this.tipAt || -1e9) < 45000 || this.tipOn) return;
     p.tips = p.tips || [];
     const TIPS = [
+      ['camera', () => p.outdoors && w.minutes > 40, '🎥 Un doigt : tourner autour de toi · deux doigts : zoomer et déplacer la vue · ⟲ ⟳ pour pivoter · 🎯 pour te suivre à nouveau.'],
+      ['career', () => p.job && w.day >= 3, '📈 Chaque lieu a plusieurs postes : diplôme 🎓, formation 📜 (à l’école) ou expérience ⏳. Ouvre la fiche de ton travail pour demander une promotion.'],
       ['guide', () => p.goals && p.goals.tut >= 1, '📖 Perdu·e ? Le guide complet du jeu est dans ⚙️ Paramètres (en haut à droite).'],
       ['hungry', () => p.hunger > 65, '🍔 Ton ventre gargouille : cuisine chez toi (🥫 = repas au frigo) ou va à la boulangerie.'],
       ['tired', () => p.energy < 25, '⚡ Tu fatigues : rentre dormir, ou bois un café pour tenir jusqu’au soir.'],
@@ -1073,6 +1120,8 @@ export class UI {
     if (btn.hasAttribute('data-cancel')) { w.cancel(p); return this.render(); }
     if (btn.hasAttribute('data-leave')) { w.perform(p, 'leave'); this.placeMore = false; return this.render(); }
     if (btn.hasAttribute('data-more')) { this.placeMore = !this.placeMore; return this.render(); }
+    if (btn.dataset.cert) { this.selCert = btn.dataset.cert; return this.render(true); }
+    if (btn.dataset.pos) { this.selPos = this.selPos || {}; this.selPos[btn.dataset.pb] = btn.dataset.pos; return this.render(true); }
     if (btn.hasAttribute('data-routine')) { $('b-routine').click(); return; }
     if (btn.hasAttribute('data-look')) { openCustomizer(); return; }
     if (btn.hasAttribute('data-join')) { this.join(this.person); return; }

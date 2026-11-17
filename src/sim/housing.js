@@ -4,7 +4,8 @@ import { weekdayOf } from './jobs.js';
 export const LATE_REMINDER = 4; // jours de retard avant la relance
 export const LATE_EVICT = 8;    // jours de retard avant l'expulsion
 
-export const weeklyRent = b => b.rent * 7;
+// (rentMul : le marché du logement, ajusté chaque lundi par sim/economy.js selon les logements libres)
+export const weeklyRent = b => Math.round(b.rent * 7 * (b.rentMul || 1));
 export const occupants = (w, b) => w.actors.filter(a => a.home === b.id);
 
 // Appelé à chaque nouveau jour. Le loyer de la semaine tombe le lundi.

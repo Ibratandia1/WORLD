@@ -1,4 +1,4 @@
-import { shiftNow, shiftOf, todayLog, isWorkday, fmtShift, openings, makeJob, nextShift, DAY_NAMES, weekdayOf, sellerAt, incomeTax, roleTitle } from './jobs.js';
+import { shiftNow, shiftOf, todayLog, isWorkday, fmtShift, openings, makeJob, nextShift, DAY_NAMES, weekdayOf, sellerAt, incomeTax, roleTitle, POSITIONS, CERTS, positionsOf, posOf, freeSlots, qualifies, bestPosition } from './jobs.js';
 import { weeklyRent, occupants } from './housing.js';
 import { addRel, near, rel, reply, tip as jobTip, canPause } from './social.js';
 import { itemById, hasPhone } from './catalog.js';
@@ -143,19 +143,50 @@ export const ACTIONS = {
       const b = w.building(p.building);
       if (!b || !b.jobs) return 'On ne recrute pas ici';
       if (isClosed(w, b.id)) return 'Local fermé';
-      const edu = (b.jobs.edu || 0);
-      if (edu > (a.education ?? 1)) return `Diplôme requis : niveau ${edu} (cours du soir à l’école)`;
       if (a.jailUntil && w.minutes < a.jailUntil) return 'Impossible depuis la prison';
-      if (a.job && a.job.building === b.id) return 'Tu y travailles déjà';
-      if (openings(w, b) === 0) return 'Aucun poste libre';
+      if (POSITIONS[b.type]) {
+        // Postes : celui demandé (params.pos), sinon le mieux payé auquel on a droit
+        const list = positionsOf(b);
+        const want = p.pos ? list.find(x => x.id === p.pos) : bestPosition(w, a, b);
+        const mine = a.job && a.job.building === b.id ? posOf(w, a.job) : null;
+        if (!want) {
+          if (openings(w, b) === 0) return mine ? 'Tu y travailles déjà' : 'Aucun poste libre';
+          const open = list.filter(x => freeSlots(w, b, x.id) > 0 && (!mine || x.wage > a.job.wage));
+          if (!open.length) return mine ? 'Pas de poste plus élevé libre pour l’instant' : 'Aucun poste libre';
+          return qualifies(w, a, b, open[0]);
+        }
+        if (mine && mine.id === want.id) return 'Tu occupes déjà ce poste';
+        if (mine && want.wage <= a.job.wage) return 'Ce poste n’est pas une promotion';
+        if (freeSlots(w, b, want.id) === 0) return 'Ce poste est déjà pris';
+        const q = qualifies(w, a, b, want); if (q !== true) return q;
+      } else {
+        const edu = (b.jobs.edu || 0);
+        if (edu > (a.education ?? 1)) return `Diplôme requis : niveau ${edu} (cours du soir à l’école)`;
+        if (a.job && a.job.building === b.id) return 'Tu y travailles déjà';
+        if (openings(w, b) === 0) return 'Aucun poste libre';
+      }
       if (a.lastApply[b.id] === w.day) return 'Déjà postulé aujourd’hui';
-      if (OPEN_HOURS_TYPES.has(b.type) && !sellerAt(w, b, a)) return 'Personne pour te recevoir : reviens aux heures d’ouverture';
+      // Il faut quelqu'un pour te recevoir ; un lieu sans aucune équipe : le gérant reçoit en journée (9h–18h)
+      const hasStaff = w.actors.some(o => o !== a && o.job && o.job.building === b.id);
+      const promotion = a.job && a.job.building === b.id;
+      if (OPEN_HOURS_TYPES.has(b.type) && !promotion && (hasStaff ? !sellerAt(w, b, a) : w.hour < 9 || w.hour >= 18)) return 'Personne pour te recevoir : reviens aux heures d’ouverture';
       return true;
     },
     effect: (a, w, p) => {
       const b = w.building(p.building);
       a.lastApply[b.id] = w.day;
       if (openings(w, b) === 0) return 'Le poste vient d’être pris…';
+      const pos = POSITIONS[b.type] ? (p.pos ? positionsOf(b).find(x => x.id === p.pos) : bestPosition(w, a, b)) : null;
+      if (POSITIONS[b.type] && (!pos || freeSlots(w, b, pos.id) === 0)) return 'Le poste vient d’être pris…';
+      // Promotion sur place : l'ancienneté et un dossier sans avertissement comptent beaucoup
+      if (pos && a.job && a.job.building === b.id) {
+        let ch = 0.45 + (a.job.warnings ? -0.25 : 0.2) + Math.min(0.2, (a.job.streak || 0) / 50) + a.karma * 0.03;
+        if (Math.random() > Math.max(0.1, Math.min(0.95, ch))) return 'Promotion refusée pour cette fois… Continue sans faute et redemande plus tard.';
+        a.job.pos = pos.id; a.job.title = pos.title;
+        a.job.wage = Math.max(a.job.wage, pos.wage); a.job.baseWage = pos.wage;
+        w.emit('promoted', { actor: a, building: b, title: pos.title, wage: a.job.wage });
+        return `🎉 Promotion : ${pos.title} (${a.job.wage} €/h) !`;
+      }
       const friendInside = w.actors.some(o => o.job && o.job.building === b.id && rel(a, o) >= 30);
       const manager = w.actors.find(o => o.role === 'manager' && o.job && o.job.building === b.id);
       let chance = 0.5 + a.karma * 0.04;
@@ -169,11 +200,13 @@ export const ACTIONS = {
       const who = manager ? `Entretien avec ${manager.name} : ` : '';
       if (Math.random() > Math.max(0.05, Math.min(0.95, chance))) return `${who}refusé… Réessaie un autre jour.`;
       const colleagues = w.actors.filter(o => o.job && o.job.building === b.id).length;
-      a.job = makeJob(b, b.jobs.wage, w.day, colleagues % 2 === 1, (colleagues * 2) % 7); // équipe du matin ou du soir, jours décalés
-      const rt = roleTitle(b.type, colleagues); if (rt) a.job.title = rt; // juge, avocat·e, greffier·ère, conseiller·ère…
+      const wage = pos ? pos.wage + (w.economy ? w.economy.wageBonus(b.id) : 0) : b.jobs.wage;
+      a.job = makeJob(b, wage, w.day, colleagues % 2 === 1, (colleagues * 2) % 7); // équipe du matin ou du soir, jours décalés
+      if (pos) { a.job.pos = pos.id; a.job.title = pos.title; }
+      else { const rt = roleTitle(b.type, colleagues); if (rt) a.job.title = rt; }
       a.job.startDay = w.day + 1; // pas de service le jour de l'embauche : on commence demain au plus tôt
-      w.emit('hired', { actor: a, building: b, wage: b.jobs.wage });
-      return `${who}embauché·e !`;
+      w.emit('hired', { actor: a, building: b, wage });
+      return `${who}embauché·e${pos ? ` : ${pos.title}, ${wage} €/h` : ''} !`;
     },
   },
 
@@ -908,6 +941,24 @@ export const ACTIONS = {
       a.studyDay = w.day; a.studies = (a.studies || 0) + 1; a.mood += 2;
       if (a.studies >= 3) { a.studies = 0; a.education = (a.education ?? 1) + 1; return `🎓 Diplôme obtenu : niveau ${a.education} ! De nouveaux métiers s’ouvrent.`; }
       return `Cours suivi (${a.studies}/3 avant le prochain diplôme)`;
+    },
+  },
+
+  // Formation courte (3 h) : certificat qui ouvre des postes qualifiés (barista, CAP, secourisme, comptabilité…)
+  train: {
+    icon: '📜', label: 'Suivre une formation (3 h)', place: { type: 'school' }, duration: 180, seller: true, skip: 8, custom: true,
+    cost: (a, w, p) => (CERTS[p && p.cert] ? CERTS[p.cert].cost : 0),
+    can: (a, w, p) => {
+      const c = CERTS[p && p.cert];
+      if (!c) return 'Choisis une formation';
+      if ((a.certs || []).includes(p.cert)) return 'Tu as déjà cette formation';
+      if ((c.edu || 0) > (a.education ?? 1)) return `Diplôme requis : niveau ${c.edu}`;
+      if (a.studyDay === w.day) return 'Une seule formation ou un seul cours par jour';
+      return true;
+    },
+    effect: (a, w, p) => {
+      a.certs = [...(a.certs || []), p.cert]; a.studyDay = w.day; a.mood += 2;
+      return `📜 ${CERTS[p.cert].name} obtenu·e ! De nouveaux postes s’ouvrent.`;
     },
   },
 

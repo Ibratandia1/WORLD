@@ -1242,9 +1242,37 @@ function centerOn(x, z, instant = false) {
   if (instant) { const d = goal.clone().sub(controls.target); controls.target.add(d); camera.position.add(d); return; }
   camGoal.t = goal;
 }
-api.follow = true;
-controls.addEventListener('start', () => { api.follow = false; });
-api.centerOnPlayer = () => { const p = opts.player; if (p) { api.follow = true; centerOn(p.px, p.py); } };
+// Suivi du joueur : la caméra reste accrochée à ton personnage. Pendant le suivi, un doigt (ou clic gauche)
+// fait tourner la vue AUTOUR de toi et deux doigts zooment ; déplacer la vue (deux doigts, clic droit) arrête le suivi
+// (🎯 pour le reprendre). Sans suivi : un doigt déplace la carte, deux doigts zooment et tournent.
+let userDrag = null;
+function setFollow(v) {
+  api.follow = v;
+  if (opts.demo) return;
+  controls.touches = v ? { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN } : { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE };
+  controls.mouseButtons = v ? { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN } : { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
+  const b = document.getElementById('b-center'); if (b) b.classList.toggle('on', v);
+}
+setFollow(true);
+controls.addEventListener('start', () => { userDrag = controls.target.clone(); });
+controls.addEventListener('end', () => { userDrag = null; });
+controls.addEventListener('change', () => {
+  const me = opts.player;
+  if (userDrag && api.follow && me && me.outdoors && !interiorOn && Math.hypot(controls.target.x - me.px, controls.target.z - me.py) > 1.2) setFollow(false);
+});
+api.setFollow = setFollow;
+api.centerOnPlayer = () => { const p = opts.player; if (p) { setFollow(true); centerOn(p.px, p.py); } };
+// Pivoter la vue de 45° (boutons ⟲ ⟳), en douceur autour du point regardé
+let rotLeft = 0;
+api.rotateBy = a => { rotLeft += a; };
+function applyRotation(dt) {
+  if (Math.abs(rotLeft) < 1e-4) return;
+  const step = Math.sign(rotLeft) * Math.min(Math.abs(rotLeft), dt * 3.2);
+  rotLeft -= step;
+  const off = camera.position.clone().sub(controls.target).applyAxisAngle(new THREE.Vector3(0, 1, 0), step);
+  camera.position.copy(controls.target).add(off);
+  dirty = true;
+}
 api.focusBuilding = b => {
   const cx = b.tiles.reduce((s, t) => s + t.x, 0) / b.tiles.length, cz = b.tiles.reduce((s, t) => s + t.y, 0) / b.tiles.length;
   centerOn(cx, cz); pointAt(new THREE.Vector3(cx, (tops[b.id] || 2) + 0.6, cz));
@@ -1313,7 +1341,7 @@ if (!opts.demo) {
       const t = map.tiles[ty] && map.tiles[ty][tx];
       if (!t) continue;
       if (t.building != null) return opts.onPlace && opts.onPlace(map.buildings[t.building]);
-      if (t.walk && !t.deco) { api.follow = true; ping(tx, ty); }
+      if (t.walk && !t.deco) { setFollow(true); ping(tx, ty); }
       return opts.onTile && opts.onTile(tx, ty, t, h.point); // sol, objet de rue, immeuble de décor : décidé par le jeu
     }
   }
@@ -1344,6 +1372,41 @@ function ping(x, z) {
   const t0 = performance.now();
   const tick = () => { const k = (performance.now() - t0) / 700; if (k >= 1) { scene.remove(m); return; } m.scale.setScalar(1 + k * 1.2); m.material.opacity = 0.9 * (1 - k); requestAnimationFrame(tick); };
   tick();
+}
+// Trajet du joueur : pointillés dorés au sol jusqu'à la destination, repère qui reste jusqu'à l'arrivée
+const ROUTE_MAX = 400;
+const routeDots = new THREE.InstancedMesh(new THREE.CircleGeometry(0.055, 10).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffd23f, transparent: true, opacity: 0.95, depthWrite: false }), ROUTE_MAX);
+routeDots.count = 0; routeDots.userData.noTap = true; routeDots.frustumCulled = false; routeDots.renderOrder = 3;
+scene.add(routeDots);
+const routeDest = new THREE.Group();
+{
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.18, 0.26, 28).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffd23f, transparent: true, opacity: 0.9, depthWrite: false }));
+  ring.position.y = 0.11; routeDest.add(ring);
+  const pin = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.22, 10).rotateX(Math.PI), new THREE.MeshStandardMaterial({ color: 0xffc21a, emissive: 0xff9a00, emissiveIntensity: 0.6 }));
+  pin.position.y = 0.45; pin.userData.bob = true; routeDest.add(pin);
+}
+routeDest.visible = false; routeDest.userData.noTap = true; scene.add(routeDest);
+let routeT = 0;
+function updateRoute() {
+  const p = opts.player;
+  const show = p && p.outdoors && p.path && p.path.length > 0;
+  routeDest.visible = !!show;
+  if (!show) { routeDots.count = 0; return; }
+  const last = p.path[p.path.length - 1];
+  routeDest.position.set(last.x, 0, last.y);
+  routeDest.children[1].position.y = 0.45 + Math.sin(performance.now() / 220) * 0.05;
+  routeDest.children[0].scale.setScalar(1 + Math.sin(performance.now() / 300) * 0.08);
+  if ((routeT -= 1 / 60) > 0) return;
+  routeT = 0.15;
+  let n = 0, px = p.px, py = p.py, carry = 0.2;
+  for (const t of p.path) {
+    const dx = t.x - px, dy = t.y - py, d = Math.hypot(dx, dy);
+    let s = carry;
+    for (; s < d && n < ROUTE_MAX; s += 0.32) { m4.makeTranslation(px + dx * s / d, 0.115, py + dy * s / d); routeDots.setMatrixAt(n++, m4); }
+    carry = Math.max(0, s - d);
+    px = t.x; py = t.y;
+  }
+  routeDots.count = n; routeDots.instanceMatrix.needsUpdate = true;
 }
 const marks = { home: null, work: null };
 function footprintRing(b, color) {
@@ -1378,7 +1441,9 @@ function updateGame(dt) {
   for (const g of Object.values(fires)) for (const c of g.children) { const k = 0.8 + Math.sin(now * 9 + c.userData.phase) * 0.25; c.scale.set(1, k, 1); }
   // la caméra suit ton personnage quand il se déplace (sauf si tu as bougé la vue toi-même)
   const me = opts.player;
-  if (api.follow && me && me.outdoors && me.path.length) camGoal.t = new THREE.Vector3(me.px, 0, me.py);
+  if (api.follow && me && me.outdoors && !userDrag && Math.hypot(controls.target.x - me.px, controls.target.z - me.py) > 0.03) camGoal.t = new THREE.Vector3(me.px, 0, me.py);
+  applyRotation(dt);
+  updateRoute();
   // la caméra glisse vers sa cible
   if (camGoal.t) {
     const d = camGoal.t.clone().sub(controls.target);

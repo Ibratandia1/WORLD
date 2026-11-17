@@ -267,6 +267,14 @@ const PUSHED = {
   raise: (a, w, e) => ({
     icon: '📈', title: 'Augmentation !', text: `Du travail sérieux : ton salaire passe à ${e.wage} €/h.`, choices: OK,
   }),
+  laidOff: (a, w, e) => ({
+    icon: '📉', title: 'Licenciement économique',
+    text: `${e.building.name} manque de clients et doit réduire son équipe : tu étais le dernier arrivé·e. Ce n’est pas ta faute — postule ailleurs, les commerces qui marchent recrutent.`,
+    choices: OK,
+  }),
+  promoted: (a, w, e) => ({
+    icon: '🎉', title: 'Promotion !', text: `Te voilà ${e.title} à ${e.building.name}, ${e.wage} €/h. Ton expérience paie !`, choices: OK,
+  }),
   hired: (a, w, e) => ({
     icon: '🤝', title: 'Embauché·e !',
     text: `${e.building.name} t’engage à ${e.wage} €/h, ${fmtShift(a.job)} (${a.job.days.map(d => DAY_SHORT[d]).join(' ')}). Premier service ${nextShiftText(a, w)}.`,

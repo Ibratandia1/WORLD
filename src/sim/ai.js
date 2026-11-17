@@ -1,4 +1,10 @@
-import { shiftNow, openings } from './jobs.js';
+import { shiftNow, openings, POSITIONS, CERTS, bestPosition } from './jobs.js';
+
+// Formation choisie par un PNJ sans travail : une qu'il n'a pas, à sa portée (diplôme, prix)
+function pickCert(a) {
+  const ok = Object.entries(CERTS).filter(([id, c]) => !(a.certs || []).includes(id) && (c.edu || 0) <= (a.education ?? 1) && c.cost <= a.money * 0.5);
+  return ok.length ? ok[Math.floor(Math.random() * ok.length)][0] : null;
+}
 import { nearby, canPause } from './social.js';
 import { ACTIONS } from './actions.js';
 import { priceMul } from './city.js';
@@ -169,8 +175,15 @@ export function decide(a, w, opts = {}) {
   // 5. Chercher du travail (on postule un peu partout, pas toujours au même endroit), ou reprendre ses études
   if (!a.job && a.role !== 'landlord' && h >= 8 && h < 18) {
     if ((a.education ?? 1) < 2 && a.money > 60 && Math.random() < 0.25) { const c = shop(a, w, 'study'); if (c) return c; }
-    const list = w.map.buildings.filter(b => openings(w, b) > 0 && a.lastApply[b.id] !== w.day && (b.jobs.edu || 0) <= (a.education ?? 1));
+    const list = w.map.buildings.filter(b => b.jobs && a.lastApply[b.id] !== w.day && (POSITIONS[b.type] ? bestPosition(w, a, b) : openings(w, b) > 0 && (b.jobs.edu || 0) <= (a.education ?? 1)));
     if (list.length) return { id: 'apply', params: { building: list[Math.floor(Math.random() * list.length)].id } };
+    // rien d'accessible : une formation courte ouvre des postes qualifiés
+    if (a.money > 150 && Math.random() < 0.15) { const c = shop(a, w, 'train'); if (c) { c.params.cert = pickCert(a); if (c.params.cert) return c; } }
+  }
+  // 5b. Carrière : un poste mieux payé s'ouvre là où l'on travaille (expérience, diplôme) → on demande une promotion
+  if (a.job && !a.job.street && !player && h >= 9 && h < 17 && Math.random() < 0.05) {
+    const b = w.building(a.job.building), best = b && POSITIONS[b.type] ? bestPosition(w, a, b) : null;
+    if (best && best.wage > a.job.wage && a.lastApply[b.id] !== w.day && a.inside === b.id) return { id: 'apply', params: { building: b.id, pos: best.id } };
   }
 
   // Moral bas : on se détend (télé à la maison, livre, banc) — PNJ comme routine du joueur
