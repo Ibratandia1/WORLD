@@ -41,6 +41,7 @@ export class FestDecor {
 
   person(id, x, y, flip = false, play = false) {
     const sc = this.scene, L = this.layer(id);
+    if (!sc.sys.game.renderer) return null; // moteur 2D sans affichage (ville en 3D) : pas de figurants 2D, seulement les stands
     const fake = { id: `fest_${id}_${L.sprites.length}`, look: randomLook() };
     ensureCharTexture(sc, fake);
     const s = toScreen(x, y);

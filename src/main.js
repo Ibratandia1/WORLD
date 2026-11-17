@@ -65,7 +65,7 @@ state.want3D = want3D; // GameScene ne construit pas la carte 2D quand la ville 
 const DPR = settings().saver ? 1 : Math.min(window.devicePixelRatio || 1, 2); // économie de batterie : résolution simple
 state.dpr = DPR;
 const game = new Phaser.Game({
-  type: Phaser.AUTO,
+  type: want3D ? Phaser.HEADLESS : Phaser.AUTO, // 3D : moteur 2D sans aucun affichage (logique seulement)
   parent: 'game',
   transparent: true,
   scale: { mode: Phaser.Scale.NONE, width: window.innerWidth * DPR, height: window.innerHeight * DPR, zoom: 1 / DPR },
@@ -114,7 +114,7 @@ if (want3D) {
       const g = state.scene && state.scene.game;
       if (!g) return setTimeout(hide2D, 200);
       for (const k of ['game', 'interior', 'fx']) { const s = g.scene.getScene(k); if (s) s.sys.setVisible(false); }
-      g.canvas.style.display = 'none';
+      if (g.canvas) g.canvas.style.display = 'none'; // (en mode sans affichage, il n'y a même plus de canvas)
     };
     hide2D();
     if (sc()) { sc().shownInterior = undefined; for (const id of Object.keys(world.safety ? world.safety.fires : {})) state.city3d.showFire(world.building(+id)); }

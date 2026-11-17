@@ -51,7 +51,7 @@ export class GameScene extends Phaser.Scene {
     this.lights = [];   // fenêtres et lampadaires allumés la nuit
     this.darks = [];    // calques d'obscurité (opaques la nuit)
 
-    this.makeTextures();
+    if (!state.want3D) this.makeTextures(); // (textures 2D inutiles quand la ville est en 3D)
     // Ville en 3D : la carte 2D n'est pas construite (gain de mémoire et de démarrage). On garde la simulation,
     // l'interface, les intérieurs, la météo, et les positions des objets touchables.
     this.lite = !!state.want3D;
@@ -108,11 +108,8 @@ export class GameScene extends Phaser.Scene {
     this.fireFx = {};
     this.views = new Map();
     this.markerBob = { o: 0 };
-    this.setupCamera();
-    attachControls(this, p => this.tap(p));
     this.listen();
-    this.scene.launch('interior');
-    this.scene.launch('fx');
+    this.scene.launch('interior'); // (logique des intérieurs ; dessin en 3D)
   }
 
   update(time, delta) {

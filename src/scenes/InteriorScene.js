@@ -40,6 +40,9 @@ const LEVEL_H = 26;     // hauteur d'un étage dans le socle sous la pièce
 // Poses animées (2 images qui alternent)
 const ANIM = { eat: ['eat1', 'eat2'], drink: ['drink1', 'drink2'], cook: ['cook1', 'cook2'], type: ['type1', 'type2'] };
 
+// Objet vide pour le mode sans affichage (ville en 3D) : toutes ses méthodes ne font rien et renvoient l'objet
+const STUB = new Proxy({}, { get: (o, k) => (k === 'texture' ? { key: '' } : k === 'x' || k === 'y' ? 0 : () => STUB) });
+
 // Quelle pose pour quelle action, à quelle place (façon Sims)
 function poseFor(act, st) {
   if ((st && st.lie) || act === 'nap') return 'lie';
@@ -80,8 +83,8 @@ export class InteriorScene extends Phaser.Scene {
     this.input.enabled = false;
     this.markerBob = { o: 0 };
     this.tweens.add({ targets: this.markerBob, o: -5, duration: 450, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-    attachControls(this, p => this.tap(p));
-    this.scale.on('resize', (size) => {
+    if (!state.want3D) attachControls(this, p => this.tap(p)); // en 3D, les touchers viennent de interior3d.js
+    if (this.scale && this.scale.on) this.scale.on('resize', (size) => {
       this.uiCam.setSize(size.width, size.height);
       if (this.building) this.fit();
     });
@@ -482,6 +485,10 @@ export class InteriorScene extends Phaser.Scene {
   // ---------- Personnages ----------
   viewFor(a) {
     let v = this.views.get(a.id);
+    if (!v && !this.sys.game.renderer) { // sans affichage : seulement la place du personnage (la 3D le dessine)
+      v = { spr: STUB, tag: this.makeTag(), floor: 0, ring: null };
+      this.views.set(a.id, v);
+    }
     if (!v) {
       const spr = this.add.image(0, 0, ensureCharTexture(this, a)).setOrigin(0.5, 0.93).setScale(1.8);
       this.worldLayer.add(spr);
@@ -535,8 +542,9 @@ export class InteriorScene extends Phaser.Scene {
       v.act = act;
       v.pos = pos;
       // Animation : deux images qui alternent (fourchette, tasse, poêle, clavier)
-      v.anim = ANIM[pose] ? ANIM[pose].map(n => ensurePose(this, a, n)) : null;
-      const tex = v.anim ? v.anim[0] : ensurePose(this, a, lie ? 'stand' : pose);
+      const drawn = !!this.sys.game.renderer;
+      v.anim = drawn && ANIM[pose] ? ANIM[pose].map(n => ensurePose(this, a, n)) : null;
+      const tex = !drawn ? null : v.anim ? v.anim[0] : ensurePose(this, a, lie ? 'stand' : pose);
       const angle = lie ? (st && st.lieAngle != null ? st.lieAngle : 63) : 0;
       v.spr.setTexture(tex)
         .setOrigin(0.5, lie ? 0.5 : 0.93).setScale(lie ? 1.5 : 1.8).setAngle(angle)
