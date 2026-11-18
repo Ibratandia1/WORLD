@@ -84,6 +84,36 @@ export const LAYOUTS = {
     ],
   },
 
+  // Salle de sport : accueil, cardio (tapis de course, vélos), musculation, coin yoga
+  gym: {
+    w: 10, h: 8, wallH: 82, wall: 0xe6eef3, floor: [0x8a96a6, 0x7f8b9b], entrance: { x: 5, y: 7 },
+    winL: [2, 5], winR: [7],
+    zones: [
+      { x: 0, y: 0, w: 5, h: 2, floor: [0xf2c6a8, 0xecb894], walls: false, wall: 0xf08a3c, label: 'Cardio', icon: '🏃', sub: 'en séance' },
+      { x: 6, y: 0, w: 4, h: 4, floor: [0xc9d2e8, 0xbcc6e0], walls: false, wall: 0x4a5266, label: 'Musculation', icon: '🏋️', sub: 'en séance' },
+      { x: 3, y: 3, w: 3, h: 3, floor: [0xd7efd9, 0xc9e8cc], walls: false, wall: 0x3fae73, label: 'Yoga', icon: '🧘', sub: 'détente' },
+      { x: 0, y: 5, w: 3, h: 3, floor: [0xeee8dd, 0xe4ddd0], walls: false, wall: 0xf08a3c, label: 'Accueil', icon: '🛎️', sub: 'au service' },
+    ],
+    items: [
+      ...[0, 1, 2].map(x => ({ k: 'treadmill', x, y: 0, action: 'workout', actions: ['workout'], name: 'Tapis de course' })),
+      ...[3, 4].map(x => ({ k: 'exbike', x, y: 0, action: 'workout', actions: ['workout'], name: 'Vélo d’appartement' })),
+      { k: 'weightrack', x: 9, y: 0, action: 'workout', actions: ['workout'], name: 'Haltères' },
+      { k: 'benchpress', x: 7, y: 1, action: 'workout', actions: ['workout'], name: 'Banc de musculation' },
+      { k: 'benchpress', x: 7, y: 3, action: 'workout', actions: ['workout'], name: 'Banc de musculation' },
+      ...[[3, 4], [4, 4], [5, 4]].map(([x, y]) => ({ k: 'yogamat', x, y, flat: true, action: 'yoga', actions: ['yoga'], name: 'Tapis de yoga' })),
+      ...[0, 1].map(x => ({ k: 'reception', x, y: 6, action: 'workout', name: 'Accueil' })),
+      { k: 'lockers', x: 9, y: 6 }, { k: 'cooler', x: 9, y: 4 }, { k: 'bigplant', x: 0, y: 3 }, { k: 'plant', x: 9, y: 7 },
+      { k: 'frame', wall: 'L', at: 3, c: 0xf08a3c }, { k: 'clock', wall: 'R', at: 4 },
+    ],
+    stations: [
+      S(0, 5, ['work']), S(1, 5, ['work']),
+      S(0, 0, ['workout']), S(1, 0, ['workout']), S(2, 0, ['workout']),
+      S(3, 0, ['workout'], { seat: true }), S(4, 0, ['workout'], { seat: true }),
+      S(7, 1, ['workout'], { lie: true, lieAngle: 90 }), S(7, 3, ['workout'], { lie: true, lieAngle: 90 }), S(8, 0, ['workout']),
+      S(3, 4, ['yoga'], { seat: true }), S(4, 4, ['yoga'], { seat: true }), S(5, 4, ['yoga'], { seat: true }),
+      S(3, 6, ['any']), S(6, 6, ['any']), S(8, 5, ['any']),
+    ],
+  },
   cafe: {
     w: 10, h: 8, wallH: 82, wall: 0xf6e3cf, floor: [0xe6c49a, 0xdab68a], entrance: { x: 6, y: 7 },
     winL: [3, 5], winR: [8],

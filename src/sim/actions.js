@@ -1,4 +1,5 @@
 import { shiftNow, shiftOf, todayLog, isWorkday, fmtShift, openings, makeJob, nextShift, DAY_NAMES, weekdayOf, sellerAt, incomeTax, roleTitle, POSITIONS, CERTS, positionsOf, posOf, freeSlots, qualifies, bestPosition } from './jobs.js';
+import { furnById, placeFor, comfortOf, sleepBoost, MAX_FURNITURE, ensurePlaced } from './furniture.js';
 import { weeklyRent, occupants } from './housing.js';
 import { addRel, near, rel, reply, tip as jobTip, canPause } from './social.js';
 import { itemById, hasPhone } from './catalog.js';
@@ -275,7 +276,7 @@ export const ACTIONS = {
       return n ? Math.max(90, Math.min(480, n.start - 75 - w.minutes)) : 480;
     },
     can: a => (a.energy < 90 ? true : 'Pas sommeil'),
-    tick: (a, w, dt) => { a.energy += 0.2 * dt; },
+    tick: (a, w, dt) => { a.energy += 0.2 * dt * (1 + sleepBoost(a)); }, // (grand lit douillet : on récupère plus vite)
   },
 
   nap: {
@@ -288,6 +289,72 @@ export const ACTIONS = {
   watch_tv: {
     icon: '📺', label: 'Regarder la télé', place: { own: 'home' }, duration: 60, skip: 8,
     effect: a => { a.mood += 12; a.energy += 4; return 'Un bon film, ça détend.'; },
+  },
+
+  // ---------- Salle de sport : séances qui donnent la forme (fitness 0–100 : on se fatigue moins vite) ----------
+  workout: {
+    icon: '🏋️', label: 'Séance de sport (1 h)', place: { type: 'gym' }, duration: 60, cost: 8, seller: true, skip: 6,
+    can: a => (a.energy < 20 ? 'Trop fatigué·e pour le sport' : a.hunger > 85 ? 'Mange d’abord, tu vas tomber dans les pommes' : true),
+    effect: a => {
+      const before = a.fitness || 0;
+      a.fitness = Math.min(100, before + Math.max(1, 4 - before / 30)); // on progresse vite au début, puis moins
+      a.energy -= 12; a.hunger += 12; a.mood += 10;
+      const lvl = Math.floor(a.fitness / 25);
+      return lvl > Math.floor(before / 25) ? `💪 Tu prends de la forme : ${Math.round(a.fitness)}/100 ! Tu te fatigues moins vite.` : `Belle séance ! Forme : ${Math.round(a.fitness)}/100`;
+    },
+  },
+  yoga: {
+    icon: '🧘', label: 'Cours de yoga', place: { type: 'gym' }, duration: 45, cost: 6, seller: true, skip: 6,
+    effect: a => { a.fitness = Math.min(100, (a.fitness || 0) + 1); a.mood += 12; a.energy += 4; return 'Respiration, étirements… tu te sens léger·e.'; },
+  },
+
+  // ---------- Meubles et déco (sim/furniture.js) ----------
+  buy_furniture: {
+    icon: '🛋️', label: 'Acheter un meuble', instant: true, custom: true,
+    cost: (a, w, p) => (furnById(p && p.item) ? Math.round(furnById(p.item).price * (w.economy ? w.economy.cpi : 1)) : 0),
+    can: (a, w, p) => {
+      const it = furnById(p && p.item);
+      if (!it) return 'Meuble inconnu';
+      if (a.home == null) return 'Il te faut un logement';
+      if ((a.furniture || []).length >= MAX_FURNITURE) return `Plus de place (${MAX_FURNITURE} meubles au plus)`;
+      if (!placeFor(a, w, it)) return 'Plus de place pour ce meuble';
+      return true;
+    },
+    effect: (a, w, p) => {
+      const it = furnById(p.item), pos = placeFor(a, w, it);
+      ensurePlaced(a, w);
+      a.furniture = [...(a.furniture || []), { id: it.id, ...pos }];
+      a.furnHome = a.home;
+      w.emit('furnished', { actor: a });
+      return `${it.icon} ${it.name} livré·e chez toi ! Confort : ${comfortOf(a)}`;
+    },
+  },
+  sell_furniture: {
+    icon: '📦', label: 'Revendre', instant: true, custom: true,
+    can: (a, w, p) => (a.furniture && a.furniture[p && p.idx] ? true : 'Rien à revendre'),
+    effect: (a, w, p) => {
+      const f = a.furniture[p.idx], it = furnById(f.id);
+      a.furniture = a.furniture.filter((_, i) => i !== p.idx);
+      const back = Math.round((it ? it.price : 0) * 0.4);
+      a.money += back;
+      w.emit('furnished', { actor: a });
+      return `${it ? it.name : 'Meuble'} revendu : +${back} €`;
+    },
+  },
+  watch_fish: {
+    icon: '🐠', label: 'Regarder les poissons', place: { own: 'home' }, duration: 20, skip: 6,
+    can: a => ((a.furniture || []).some(f => f.id === 'aquarium') ? true : 'Il te faut un aquarium'),
+    effect: a => { a.mood += 6; a.energy += 2; return 'Les poissons tournent doucement… quel calme.'; },
+  },
+  play_games: {
+    icon: '🎮', label: 'Jouer à la console', place: { own: 'home' }, duration: 60, skip: 8,
+    can: a => ((a.furniture || []).some(f => f.id === 'console') ? (a.energy < 10 ? 'Trop fatigué·e' : true) : 'Il te faut une console'),
+    effect: a => { a.mood += 14; a.energy -= 3; return 'Encore une partie… Niveau terminé !'; },
+  },
+  play_piano: {
+    icon: '🎹', label: 'Jouer du piano', place: { own: 'home' }, duration: 45, skip: 8,
+    can: a => ((a.furniture || []).some(f => f.id === 'piano') ? true : 'Il te faut un piano'),
+    effect: a => { a.piano = (a.piano || 0) + 1; a.mood += 10; a.karma += 0.2; return a.piano % 10 === 0 ? `🎹 Tu progresses : ${a.piano} séances, ça commence à sonner juste !` : 'Quelques gammes, puis un air connu.'; },
   },
 
   read_book: {
@@ -1034,7 +1101,7 @@ export const ACTIONS = {
 };
 
 // Lieux qui ne se visitent qu'ouverts (quelqu'un en service à l'intérieur)
-const OPEN_HOURS_TYPES = new Set(['cafe', 'bakery', 'shop', 'fashion', 'garage', 'bank', 'court', 'cityhall', 'school', 'office']);
+const OPEN_HOURS_TYPES = new Set(['cafe', 'bakery', 'shop', 'fashion', 'garage', 'bank', 'court', 'cityhall', 'school', 'office', 'gym']);
 
 // Montant d'une opération bancaire : params.amount (nombre ou 'all'), sinon le geste par défaut
 function bankAmount(a, kind, p = {}) {

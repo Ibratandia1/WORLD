@@ -16,7 +16,7 @@ export const QUARTIER = {
   // Tracé 4 : quadrillage de rues droites ; la rue principale (#, rang 13) traverse le centre-ville,
   // bordée d'arbres d'alignement (a) et des commerces (cafés, boulangeries, banque, supérette, brasserie).
 
-  order: 'ACKOSBMDGEPRFLYV' + 'HNUIJQ' + 'Z' + '12345' + '67' + 'bcdfilqrstuvmnyz',
+  order: 'ACKOSBMDGEPRFLYV' + 'HNUIJQ' + 'Z' + '12345' + '67' + 'bcdfilqrstuvmnyz' + 'W',
 
   // Lieux des fêtes du quartier (centre de la place)
   places: {
@@ -83,6 +83,8 @@ export const QUARTIER = {
     // --- Justice et argent ---
     6: { type: 'court', name: 'Tribunal du Marais', jobs: { slots: 6, wage: 21, edu: 3 } },
     7: { type: 'bank', name: 'Banque Pavé d’Or', jobs: { slots: 3, wage: 17, edu: 2 } },
+    // --- Sport ---
+    W: { type: 'gym', name: 'Salle de sport Énergie', jobs: { slots: 3, wage: 13 } },
     // --- Les Jardins : maisons avec jardin (style: 'house' = maison individuelle, 1 logement) ---
     b: { type: 'home', style: 'house', name: 'Maison allée des Tilleuls', rent: 45, price: 7500 },
     c: { type: 'home', style: 'house', name: 'Maison aux volets bleus', rent: 48, price: 7800 },
@@ -126,9 +128,9 @@ export const QUARTIER = {
     '.........=................=.........',
     '====================================',
     '.........=................=.........',
-    'XYY:QQXX.=.VVV:gTgggTgXXX.=.XZZZZXXX',
-    'XYY:QQXX.=.VVV:gggogggXXX.=.XZZZZXXX',
-    'XXX:XXXX.=.XXX:gTgggTgXXX.=.XZZZZXXX',
+    'XYY:QQXX.=.VVV:gTgggTgWWW.=.XZZZZXXX',
+    'XYY:QQXX.=.VVV:gggogggWWW.=.XZZZZXXX',
+    'XXX:XXXX.=.XXX:gTgggTgWWW.=.XZZZZXXX',
     'gTg:XXXX.=.XXX::::::X4444.=.:::::::X',
     'ggT:HHHX.=.22222222XX4444.=.T::x::TX',
     'XXX:HHHX.=.22222222XX4444.=.:::::::X',

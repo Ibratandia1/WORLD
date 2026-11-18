@@ -4,6 +4,7 @@ import { LAYOUTS, floorsOf } from '../interiors/layouts.js';
 import { ACTIONS } from '../sim/actions.js';
 import { state } from '../state.js';
 import { t } from '../i18n.js';
+import { furnishedFloors, ensurePlaced } from '../sim/furniture.js';
 
 // Noms des meubles et usages par défaut (quand le plan ne leur donne pas d'action)
 export const ITEM_NAMES = {
@@ -33,6 +34,9 @@ export class InteriorLogic {
     this.building = null;
     this.views = new Map();   // id de l'habitant -> { pos, act, lie, floor }
     this.sig = '';
+    this.rev = 0;
+    // Un meuble acheté ou revendu chez toi : la pièce se redessine aussitôt
+    world.on('furnished', e => { if (this.building && e.actor === state.player && this.building.id === state.player.home) this.reload(); });
     this.floorsEl = document.getElementById('floors');
     this.floorsEl.addEventListener('click', e => {
       const b = e.target.closest('button');
@@ -43,12 +47,32 @@ export class InteriorLogic {
   // ---------- Ouverture / fermeture ----------
   show(b) {
     this.building = b;
-    this.floors = floorsOf(LAYOUTS[b.style && LAYOUTS[b.style] ? b.style : b.type]);
+    this.floors = this.floorsFor(b);
     this.views.clear();
     this.sig = '';
     this.prepareStations();
     this.floorIdx = 0;
     this.playerFloor = null;
+    this.buildFloor();
+  }
+
+  // Plan du lieu ; chez toi, avec tes meubles
+  floorsFor(b) {
+    const base = floorsOf(LAYOUTS[b.style && LAYOUTS[b.style] ? b.style : b.type]);
+    const p = state.player;
+    if (!p || b.id !== p.home) return base;
+    ensurePlaced(p, this.world);
+    return furnishedFloors(base, p);
+  }
+
+  // Redessine la pièce en gardant l'étage affiché
+  reload() {
+    const fi = this.floorIdx;
+    this.floors = this.floorsFor(this.building);
+    this.prepareStations();
+    this.floorIdx = Math.min(fi, this.floors.length - 1);
+    this.sig = '';
+    this.rev++;
     this.buildFloor();
   }
 
@@ -151,7 +175,7 @@ export class InteriorLogic {
   ctx3d() {
     if (!this.building || !this.L) return null;
     const b = this.building, L = this.L;
-    return { building: b, L, floorIdx: this.floorIdx, views: this.views, playerId: state.player.id,
+    return { building: b, L, floorIdx: this.floorIdx, rev: this.rev, views: this.views, playerId: state.player.id,
       title: this.floors.length > 1 ? `${b.name} · ${t(L.name)}` : b.name };
   }
 

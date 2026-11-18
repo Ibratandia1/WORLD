@@ -10,10 +10,10 @@
 import { POSITIONS, positionsOf, posOf, freeSlots } from './jobs.js';
 import { occupants } from './housing.js';
 
-const COMMERCE = new Set(['cafe', 'bakery', 'shop', 'fashion', 'garage']);
+const COMMERCE = new Set(['cafe', 'bakery', 'shop', 'fashion', 'garage', 'gym']);
 const CLIENT_SCALE = 6;   // un client simulé ≈ 6 vrais clients (la plupart des passants ne sont pas dessinés)
-const PASSING = { cafe: 260, bakery: 240, shop: 300, fashion: 200, garage: 420 }; // clientèle de passage (€/jour, moyenne ; garage : réparations)
-const GOODS = { cafe: 0.3, bakery: 0.25, shop: 0.55, fashion: 0.45, garage: 0.4 }; // part des recettes en marchandises
+const PASSING = { cafe: 260, bakery: 240, shop: 300, fashion: 200, garage: 420, gym: 300 }; // clientèle de passage (€/jour, moyenne ; garage : réparations)
+const GOODS = { cafe: 0.3, bakery: 0.25, shop: 0.55, fashion: 0.45, garage: 0.4, gym: 0.1 }; // part des recettes en marchandises
 const FIXED = 70;         // loyer du local, énergie… (€/jour)
 const START_CASH = 2500;
 

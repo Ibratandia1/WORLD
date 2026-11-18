@@ -18,5 +18,6 @@ export const TYPES = {
   school: { icon: '🏫', height: 64, left: 0xf3e3c3, right: 0xd9c6a0, roof: 0xb5654a, firstFloor: 14 },
   court: { icon: '⚖️', height: 84, left: 0xe2e5ea, right: 0xc4c9d2, roof: 0x4a5266, firstFloor: 34 },
   bank: { icon: '🏦', height: 74, left: 0xe9e1cf, right: 0xcdc3ad, roof: 0x2f5d4a, firstFloor: 30 },
+  gym: { icon: '🏋️', height: 56, left: 0xd7e4ec, right: 0xb9c9d6, roof: 0x3d4a5c, awning: 0xf08a3c, firstFloor: 30 },
   garage: { icon: '🚲', height: 46, left: 0xc9ced8, right: 0xaab0bc, roof: 0x5f6c86, awning: 0x2f7d5b, firstFloor: 30 },
 };

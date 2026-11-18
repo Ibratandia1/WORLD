@@ -27,6 +27,7 @@ export const SHIFTS = {
   school: { start: 8, hours: 8, days: [0, 1, 2, 3, 4] },
   court: { start: 9, hours: 8, days: [0, 1, 2, 3, 4] },
   bank: { start: 9, hours: 8, days: [0, 1, 2, 3, 4, 5] },
+  gym: { start: 7, alt: 14, hours: 8, days: [0, 1, 2, 3, 4, 5] }, // salle de sport : 7h–22h
 };
 
 // (ancien système : titre selon l'ordre d'embauche — gardé pour les vieilles sauvegardes)
@@ -54,6 +55,7 @@ export const POSITIONS = {
   prison: [{ id: 'surveillant', title: 'Surveillant·e', pay: 0 }, { id: 'chef', title: 'Chef·fe de détention', pay: 5, edu: 1, exp: 20 }],
   school: [{ id: 'animateur', title: 'Animateur·rice', pay: -3, edu: 1 }, { id: 'prof', title: 'Enseignant·e', pay: 1, n: 2, edu: 2 }, { id: 'directeur', title: 'Directeur·rice d’école', pay: 7, edu: 3, exp: 20 }],
   court: [{ id: 'greffier', title: 'Greffier·ère', pay: -4, edu: 2 }, { id: 'avocat', title: 'Avocat·e', pay: 1, n: 3, edu: 3, cert: 'droit' }, { id: 'juge', title: 'Juge', pay: 8, edu: 3, exp: 30 }],
+  gym: [{ id: 'accueil', title: 'Hôte·sse d’accueil', pay: 0 }, { id: 'coach', title: 'Coach sportif·ve', pay: 3, cert: 'coaching' }, { id: 'gerant', title: 'Gérant·e de la salle', pay: 7, exp: 20 }],
   bank: [{ id: 'guichet', title: 'Guichetier·ère', pay: 0, edu: 1 }, { id: 'conseil', title: 'Conseiller·ère bancaire', pay: 3, edu: 2, cert: 'compta' }, { id: 'directeur', title: 'Directeur·rice d’agence', pay: 9, edu: 3, exp: 25 }],
 };
 // Formations courtes à l'école (une séance de 3 h, payante) : ouvrent les postes qualifiés
@@ -65,6 +67,7 @@ export const CERTS = {
   compta: { name: 'Formation comptabilité', cost: 150, edu: 1 },
   secourisme: { name: 'Brevet de secourisme', cost: 40 },
   droit: { name: 'Examen du barreau', cost: 250, edu: 3 },
+  coaching: { name: 'Diplôme de coach sportif', cost: 130 },
 };
 // Postes réels d'un lieu, selon son nombre de places (le poste d'entrée garde au moins une place)
 export function positionsOf(b) {
@@ -158,7 +161,7 @@ export const JOB_TITLES = {
   office: 'Employé·e de bureau', cafe: 'Serveur·se', bakery: 'Boulanger·ère', shop: 'Caissier·ère',
   fashion: 'Vendeur·se', garage: 'Mécanicien·ne', cityhall: 'Agent·e de la mairie',
   police: 'Agent·e de police', hospital: 'Soignant·e', firestation: 'Pompier·ère', prison: 'Surveillant·e', school: 'Enseignant·e',
-  court: 'Avocat·e', bank: 'Guichetier·ère',
+  court: 'Avocat·e', bank: 'Guichetier·ère', gym: 'Hôte·sse d’accueil',
 };
 
 // Intitulé d'un poste (les métiers de rue ont leur propre titre)

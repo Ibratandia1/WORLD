@@ -1,4 +1,5 @@
 import { Emitter } from './emitter.js';
+import { comfortOf } from './furniture.js';
 import { ACTIONS } from './actions.js';
 import { findPath } from './pathfinding.js';
 import { decide } from './ai.js';
@@ -177,7 +178,8 @@ export class World extends Emitter {
 
   updateActor(a, dt) {
     const sleeping = a.doing === 'sleep' || a.doing === 'sleep_rough';
-    a.energy -= (sleeping ? 0 : 0.035) * dt;
+    a.energy -= (sleeping ? 0 : 0.035 * (1 - (a.fitness || 0) / 400)) * dt; // (la forme physique : jusqu'à 25 % de fatigue en moins)
+    if (a.fitness) a.fitness = Math.max(0, a.fitness - 0.0007 * dt);           // sans sport, la forme s'use doucement (~1 point / jour)
     a.hunger += (sleeping ? 0.02 : 0.055) * dt;
     if (a.hunger >= 100) a.energy -= 0.05 * dt;
 
@@ -205,6 +207,9 @@ export class World extends Emitter {
       a.energy -= 0.015 * dt; a.mood = clamp(a.mood - 0.006 * dt, 0, 100);
       if (this.day - (a.sickSince || this.day) >= 3) a.sick = false;
     }
+
+    // Confort du logement : chez soi, le moral remonte doucement selon les meubles et la déco
+    if (a.inside != null && a.inside === a.home && a.furniture && a.furniture.length) a.mood = clamp(a.mood + comfortOf(a) * 0.00025 * dt, 0, 100);
 
     // Métiers de rue (facteur, police) : on travaille en tournée dans le quartier
     if (a.job && a.job.street && a.outdoors && shiftNow(a.job, this) && this.minutes >= shiftOf(a.job, this.day).start) {

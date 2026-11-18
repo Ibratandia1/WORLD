@@ -2,6 +2,7 @@ import { ACTIONS, nextShiftText } from './sim/actions.js';
 import { TYPES } from './map/types.js';
 import { state } from './state.js';
 import { openCustomizer } from './customize.js';
+import { FURNITURE, furnById, comfortOf, COMFORT_CAP, MAX_FURNITURE } from './sim/furniture.js';
 import { fmtShift, DAY_SHORT, MAX_WARNINGS, RAISE_EVERY, JOB_TITLES, openings, isWorkday, POSITIONS, CERTS, positionsOf, posOf, freeSlots, qualifies, bestPosition, expOf } from './sim/jobs.js';
 import { rel, level, near } from './sim/social.js';
 import { weeklyRent, occupants, LATE_EVICT } from './sim/housing.js';
@@ -46,10 +47,10 @@ const ACT_CAT = {};
 const cat = (c, ids) => ids.forEach(id => { ACT_CAT[id] = c; });
 cat('food', ['coffee', 'eat_cafe', 'eat_bakery', 'groceries', 'eat_home', 'crepe', 'market_buy']);
 cat('work', ['work', 'overtime', 'apply', 'call_sick', 'quit_job', 'study']);
-cat('rest', ['sleep', 'nap', 'watch_tv', 'read_book', 'sit_bench', 'admire_statue', 'wish_fountain', 'feed_pigeons', 'dance', 'sleep_rough', 'sit_here', 'browse_books', 'water_plant', 'inspect']);
+cat('rest', ['workout', 'yoga', 'watch_fish', 'play_games', 'play_piano', 'buy_furniture', 'sleep', 'nap', 'watch_tv', 'read_book', 'sit_bench', 'admire_statue', 'wish_fountain', 'feed_pigeons', 'dance', 'sleep_rough', 'sit_here', 'browse_books', 'water_plant', 'inspect']);
 cat('food', ['vending_snack', 'drink_water']);
 cat('social', ['talk', 'joke', 'wave', 'gift', 'treat', 'stroll', 'lend', 'recommend', 'ask_tip', 'tip']);
-cat('money', ['pay_rent', 'rent_home', 'buy_home', 'buy', 'allocation', 'claim_goal', 'shopping', 'repair', 'scratch', 'brocante_hunt', 'use_vehicle', 'buy_umbrella']);
+cat('money', ['sell_furniture', 'pay_rent', 'rent_home', 'buy_home', 'buy', 'allocation', 'claim_goal', 'shopping', 'repair', 'scratch', 'brocante_hunt', 'use_vehicle', 'buy_umbrella']);
 cat('civic', ['vote', 'run_mayor', 'set_policy', 'city_project', 'report', 'consult', 'enter', 'leave', 'goto', 'metro']);
 cat('danger', ['steal', 'shoplift', 'burgle', 'arrest', 'extinguish', 'pay_fine']);
 
@@ -536,7 +537,7 @@ export class UI {
     // Logement
     if (b.type === 'home') {
       if (b.id === p.home) {
-        note = `<p>${p.housing === 'own' ? L('Tu es propriétaire.', 'You own this place.') : L(`Locataire · ${weeklyRent(b)} €/semaine`, `Tenant · €${weeklyRent(b)}/week`)}</p>`;
+        note = `<p>${p.housing === 'own' ? L('Tu es propriétaire.', 'You own this place.') : L(`Locataire · ${weeklyRent(b)} €/semaine`, `Tenant · €${weeklyRent(b)}/week`)}</p>${this.furnHTML()}`;
         if (p.housing === 'rent') {
           if (p.rentDue > 0) buttons.push(this.actBtn('pay_rent'));
           buttons.push(this.actBtn('buy_home', { building: b.id }, `Acheter (${money(b.price)} €)`));
@@ -685,6 +686,18 @@ export class UI {
     return `<div class="mp-posts">${head}${rows}${btn ? `<div class="mp-posbtn">${btn}</div>` : ''}</div>`;
   }
 
+  // Meubler son logement : confort, meubles à toi (revendre), catalogue (livré tout de suite)
+  furnHTML() {
+    const p = this.player, w = this.world;
+    const mine = p.furniture || [];
+    const head = `<div class="mp-poshead">🛋️ <b>${t('Meubler')}</b><small>${L(`Confort ${comfortOf(p)}/${COMFORT_CAP} · ${mine.length}/${MAX_FURNITURE} meubles`, `Comfort ${comfortOf(p)}/${COMFORT_CAP} · ${mine.length}/${MAX_FURNITURE} items`)}</small></div>`;
+    const toggle = this.choiceHTML('data-furn class="c-rest"', this.furnOpen ? '▴' : '🛋️', this.furnOpen ? 'Fermer le catalogue' : 'Catalogue de meubles', '', true);
+    if (!this.furnOpen) return `<div class="mp-posts">${head}<p class="mini-hint">${t('Plus de confort = le moral remonte quand tu es chez toi, et de nouvelles activités.')}</p><div class="choices">${toggle}</div></div>`;
+    const owned = mine.map((f, i) => { const it = furnById(f.id); return it ? this.actBtn('sell_furniture', { idx: i }, `${t('Revendre')} : ${t(it.name)} (+${Math.round(it.price * 0.4)} €)`, it.icon) : ''; }).join('');
+    const shop = FURNITURE.map(it => this.actBtn('buy_furniture', { item: it.id }, `${t(it.name)} · ${L(`confort +${it.comfort}`, `comfort +${it.comfort}`)}${it.actions ? ' · ' + it.actions.map(a => ACTIONS[a] ? ACTIONS[a].icon : '').join('') : ''}`, it.icon)).join('');
+    return `<div class="mp-posts">${head}<div class="choices">${toggle}${shop}</div>${owned ? `<div class="cat">${t('Chez toi')}</div><div class="choices">${owned}</div>` : ''}</div>`;
+  }
+
   // École : formations courtes (une ligne par formation, un seul bouton)
   trainHTML(b) {
     const p = this.player, w = this.world;
@@ -771,7 +784,9 @@ export class UI {
         .map(([type, d]) => `${t(JOB_TITLES[type] || type)} : ${L(`${d} j`, `${d} d`)}`);
       job += `<div class="sec"><b>📈 ${t('Ma carrière')}</b><p>🎓 ${L('Diplôme', 'Diploma')} : ${L(`niveau ${p.education ?? 1}/3`, `level ${p.education ?? 1}/3`)}<br>
         📜 ${L('Formations', 'Courses')} : ${certs.length ? esc(certs.join(', ')) : t('aucune (à l’école)')}<br>
-        ⏳ ${L('Expérience', 'Experience')} : ${exp.length ? esc(exp.join(' · ')) : t('pas encore')}</p></div>`;
+        ⏳ ${L('Expérience', 'Experience')} : ${exp.length ? esc(exp.join(' · ')) : t('pas encore')}<br>
+        💪 ${L('Forme physique', 'Fitness')} : ${Math.round(p.fitness || 0)}/100 ${t('(salle de sport)')}<br>
+        🛋️ ${L('Confort chez toi', 'Home comfort')} : ${comfortOf(p)}/${COMFORT_CAP}</p></div>`;
     }
 
     let home;
@@ -921,7 +936,7 @@ export class UI {
   mapHTML() {
     const p = this.player, w = this.world;
     const walk = b => Math.max(1, Math.round(Math.min(...b.entrances.map(e => Math.abs(e.x - p.px) + Math.abs(e.y - p.py))) / 1.1)); // (minutes à pied)
-    const GROUPS = [['☕ Manger et boire', ['cafe', 'bakery']], ['🛍️ Boutiques', ['shop', 'fashion', 'garage']],
+    const GROUPS = [['☕ Manger et boire', ['cafe', 'bakery']], ['🛍️ Boutiques et sport', ['shop', 'fashion', 'garage', 'gym']],
       ['💼 Travail', ['office']], ['🏛️ Services', ['cityhall', 'court', 'bank', 'police', 'hospital', 'firestation', 'school', 'prison', 'metro']], ['🏠 Logements', ['home']]];
     const status = b => {
       if (b.type === 'home') {
@@ -1146,6 +1161,7 @@ export class UI {
     if (btn.hasAttribute('data-cancel')) { w.cancel(p); return this.render(); }
     if (btn.hasAttribute('data-leave')) { w.perform(p, 'leave'); this.placeMore = false; return this.render(); }
     if (btn.hasAttribute('data-more')) { this.placeMore = !this.placeMore; return this.render(); }
+    if (btn.hasAttribute('data-furn')) { this.furnOpen = !this.furnOpen; return this.render(true); }
     if (btn.dataset.cert) { this.selCert = btn.dataset.cert; return this.render(true); }
     if (btn.dataset.pos) { this.selPos = this.selPos || {}; this.selPos[btn.dataset.pb] = btn.dataset.pos; return this.render(true); }
     if (btn.hasAttribute('data-routine')) { $('b-routine').click(); return; }

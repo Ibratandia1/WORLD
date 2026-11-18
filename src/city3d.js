@@ -356,8 +356,8 @@ add(markGeos, mats.marks, { cast: false });
 add(bikeGeos, new THREE.MeshStandardMaterial({ color: 0x3f9d63, roughness: 0.85 }), { cast: false });
 
 // ---------- Immeubles ----------
-const TYPE_FLOORS = { home: 6, office: 9, cafe: 5, bakery: 5, shop: 5, fashion: 5, garage: 2, metro: 0, cityhall: 4, police: 4, hospital: 7, firestation: 3, prison: 3, school: 4, court: 4, bank: 5 };
-const SHOP_COLOR = { cafe: 0xc9453f, bakery: 0xd9922b, shop: 0x2f9e5f, fashion: 0xd94f9c, bank: 0x1f6a4a, garage: 0x2f7d8b };
+const TYPE_FLOORS = { home: 6, office: 9, cafe: 5, bakery: 5, shop: 5, fashion: 5, garage: 2, metro: 0, cityhall: 4, police: 4, hospital: 7, firestation: 3, prison: 3, school: 4, court: 4, bank: 5, gym: 3 };
+const SHOP_COLOR = { gym: 0xf08a3c, cafe: 0xc9453f, bakery: 0xd9922b, shop: 0x2f9e5f, fashion: 0xd94f9c, bank: 0x1f6a4a, garage: 0x2f7d8b };
 // Pierre de Paris, mais avec du caractère : crème, ocre, rose poudré, gris bleuté, sauge, beurre, terre cuite, lavande
 const STONE = [0xf1e2c4, 0xe8c597, 0xf0cdbf, 0xd6e0e7, 0xeedcb4, 0xcfdcc8, 0xf6e8d2, 0xe5b394, 0xddd2e6, 0xf3dea0, 0xe9d7c3, 0xc9d6dc];
 const PUBLIC = { cityhall: 0xf4ecda, police: 0xe3e8f0, hospital: 0xf7f8fa, firestation: 0xc65a46, prison: 0xb9b6ae, school: 0xf3e3c3, court: 0xe8eaee };
@@ -412,7 +412,7 @@ const SIGNS = {
   cafe: ['CAFÉ', '#8e2b28'], bakery: ['BOULANGERIE', '#7a4a12', '#f6d48a'], shop: ['SUPÉRETTE', '#1f6a3f'], fashion: ['MODE', '#8a2a5e'],
   garage: ['GARAGE', '#1d4f58'], police: ['POLICE', '#1d3f8f'], hospital: ['HÔPITAL', '#c62f42'], firestation: ['POMPIERS', '#a32a1c'],
   school: ['ÉCOLE', '#2b4ea2'], bank: ['BANQUE', '#1b5a3c', '#f2d27a'], court: ['TRIBUNAL', '#3a4152', '#f2d27a'], cityhall: ['MAIRIE', '#2b4ea2'],
-  prison: ['MAISON D’ARRÊT', '#4a4b50'], office: ['BUREAUX', '#2d3e5c'], metro: ['MÉTRO', '#2f7352', '#f6d860'],
+  prison: ['MAISON D’ARRÊT', '#4a4b50'], gym: ['SALLE DE SPORT', '#d9622b'], office: ['BUREAUX', '#2d3e5c'], metro: ['MÉTRO', '#2f7352', '#f6d860'],
 };
 const extraMeshes = [];
 const ROOF_BY_TYPE = { hospital: 0xeceff3, police: 0x2d4f9a, firestation: 0xb8392b, court: 0x3a4152, bank: 0x2f6a4c, school: 0xb5654a, cityhall: 0x2b4ea2, prison: 0x55565b };
@@ -1253,7 +1253,7 @@ function updateLights() {
 const PIN_COLORS = {
   home: '#9b6ee8', cafe: '#d8504d', bakery: '#e58a1f', shop: '#2f9e5f', fashion: '#d94f9c', garage: '#2f7d8b', office: '#4a7fd8',
   metro: '#2a9d8f', cityhall: '#2b4ea2', police: '#2b3a6b', hospital: '#e2475b', firestation: '#c0392b', prison: '#5f6066',
-  school: '#d9962b', court: '#4a5266', bank: '#1f7a52',
+  school: '#d9962b', court: '#4a5266', bank: '#1f7a52', gym: '#f08a3c',
 };
 let pinsEl = null;
 const pins = [];

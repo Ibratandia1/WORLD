@@ -21,6 +21,7 @@ export const PIN_GLYPHS = {
   school: G('<path d="M2.5 9.5 12 5l9.5 4.5L12 14z" fill="#fff"/><path d="M6.5 11.5v4c1.5 1.6 3.4 2.3 5.5 2.3s4-.7 5.5-2.3v-4M21 9.5v5"/>'),
   court: G('<path d="M12 4v16M7.5 20h9M4 7.5h16"/><path d="M6 7.5 3.5 13a3 3 0 0 0 5 0zM18 7.5 15.5 13a3 3 0 0 0 5 0z" fill="#fff"/>'),
   bank: G('<path d="M16.5 7.5a5 5 0 1 0 0 9"/><path d="M5.5 10.5h8M5.5 13.5h8"/>'),
+  gym: G('<path d="M7 8v8M17 8v8M4 10v4M20 10v4M7 12h10" stroke-width="2.6"/>'),
   home: G('<path d="M3.5 11 12 4l8.5 7"/><path d="M6 9.5V20h12V9.5" fill="#fff"/><path d="M10.2 20v-5h3.6v5" stroke="#000" stroke-opacity=".35"/>'),
   key: G('<circle cx="8" cy="12" r="4" fill="#fff"/><path d="M12 12h8.5M17.5 12v3M20.5 12v2.5"/>'),
   lock: G('<rect x="5" y="10.5" width="14" height="10" rx="2" fill="#fff"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/>'),

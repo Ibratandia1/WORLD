@@ -186,6 +186,11 @@ export function decide(a, w, opts = {}) {
     if (best && best.wage > a.job.wage && a.lastApply[b.id] !== w.day && a.inside === b.id) return { id: 'apply', params: { building: b.id, pos: best.id } };
   }
 
+  // Sport : avant ou après le travail, on va à la salle de temps en temps (si on a l'énergie et un peu d'argent)
+  if ((h >= 7 && h < 9.5 || h >= 17 && h < 21) && a.energy > 45 && a.hunger < 70 && a.money > 40 && Math.random() < (player ? 0.03 : 0.035)) {
+    const c = shop(a, w, Math.random() < 0.7 ? 'workout' : 'yoga'); if (c) return c;
+  }
+
   // Moral bas : on se détend (télé à la maison, livre, banc) — PNJ comme routine du joueur
   if (a.mood < (player ? 45 : 35)) {
     if (a.home != null && Math.random() < (player ? 0.7 : 0.4)) return { id: Math.random() < 0.6 ? 'watch_tv' : 'read_book' };
