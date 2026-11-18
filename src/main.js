@@ -122,5 +122,11 @@ if (TEST) { document.title = 'World (test)'; state.ui.showWelcome(); }
 else if (resumed) showStart();
 else chooseLanguage(() => openCustomizer({ first: true })); // nouvelle partie : langue → personnage → introduction
 
+// Jeu installable + hors ligne : Three.js gardé en cache, fichiers du jeu en secours sans réseau
+// (pas sur le serveur de développement, sauf ?sw, pour toujours voir le code frais)
+if ('serviceWorker' in navigator && (!/^(localhost|127\.0\.0\.1)$/.test(location.hostname) || new URLSearchParams(location.search).has('sw'))) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(e => console.warn('service worker', e)));
+}
+
 window.world = world; // pratique pour déboguer dans la console
 window.state = state;

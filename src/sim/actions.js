@@ -1,6 +1,6 @@
 import { shiftNow, shiftOf, todayLog, isWorkday, fmtShift, openings, makeJob, nextShift, DAY_NAMES, weekdayOf, sellerAt, incomeTax, roleTitle, POSITIONS, CERTS, positionsOf, posOf, freeSlots, qualifies, bestPosition } from './jobs.js';
 import { furnById, placeFor, comfortOf, sleepBoost, MAX_FURNITURE, ensurePlaced } from './furniture.js';
-import { weeklyRent, occupants } from './housing.js';
+import { weeklyRent, occupants, rentalPrice, rentalIncome, RENTAL_RESALE } from './housing.js';
 import { addRel, near, rel, reply, tip as jobTip, canPause } from './social.js';
 import { itemById, hasPhone } from './catalog.js';
 import { isClosed, freeUnits } from './city.js';
@@ -442,6 +442,35 @@ export const ACTIONS = {
       return true;
     },
     effect: (a, w, p) => { a.home = p.building; a.housing = 'own'; a.rentDue = 0; a.rentLate = 0; return 'Propriétaire ! Plus de loyer.'; },
+  },
+
+  // Investir : acheter un appartement libre pour le louer (loyer touché chaque lundi)
+  buy_rental: {
+    icon: '🏢', label: 'Acheter pour louer', instant: true, custom: true,
+    cost: (a, w, p) => { const b = homeCheck(w, p); return b ? rentalPrice(b) : 0; },
+    can: (a, w, p) => {
+      const b = homeCheck(w, p);
+      if (!b) return 'Pas un logement';
+      if (freeUnits(w, b) <= 0) return 'Complet : aucun appartement libre';
+      if ((a.rentals || []).length >= 6) return 'Tu as déjà 6 appartements en location';
+      return true;
+    },
+    effect: (a, w, p) => {
+      const b = w.building(p.building);
+      a.rentals = [...(a.rentals || []), b.id];
+      return `Appartement acheté : un locataire s’installe (+${rentalIncome(b)} €/semaine)`;
+    },
+  },
+  sell_rental: {
+    icon: '💶', label: 'Revendre un appartement', instant: true, custom: true,
+    can: (a, w, p) => ((a.rentals || []).includes(p && p.building) ? true : 'Tu n’as pas d’appartement ici'),
+    effect: (a, w, p) => {
+      const b = w.building(p.building), i = a.rentals.indexOf(b.id);
+      a.rentals = a.rentals.filter((_, k) => k !== i);
+      const back = Math.round(rentalPrice(b) * RENTAL_RESALE);
+      a.money += back;
+      return `Appartement revendu : +${back} €`;
+    },
   },
 
   // ---------- Relations ----------

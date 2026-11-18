@@ -1,0 +1,16 @@
+{
+  "name": "World",
+  "short_name": "World",
+  "description": "Simulation de vie dans un quartier de Paris : travaille, loue, achète, deviens riche… ou pas.",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#b8a6ec",
+  "theme_color": "#b8a6ec",
+  "icons": [
+    { "src": "assets/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "assets/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

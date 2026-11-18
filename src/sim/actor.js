@@ -26,6 +26,7 @@ export class Actor {
     this.gifts = {};                // cadeaux en poche (fleurs, chocolats…) : id -> quantité
     this.karma = o.karma ?? 0;
     this.items = {};
+    this.rentals = o.rentals || [];   // appartements achetés pour louer (ids des immeubles)
     this.owned = o.owned || [];      // achats en boutique (ids du catalogue)
     this.vehicle = o.vehicle || null; // véhicule utilisé dans la rue
     this.role = o.role || null;       // fonction dans le quartier : manager, landlord, police…

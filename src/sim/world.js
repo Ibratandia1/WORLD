@@ -5,7 +5,7 @@ import { findPath } from './pathfinding.js';
 import { decide } from './ai.js';
 import { reviewDay, weekdayOf, DAY_SHORT, shiftNow, shiftOf, todayLog, sellerAt, incomeTax, taxRate, PROPERTY_TAX } from './jobs.js';
 import { vehicleOf, itemById } from './catalog.js';
-import { newDayHousing } from './housing.js';
+import { newDayHousing, rentalIncome } from './housing.js';
 import { chatterLine } from './social.js';
 import { priceMul, isClosed } from './city.js';
 import { walkMayGo, carMayGo, JAYWALK_FINE } from './traffic.js';
@@ -156,6 +156,14 @@ export class World extends Emitter {
           property = Math.round(this.building(a.home).price * PROPERTY_TAX);
           a.money -= property;
           credit(this, 'property', property);
+        }
+        // appartements loués : loyers nets encaissés, taxe foncière en plus
+        if (a.rentals && a.rentals.length) {
+          let rent = 0, tax = 0;
+          for (const id of a.rentals) { const b = this.building(id); if (!b) continue; rent += rentalIncome(b); tax += Math.round(b.price * PROPERTY_TAX); }
+          a.money += rent - tax; // (la taxe est annoncée avec les loyers, pas dans l’avis d’impôts)
+          credit(this, 'property', tax);
+          this.emit('rentIncome', { actor: a, amount: rent, tax, n: a.rentals.length });
         }
         const income = Math.round(a.taxWeek || 0);
         if (income || property) this.emit('taxBill', { actor: a, income, property, rate: a.job ? taxRate(a.job.wage) : 0 });

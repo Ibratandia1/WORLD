@@ -18,6 +18,7 @@ const TYPES = {
   '.png': 'image/png',
   '.webp': 'image/webp',
   '.svg': 'image/svg+xml',
+  '.webmanifest': 'application/manifest+json',
 };
 
 // ---------- Conversation avec un PNJ ----------

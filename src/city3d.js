@@ -346,11 +346,28 @@ const mats = {
   water: new THREE.MeshStandardMaterial({ color: 0x4f8fc4, roughness: 0.08, metalness: 0.35, transparent: true, opacity: 0.92 }),
   bulb: new THREE.MeshStandardMaterial({ color: 0xfff1c4, emissive: 0xffd27a, emissiveIntensity: 0 }),
 };
+// Fusion par matériau ET par zone de CHUNK × CHUNK cases : la carte graphique ne dessine que les zones
+// visibles à l'écran (avant, toute la ville était dessinée à chaque image même en vue rapprochée)
+const CHUNK = 12;
 const add = (geos, mat, { cast = true, receive = true } = {}) => {
   if (!geos.length) return null;
-  const m = new THREE.Mesh(mergeGeometries(geos, false), mat);
-  m.castShadow = cast; m.receiveShadow = receive; m.matrixAutoUpdate = false; m.updateMatrix();
-  scene.add(m); return m;
+  const zones = new Map();
+  let verts = 0; for (const g of geos) verts += g.attributes.position.count;
+  const big = verts > 30000; // les petits matériaux restent d'un seul tenant (moins d'appels de dessin)
+  for (const g of geos) {
+    if (!big) { if (!zones.has('all')) zones.set('all', []); zones.get('all').push(g); continue; }
+    if (!g.boundingBox) g.computeBoundingBox();
+    const bb = g.boundingBox, key = Math.floor((bb.min.x + bb.max.x) / 2 / CHUNK) + ',' + Math.floor((bb.min.z + bb.max.z) / 2 / CHUNK);
+    if (!zones.has(key)) zones.set(key, []);
+    zones.get(key).push(g);
+  }
+  let last = null;
+  for (const list of zones.values()) {
+    const m = new THREE.Mesh(mergeGeometries(list, false), mat);
+    m.castShadow = cast; m.receiveShadow = receive; m.matrixAutoUpdate = false; m.updateMatrix();
+    scene.add(m); last = m;
+  }
+  return last;
 };
 
 // ---------- Sol : trottoirs surélevés (bordures), rues, pavés, herbe, eau ----------

@@ -6,7 +6,7 @@ import { FURNITURE, furnById, comfortOf, COMFORT_CAP, MAX_FURNITURE } from './si
 import { ensureAge, isBirthday } from './sim/calendar.js';
 import { fmtShift, DAY_SHORT, MAX_WARNINGS, RAISE_EVERY, JOB_TITLES, openings, isWorkday, POSITIONS, CERTS, positionsOf, posOf, freeSlots, qualifies, bestPosition, expOf } from './sim/jobs.js';
 import { rel, level, near } from './sim/social.js';
-import { weeklyRent, occupants, LATE_EVICT } from './sim/housing.js';
+import { weeklyRent, occupants, LATE_EVICT, rentalPrice, rentalIncome, RENTAL_RESALE } from './sim/housing.js';
 import { freeUnits, isClosed, promo, dishOfDay, LOYALTY_EVERY } from './sim/city.js';
 import { Sound } from './audio.js';
 import { t, LANGS, tLines } from './i18n.js';
@@ -563,8 +563,18 @@ export class UI {
       } else if (!inside) {
         note = `<p>${L(`Complet : ${b.units} appartement${b.units > 1 ? 's' : ''}, tous occupés.`, `Full: all ${b.units} apartment${b.units > 1 ? 's are' : ' is'} taken.`)}</p>`;
       }
+      // Investir : acheter un appartement libre pour le louer, ou revendre ceux qu'on a ici
+      const mine = (p.rentals || []).filter(id => id === b.id).length;
+      if (mine) {
+        note += `<p>🏢 ${L(`Tu possèdes ${mine} appartement${mine > 1 ? 's' : ''} loué${mine > 1 ? 's' : ''} ici · +${rentalIncome(b) * mine} €/semaine`, `You own ${mine} rented apartment${mine > 1 ? 's' : ''} here · +€${rentalIncome(b) * mine}/week`)}</p>`;
+        buttons.push(this.actBtn('sell_rental', { building: b.id }, L(`Revendre un appartement (${money(Math.round(rentalPrice(b) * RENTAL_RESALE))} €)`, `Sell an apartment (€${money(Math.round(rentalPrice(b) * RENTAL_RESALE))})`)));
+      }
+      if (freeUnits(w, b) > 0 && p.home != null) {
+        note += `<p class="mini-hint">💡 ${L(`Investir : achète un appartement libre (${money(rentalPrice(b))} €), un locataire s’installe et te verse ${rentalIncome(b)} € chaque lundi.`, `Invest: buy a free apartment (€${money(rentalPrice(b))}); a tenant moves in and pays you €${rentalIncome(b)} every Monday.`)}</p>`;
+        buttons.push(this.actBtn('buy_rental', { building: b.id }, L(`Acheter pour louer (${money(rentalPrice(b))} €)`, `Buy to let (€${money(rentalPrice(b))})`)));
+      }
       // La nuit, on peut tenter un cambriolage (très risqué)
-      if (b.id !== p.home && occupants(w, b).length && (w.hour >= 23 || w.hour < 5)) buttons.push(this.actBtn('burgle', { building: b.id }));
+      if (b.id !== p.home && !mine && occupants(w, b).length && (w.hour >= 23 || w.hour < 5)) buttons.push(this.actBtn('burgle', { building: b.id }));
     }
 
     // Services publics : un mot sur ce qu'on y fait
@@ -815,6 +825,15 @@ export class UI {
         🛋️ ${L('Confort chez toi', 'Home comfort')} : ${comfortOf(p)}/${COMFORT_CAP}</p></div>`;
     }
 
+    // Placements : appartements en location
+    let rentals = '';
+    if ((p.rentals || []).length) {
+      const by = {};
+      for (const id of p.rentals) by[id] = (by[id] || 0) + 1;
+      const rows = Object.entries(by).map(([id, n]) => { const b = w.building(+id); return `${esc(b.name)}${n > 1 ? ` ×${n}` : ''} · +${rentalIncome(b) * n} €`; });
+      const total = p.rentals.reduce((t, id) => t + rentalIncome(w.building(id)), 0);
+      rentals = `<div class="sec"><b>🏢 ${t('Mes placements')}</b><p>${rows.join('<br>')}<br>${L(`Total : +${total} € chaque lundi (avant taxe foncière)`, `Total: +€${total} every Monday (before property tax)`)}</p></div>`;
+    }
     let home;
     if (p.home != null) {
       const b = w.building(p.home);
@@ -843,7 +862,7 @@ export class UI {
       ${p.trial && p.trial.lawyer == null ? `<div class="choices">${this.actBtn('hire_lawyer')}</div>` : ''}</div>`;
     const routine = `<div class="sec"><b>${t('🔁 Routine automatique')}</b><p>${t('Ton personnage mange, dort et va travailler tout seul. Tu peux toujours reprendre la main.')}<br><span class="bad">${t('⚠️ Mais livré à lui-même, il peut mal tourner : vols, pots-de-vin, jeux d’argent, jours d’absence… Plus souvent mal que bien !')}</span></p>
       <div class="choices">${this.choiceHTML('data-routine', p.routine ? '⏹️' : '▶️', p.routine ? 'Désactiver la routine' : 'Activer la routine', '', true)}</div></div>`;
-    return `${this.head('📋', 'Ma vie')}${ageLine}${this.dreamsHTML()}${job}${home}${cash}${ride}${routine}`;
+    return `${this.head('📋', 'Ma vie')}${ageLine}${this.dreamsHTML()}${job}${home}${rentals}${cash}${ride}${routine}`;
   }
 
   // ---------- Objectifs : rêves (dans « Ma vie ») et carte d'objectif ----------

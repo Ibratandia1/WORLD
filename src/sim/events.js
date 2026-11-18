@@ -248,6 +248,11 @@ const PUSHED = {
     text: `« Garder un portefeuille trouvé, c’est du vol. Ce sera une amende de 90 €. »`,
     choices: [{ icon: '👮', label: 'Payer l’amende', action: 'pay_fine' }],
   }),
+  rentIncome: (a, w, e) => ({
+    icon: '🏢', title: 'Loyers encaissés',
+    text: `${e.n > 1 ? `Tes ${e.n} appartements en location t’ont` : 'Ton appartement en location t’a'} rapporté ${e.amount} € cette semaine (taxe foncière : ${e.tax} €).`,
+    choices: OK,
+  }),
   taxBill: (a, w, e) => ({
     icon: '🏛️', title: 'Impôts de la semaine',
     text: [

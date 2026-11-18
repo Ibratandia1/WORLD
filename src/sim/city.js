@@ -1,5 +1,5 @@
 import { Actor } from './actor.js';
-import { weeklyRent, occupants } from './housing.js';
+import { weeklyRent, occupants, rentalsIn } from './housing.js';
 import { openings, shiftNow } from './jobs.js';
 import { credit } from './budget.js';
 
@@ -63,7 +63,7 @@ const SPECIALS = ['Tarte aux pommes', 'Pain aux raisins', 'Éclair au chocolat',
 export const dishOfDay = (w, b) => (b.type === 'cafe' ? DISHES : b.type === 'bakery' ? SPECIALS : null)?.[(w.day + b.id) % 7] || null;
 export const LOYALTY_EVERY = 5;
 export const isClosed = (w, id) => !!(w.city && w.city.biz[id] && w.city.biz[id].closed);
-export const freeUnits = (w, b) => (b.type === 'home' ? Math.max(0, (b.units || 1) - occupants(w, b).length) : 0);
+export const freeUnits = (w, b) => (b.type === 'home' ? Math.max(0, (b.units || 1) - occupants(w, b).length - rentalsIn(w, b)) : 0);
 
 export class CityLife {
   constructor(world) {

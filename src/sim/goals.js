@@ -29,6 +29,7 @@ export const DREAMS = [
   { id: 'dream_owner', icon: '🏡', label: 'Devenir propriétaire', progress: a => [a.housing === 'own' ? 1 : 0, 1], reward: { money: 300, mood: 20 } },
   { id: 'dream_rich', icon: '💰', label: 'Avoir 10 000 € de côté', progress: a => [Math.max(0, Math.floor(a.money)), 10000], reward: { money: 0, mood: 20 } },
   { id: 'dream_car', icon: '🚗', label: 'Rouler en voiture', progress: a => [a.owned.includes('voiture') ? 1 : 0, 1], reward: { money: 150, mood: 12 } },
+  { id: 'dream_landlord', icon: '🏢', label: 'Louer 2 appartements', progress: a => [(a.rentals || []).length, 2], reward: { money: 300, mood: 15 } },
   { id: 'dream_mayor', icon: '🏛️', label: 'Être élu·e maire', progress: (a, w) => [w.gov && w.gov.mayor === a.id ? 1 : 0, 1], reward: { money: 500, mood: 25 } },
 ];
 
