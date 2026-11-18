@@ -267,6 +267,21 @@ const PUSHED = {
   raise: (a, w, e) => ({
     icon: '📈', title: 'Augmentation !', text: `Du travail sérieux : ton salaire passe à ${e.wage} €/h.`, choices: OK,
   }),
+  birthday: (a, w, e) => ({
+    icon: '🎂', title: `Joyeux anniversaire ! ${e.age} ans`,
+    text: 'Une année de plus ! Fête-le avec tes amis : ils apprécieront (et ton moral aussi).',
+    choices: [{ icon: '🎉', label: 'Fêter mon anniversaire', action: 'birthday_party' }, { icon: '🙂', label: 'Plus tard' }],
+  }),
+  yearRecap: (a, w, e) => ({
+    icon: '🎆', title: `Bonne année ! Bilan de l’an ${e.year}`,
+    text: [
+      `💶 Argent : ${e.gained >= 0 ? '+' : ''}${e.gained} € sur l’année.`,
+      `⭐ ${e.xp} XP gagnés · 👥 ${e.friends} ami${e.friends > 1 ? 's' : ''} proche${e.friends > 1 ? 's' : ''}.`,
+      a.job ? `💼 ${a.job.title || 'En poste'} · ${a.job.wage} €/h.` : '💼 Sans emploi : nouvelle année, nouveau départ !',
+      'Feu d’artifice sur la Seine ce soir à minuit !',
+    ].join('\n'),
+    choices: OK,
+  }),
   laidOff: (a, w, e) => ({
     icon: '📉', title: 'Licenciement économique',
     text: `${e.building.name} manque de clients et doit réduire son équipe : tu étais le dernier arrivé·e. Ce n’est pas ta faute — postule ailleurs, les commerces qui marchent recrutent.`,

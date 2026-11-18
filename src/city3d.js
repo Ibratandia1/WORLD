@@ -1806,9 +1806,57 @@ function updateDucks(dt) {
   }
 }
 
+// Feu d'artifice du Nouvel An au-dessus de la Seine (dernier soir de l'année à partir de 23h30 jusqu'à 0h40)
+const FW_COLORS = [0xff5a5a, 0xffd23f, 0x5ad1ff, 0x9b6ee8, 0x6cff9a, 0xffffff, 0xff9a3c];
+const bursts = [];
+// étincelle ronde et douce (sinon les points sont des carrés)
+const sparkTex = canvasTex(32, (g, S) => {
+  const gr = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,0.8)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.clearRect(0, 0, S, S); g.fillStyle = gr; g.fillRect(0, 0, S, S);
+}, false);
+let fwNext = 0, fwForce = 0;
+api.fireworks = (sec = 20) => { fwForce = sec; }; // (pour tester : state.city3d.fireworks())
+function fireworksOn() {
+  if (fwForce > 0) return true;
+  const doy = world.dayOfYear, h = world.hour;
+  return (doy === 56 && h >= 23.5) || (doy === 1 && world.day > 1 && h < 0.7);
+}
+function spawnBurst() {
+  const N = mobile ? 50 : 80, pos = new Float32Array(N * 3), vel = [];
+  for (let i = 0; i < N; i++) {
+    const th = Math.random() * Math.PI * 2, ph = Math.acos(2 * Math.random() - 1), sp = 0.9 + Math.random() * 0.5;
+    vel.push([Math.sin(ph) * Math.cos(th) * sp, Math.cos(ph) * sp, Math.sin(ph) * Math.sin(th) * sp]);
+  }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const mat = new THREE.PointsMaterial({ color: FW_COLORS[Math.floor(Math.random() * FW_COLORS.length)], size: 0.3, map: sparkTex, transparent: true, opacity: 1, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
+  const pts = new THREE.Points(geo, mat); pts.userData.noTap = true; pts.frustumCulled = false;
+  // au-dessus des toits, devant la caméra (visible où que tu sois dans le quartier)
+  const fwd = new THREE.Vector3().subVectors(controls.target, camera.position).setY(0).normalize();
+  const side = new THREE.Vector3(-fwd.z, 0, fwd.x);
+  const o = controls.target.clone().addScaledVector(fwd, -1 + Math.random() * 3).addScaledVector(side, (Math.random() - 0.5) * 7);
+  o.y = 2.6 + Math.random() * 1.4; // (la caméra regarde vers le sol : plus haut, on ne les verrait pas)
+  scene.add(pts);
+  bursts.push({ pts, vel, o, t: 0, life: 1.8 + Math.random() * 0.6 });
+  if (opts.onBoom) opts.onBoom();
+}
+function updateFireworks(dt) {
+  if (fwForce > 0) fwForce -= dt;
+  if (fireworksOn() && (fwNext -= dt) <= 0) { fwNext = 0.35 + Math.random() * 0.6; spawnBurst(); }
+  for (const b of bursts) {
+    b.t += dt;
+    const a = b.pts.geometry.attributes.position, k = b.t, g = 0.45 * k * k;
+    for (let i = 0; i < b.vel.length; i++) { const v = b.vel[i]; a.setXYZ(i, b.o.x + v[0] * k, b.o.y + v[1] * k - g, b.o.z + v[2] * k); }
+    a.needsUpdate = true;
+    b.pts.material.opacity = Math.max(0, 1 - b.t / b.life);
+  }
+  for (let i = bursts.length - 1; i >= 0; i--) if (bursts[i].t >= bursts[i].life) { scene.remove(bursts[i].pts); bursts[i].pts.geometry.dispose(); bursts[i].pts.material.dispose(); bursts.splice(i, 1); }
+}
+
 function updateAlive(dt) {
   const rate = opts.demo ? speed : (world.paused ? 0 : (world.speed || 1));
   updateWalkers(dt, rate);
+  updateFireworks(dt);
   if (rate > 0) updateDucks(dt);
   updateEmergencies(dt, rate);
   updateWeather(dt);

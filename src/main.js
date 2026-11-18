@@ -11,6 +11,7 @@ import { Safety } from './sim/safety.js';
 import { Justice } from './sim/justice.js';
 import { Bank } from './sim/bank.js';
 import { Economy } from './sim/economy.js';
+import { Calendar } from './sim/calendar.js';
 import { settings, onSettings } from './settings.js';
 import { t } from './i18n.js';
 import { UI } from './ui.js';
@@ -32,6 +33,7 @@ new Safety(world); // délits, police, prison, incendies (world.safety)
 new Justice(world); // garde à vue, procès, jury, avocats (world.justice)
 new Bank(world); // épargne, intérêts, prêts (world.bank)
 new Economy(world); // trésorerie des commerces, marché du travail et du logement (world.economy)
+new Calendar(world); // années, âges, anniversaires, retraite, Nouvel An (world.calendar)
 // Mode test (?test dans l'adresse) : partie neuve, jamais sauvegardée — la vraie partie n'est pas touchée
 const TEST = new URLSearchParams(location.search).has('test');
 const resumed = TEST ? false : loadGame(world, [director]); // reprend la dernière partie s'il y en a une
@@ -96,6 +98,7 @@ import('./city3d.js').then(({ startCity3D }) => {
     interiorCtx: () => game.interior.ctx3d(),
     onInteriorTap: (x, y, id) => game.interior.tapTile3d(x, y, id),
     onLeave: () => { world.perform(player, 'leave'); state.ui.render(); },
+    onBoom: () => { if (player.outdoors && state.ui.sound && state.ui.sound.boom) state.ui.sound.boom(); }, // feu d'artifice
   });
   document.body.classList.add('v3d');
   for (const id of Object.keys(world.safety ? world.safety.fires : {})) state.city3d.showFire(world.building(+id));

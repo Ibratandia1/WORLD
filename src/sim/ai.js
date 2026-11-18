@@ -173,7 +173,7 @@ export function decide(a, w, opts = {}) {
   }
 
   // 5. Chercher du travail (on postule un peu partout, pas toujours au même endroit), ou reprendre ses études
-  if (!a.job && a.role !== 'landlord' && h >= 8 && h < 18) {
+  if (!a.job && a.role !== 'landlord' && !a.retired && (a.age || 0) < 65 && h >= 8 && h < 18) { // (retraité·es : on ne cherche plus de travail)
     if ((a.education ?? 1) < 2 && a.money > 60 && Math.random() < 0.25) { const c = shop(a, w, 'study'); if (c) return c; }
     const list = w.map.buildings.filter(b => b.jobs && a.lastApply[b.id] !== w.day && (POSITIONS[b.type] ? bestPosition(w, a, b) : openings(w, b) > 0 && (b.jobs.edu || 0) <= (a.education ?? 1)));
     if (list.length) return { id: 'apply', params: { building: list[Math.floor(Math.random() * list.length)].id } };

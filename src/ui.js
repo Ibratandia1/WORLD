@@ -3,6 +3,7 @@ import { TYPES } from './map/types.js';
 import { state } from './state.js';
 import { openCustomizer } from './customize.js';
 import { FURNITURE, furnById, comfortOf, COMFORT_CAP, MAX_FURNITURE } from './sim/furniture.js';
+import { ensureAge, isBirthday } from './sim/calendar.js';
 import { fmtShift, DAY_SHORT, MAX_WARNINGS, RAISE_EVERY, JOB_TITLES, openings, isWorkday, POSITIONS, CERTS, positionsOf, posOf, freeSlots, qualifies, bestPosition, expOf } from './sim/jobs.js';
 import { rel, level, near } from './sim/social.js';
 import { weeklyRent, occupants, LATE_EVICT } from './sim/housing.js';
@@ -49,7 +50,7 @@ cat('food', ['coffee', 'eat_cafe', 'eat_bakery', 'groceries', 'eat_home', 'crepe
 cat('work', ['work', 'overtime', 'apply', 'call_sick', 'quit_job', 'study']);
 cat('rest', ['workout', 'yoga', 'watch_fish', 'play_games', 'play_piano', 'buy_furniture', 'sleep', 'nap', 'watch_tv', 'read_book', 'sit_bench', 'admire_statue', 'wish_fountain', 'feed_pigeons', 'dance', 'sleep_rough', 'sit_here', 'browse_books', 'water_plant', 'inspect']);
 cat('food', ['vending_snack', 'drink_water']);
-cat('social', ['talk', 'joke', 'wave', 'gift', 'treat', 'stroll', 'lend', 'recommend', 'ask_tip', 'tip']);
+cat('social', ['wish_birthday', 'birthday_party', 'talk', 'joke', 'wave', 'gift', 'treat', 'stroll', 'lend', 'recommend', 'ask_tip', 'tip']);
 cat('money', ['sell_furniture', 'pay_rent', 'rent_home', 'buy_home', 'buy', 'allocation', 'claim_goal', 'shopping', 'repair', 'scratch', 'brocante_hunt', 'use_vehicle', 'buy_umbrella']);
 cat('civic', ['vote', 'run_mayor', 'set_policy', 'city_project', 'report', 'consult', 'enter', 'leave', 'goto', 'metro']);
 cat('danger', ['steal', 'shoplift', 'burgle', 'arrest', 'extinguish', 'pay_fine']);
@@ -310,7 +311,7 @@ export class UI {
     const w = this.world, p = this.player;
 
     $('v-time').textContent = w.clock;
-    $('v-day').textContent = `${dayShort(w.weekday)} ${SEASON_INFO[w.season].icon}`;
+    $('v-day').textContent = `${dayShort(w.weekday)} ${SEASON_INFO[w.season].icon} ${L(`An ${w.year}`, `Yr ${w.year}`)}`;
     const wx = w.weather === 'rain' ? 'rain' : w.weather === 'snow' ? 'snow' : w.weather === 'cloud' ? 'cloud' : w.isNight ? 'moon' : 'sun';
     if (wx !== this.wxIcon) { this.wxIcon = wx; $('v-weather').innerHTML = icon(wx); }
     $('v-money').textContent = money(p.money);
@@ -761,6 +762,10 @@ export class UI {
   // « Ma vie » : contrat, logement, routine
   lifeHTML() {
     const p = this.player, w = this.world;
+    ensureAge(p);
+    const SN = { printemps: ['printemps', 'spring'], ete: ['été', 'summer'], automne: ['automne', 'autumn'], hiver: ['hiver', 'winter'] };
+    const bdSeason = ['printemps', 'ete', 'automne', 'hiver'][Math.floor((p.birthday - 1) / 14)], bdDay = ((p.birthday - 1) % 14) + 1;
+    const ageLine = `<div class="sec"><b>🎂 ${L(`${p.age} ans`, `${p.age} years old`)}${isBirthday(w, p) ? L(' · c’est ton anniversaire !', ' · it’s your birthday!') : ''}</b><p>${L(`Anniversaire : ${bdDay}e jour du ${SN[bdSeason][0]}`, `Birthday: day ${bdDay} of ${SN[bdSeason][1]}`)} · ${L(`An ${w.year}, jour ${w.dayOfYear}/56`, `Year ${w.year}, day ${w.dayOfYear}/56`)}${p.retired ? L(' · à la retraite', ' · retired') : ''}</p></div>`;
     let job;
     if (p.job) {
       const b = w.building(p.job.building);
@@ -817,7 +822,7 @@ export class UI {
       ${p.trial && p.trial.lawyer == null ? `<div class="choices">${this.actBtn('hire_lawyer')}</div>` : ''}</div>`;
     const routine = `<div class="sec"><b>${t('🔁 Routine automatique')}</b><p>${t('Ton personnage mange, dort et va travailler tout seul. Tu peux toujours reprendre la main.')}<br><span class="bad">${t('⚠️ Mais livré à lui-même, il peut mal tourner : vols, pots-de-vin, jeux d’argent, jours d’absence… Plus souvent mal que bien !')}</span></p>
       <div class="choices">${this.choiceHTML('data-routine', p.routine ? '⏹️' : '▶️', p.routine ? 'Désactiver la routine' : 'Activer la routine', '', true)}</div></div>`;
-    return `${this.head('📋', 'Ma vie')}${this.dreamsHTML()}${job}${home}${cash}${ride}${routine}`;
+    return `${this.head('📋', 'Ma vie')}${ageLine}${this.dreamsHTML()}${job}${home}${cash}${ride}${routine}`;
   }
 
   // ---------- Objectifs : rêves (dans « Ma vie ») et carte d'objectif ----------
@@ -1062,6 +1067,7 @@ export class UI {
     // Interactions : elles se débloquent avec la relation (le bouton grisé dit pourquoi)
     const extra = [];
     if (!near(p, t)) extra.push(this.choiceHTML('data-join', '🚶', 'Rejoindre', '', true));
+    if (isBirthday(w, t)) extra.push(this.actBtn('wish_birthday', { who: t.id }));
     extra.push(this.actBtn('wave', { who: t.id }));
     extra.push(this.actBtn('joke', { who: t.id }));
     const nGifts = Object.values(p.gifts || {}).reduce((s, n) => s + n, 0);
@@ -1088,7 +1094,7 @@ export class UI {
       <div class="topics">${topics}</div>
       <form class="say-form" data-chat><input id="chat-in" maxlength="300" autocomplete="off" placeholder="${tr(reach ? 'Ou écris librement…' : 'Trop loin pour parler')}" ${reach && !this.chatWaiting ? '' : 'disabled'}><button type="submit" ${reach ? '' : 'disabled'}>➤</button></form>${mode}</div>`;
 
-    return `${this.head('🧑', t.name)}<p>${licon} ${tr(lname)} · <span class="hearts">${hearts(r)}</span><br>${job}${now}</p>
+    return `${this.head('🧑', t.name)}<p>${licon} ${tr(lname)} · <span class="hearts">${hearts(r)}</span><br>${L(`${ensureAge(t)} ans`, `${ensureAge(t)} years old`)}${isBirthday(w, t) ? ' · 🎂' : ''}${t.retired ? L(' · retraité·e', ' · retired') : ''}<br>${job}${now}</p>
       <div class="sec"><b>${tr('✨ Interagir')}</b><div class="choices">${extra.join('')}</div></div>${chat}`;
   }
 

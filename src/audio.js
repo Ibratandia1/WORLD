@@ -181,5 +181,10 @@ export class Sound {
   whistle() { this.tone(1900, 0.12, { vol: 0.08 }); this.tone(1900, 0.3, { vol: 0.08, delay: 0.16 }); }               // amende, police
   gavel() { this.noise(0.06, { freq: 900, q: 3, vol: 0.2 }); this.noise(0.06, { freq: 900, q: 3, vol: 0.2, delay: 0.22 }); } // verdict
   unlock() { this.tone(660, 0.1, { type: 'triangle', vol: 0.08 }); this.tone(990, 0.25, { type: 'triangle', vol: 0.08, delay: 0.1 }); } // libération
+  // Feu d'artifice : détonation sourde puis crépitement (ambiance, étouffé à l'intérieur)
+  boom() {
+    this.noise(0.5, { freq: 120, to: 60, q: 0.8, vol: 0.09, bus: this.amb });
+    for (let i = 0; i < 6; i++) this.noise(0.05, { freq: 3000 + Math.random() * 2000, q: 2, vol: 0.02, delay: 0.25 + i * 0.07 + Math.random() * 0.05, bus: this.amb });
+  }
   fanfare() { [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.22, { type: 'triangle', vol: 0.1, delay: i * 0.1 })); }
 }

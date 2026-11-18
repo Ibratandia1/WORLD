@@ -8,7 +8,7 @@ export const INCOME = {
 };
 export const SPEND = {
   wages: 'Salaires des services publics', upkeep: 'Entretien des rues et de l’éclairage', aid: 'Aides sociales',
-  mayor: 'Indemnité du maire', jurors: 'Indemnités des jurés', projects: 'Projets du maire',
+  mayor: 'Indemnité du maire', jurors: 'Indemnités des jurés', projects: 'Projets du maire', pensions: 'Pensions de retraite',
 };
 // Lieux de service public : les salaires y sont payés par le Trésor (et les métiers de rue : police, facteur, éboueurs)
 export const PUBLIC_TYPES = new Set(['cityhall', 'police', 'hospital', 'firestation', 'prison', 'school', 'court']);

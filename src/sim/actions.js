@@ -10,6 +10,7 @@ import { isPolice, prisonRelease } from './safety.js';
 import { isLawyer, LAWYER_FEE } from './justice.js';
 import { LOAN_STEP, LOAN_MAX, LOAN_RATE } from './bank.js';
 import { debit, isPublicJob } from './budget.js';
+import { isBirthday, ensureAge } from './calendar.js';
 
 // RÈGLE D'OR : toutes les actions du jeu sont ici, et le joueur comme les PNJ
 // passent par world.perform(acteur, id, params). Un futur joueur en ligne
@@ -506,6 +507,24 @@ export const ACTIONS = {
   wave: {
     icon: '👋', label: 'Saluer', instant: true, can: nearCheck,
     effect: (a, w, p) => { const t = target(w, p); addRel(a, t, 2); return `${t.name} te rend ton salut · ❤ +2`; },
+  },
+
+  // Anniversaires (sim/calendar.js)
+  wish_birthday: {
+    icon: '🎂', label: 'Souhaiter bon anniversaire', instant: true,
+    can: (a, w, p) => { const c = nearCheck(a, w, p); if (c !== true) return c; const t = target(w, p); return !isBirthday(w, t) ? 'Ce n’est pas son anniversaire' : (a.wished || {})[t.id] === w.day ? 'Déjà fait aujourd’hui' : true; },
+    effect: (a, w, p) => { const t = target(w, p); a.wished = { ...(a.wished || {}), [t.id]: w.day }; addRel(a, t, 8); t.mood += 6; a.mood += 2; return `🎂 ${t.name} est touché·e (${ensureAge(t)} ans) · ❤ +8`; },
+  },
+  birthday_party: {
+    icon: '🎉', label: 'Fêter mon anniversaire', here: true, duration: 90, cost: 30, skip: 6,
+    can: (a, w) => (!isBirthday(w, a) ? 'Ce n’est pas ton anniversaire' : a.partyDay === w.day ? 'Déjà fêté aujourd’hui' : true),
+    effect: (a, w) => {
+      a.partyDay = w.day;
+      const friends = w.actors.filter(o => o !== a && rel(a, o) >= 30);
+      for (const o of friends) { addRel(a, o, 6); o.mood += 4; }
+      a.mood += 20 + Math.min(10, friends.length * 2);
+      return friends.length ? `🎂 Gâteau, bougies… ${friends.length} ami${friends.length > 1 ? 's' : ''} chante${friends.length > 1 ? 'nt' : ''} pour toi !` : '🎂 Un petit gâteau rien que pour toi. L’an prochain, invite des amis !';
+    },
   },
 
   joke: {

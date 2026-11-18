@@ -61,6 +61,8 @@ export class World extends Emitter {
   }
   get isNight() { const h = this.hour; return h < 6.5 || h >= 21; }
   // Saisons de 14 jours : printemps → été → automne → hiver
+  get year() { return Math.floor((this.day - 1) / (SEASON_DAYS * 4)) + 1; }        // une année = 4 saisons
+  get dayOfYear() { return ((this.day - 1) % (SEASON_DAYS * 4)) + 1; }
   get season() { return SEASONS[Math.floor((this.day - 1) / SEASON_DAYS) % 4]; }
   get player() { return this.actors.find(a => a.isPlayer); }
   building(id) { return this.map.buildings[id]; }
