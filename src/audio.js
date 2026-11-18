@@ -80,12 +80,12 @@ export class Sound {
     const out = s.outdoors;
     const busy = s.pulse ?? 0.6; // animation de la ville selon l'heure
     this.muffle.frequency.setTargetAtTime(out ? 18000 : 700, this.ctx.currentTime, 0.3);
-    this.ramp(this.city, (out ? 0.028 : 0.012) * (0.4 + busy)); // rumeur de la ville : discrète
-    this.ramp(this.rain, s.weather === 'rain' ? (out ? 0.1 : 0.045) : 0, 2);
-    this.ramp(this.wind, s.weather === 'snow' ? 0.055 : s.weather === 'cloud' && out ? 0.012 : 0, 2);
+    this.ramp(this.city, (out ? 0.014 : 0.006) * (0.4 + busy)); // rumeur de la ville : très discrète (demandé)
+    this.ramp(this.rain, s.weather === 'rain' ? (out ? 0.06 : 0.025) : 0, 2);
+    this.ramp(this.wind, s.weather === 'snow' ? 0.03 : s.weather === 'cloud' && out ? 0.006 : 0, 2);
     const lively = !out && ['cafe', 'bakery', 'shop', 'cityhall', 'fashion'].includes(s.place);
     const fair = out && (s.fest === 'marche' || s.fest === 'brocante' || s.fest === 'concert');
-    this.ramp(this.crowd, lively ? 0.03 : fair ? 0.025 : 0, 0.6);
+    this.ramp(this.crowd, lively ? 0.018 : fair ? 0.015 : 0, 0.6);
     // Musique des fêtes (concert, fête de la musique) : une petite valse musette jouée en direct
     if (out && (s.fest === 'concert' || s.fest === 'musique')) this.music();
 
@@ -153,7 +153,7 @@ export class Sound {
     }
   }
   cricket() { for (let i = 0; i < 3; i++) this.tone(4300, 0.04, { type: 'triangle', vol: 0.012, delay: i * 0.07, bus: this.amb }); }
-  car() { this.noise(2.4, { freq: 160, to: 120, q: 0.6, vol: 0.012, bus: this.amb }); } // léger roulement lointain (plus de « vroum » qui dérange)
+  car() { this.noise(2.4, { freq: 160, to: 120, q: 0.6, vol: 0.007, bus: this.amb }); } // léger roulement lointain (plus de « vroum » qui dérange)
   clink() { const f = 2600 + Math.random() * 1200; this.tone(f, 0.12, { vol: 0.03, bus: this.amb }); this.tone(f * 1.5, 0.08, { vol: 0.015, delay: 0.01, bus: this.amb }); }
 
   // Valse (3 temps) sur une grille d'accords la mineur – fa – do – mi : basse au 1er temps, accord ensuite,

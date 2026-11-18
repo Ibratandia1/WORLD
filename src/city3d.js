@@ -2089,7 +2089,7 @@ function frame() {
   if (opts.onFrame) { try { opts.onFrame(raw * 1000); } catch (err) { if (loopErrors++ < 3) console.error('Jeu :', err); } }
   acc += raw;
   // Images par seconde plafonnées : 30 au téléphone (deux fois moins de travail → il ne chauffe plus), 20 en économie de batterie
-  const capDt = opts.demo ? 0 : opts.saver ? 1 / 20 : mobile || lowGfx ? 1 / 30 : 1 / 60;
+  const capDt = opts.demo ? 0 : opts.saver ? 1 / 20 : lowGfx || (mobile && GFX !== 'high') ? 1 / 30 : 1 / 60;
   if (capDt && acc < capDt - 0.003) { requestAnimationFrame(loop); return; }
   const dt = Math.min(acc, 0.1); acc = 0;
   // Résolution adaptative (pas en économie de batterie, déjà plafonnée à 30 images/s)

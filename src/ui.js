@@ -290,7 +290,7 @@ export class UI {
         <div class="choices two">${sw('vibrate', 'Vibrations', '📳')}${sw('tips', 'Astuces', '💡')}</div>
         <h3>⏱️ ${t('Les événements s’effacent après')}</h3>${chips('eventTimer', [[8, '8 s'], [12, '12 s'], [25, '25 s'], [0, 'jamais']])}
         <div class="choices">${this.choiceHTML('data-resettips', '💡', 'Revoir les astuces', '', true)}</div>`,
-      battery: `<h3>🖥️ ${t('Qualité graphique')}</h3>${chips('gfx', [['auto', 'Auto'], ['high', 'Haute'], ['medium', 'Moyenne'], ['low', 'Basse']])}<p>${t('Auto : le jeu s’adapte à ton appareil. Basse : plus fluide sur un appareil peu puissant. Le jeu redémarre (ta partie est sauvegardée).')}</p>
+      battery: `<h3>🖥️ ${t('Qualité graphique')}</h3>${chips('gfx', [['auto', 'Auto'], ['high', 'Haute'], ['medium', 'Moyenne'], ['low', 'Basse']])}<p>${t('Auto : le jeu s’adapte à ton appareil. Basse : plus fluide sur un appareil peu puissant. Le jeu redémarre (ta partie est sauvegardée).')}</p><p>${t('Haute au téléphone : 60 images/s, plus fluide et plus net, mais il chauffe davantage.')}</p>
         <p>${t('Moins de passants et de voitures ; résolution réduite au prochain lancement.')}</p>
         <div class="choices">${sw('saver', 'Économie de batterie', '🔋')}</div>`,
     };
