@@ -58,8 +58,8 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.95;
 renderer.shadowMap.enabled = true;
 const adaptive = { t: 0, frames: 0, calm: 0, slow: 0, level: 0 };
-// ombres : un seul échantillon au téléphone (bien moins coûteux), filtrées en haute qualité, douces sur PC
-renderer.shadowMap.type = mobile ? (GFX === 'high' ? THREE.PCFShadowMap : THREE.BasicShadowMap) : GFX === 'medium' ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
+// ombres : filtrées au téléphone (carte 1024), douces sur PC
+renderer.shadowMap.type = mobile || GFX === 'medium' ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap; // (ombres simples « Basic » essayées au téléphone : bords en escalier, abandonnées)
 if (lowGfx) renderer.shadowMap.enabled = false; // qualité basse : pas d'ombres
 renderer.shadowMap.autoUpdate = false;
 renderer.shadowMap.needsUpdate = true;

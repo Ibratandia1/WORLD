@@ -738,3 +738,10 @@ body.indoors #b-rotl, body.indoors #b-rotr { display: none; }
 /* Santé des commerces */
 .mp-chip.biz-good { background: #d7f3e1; color: #1f7a45; }
 .mp-chip.biz-bad { background: #fde4e7; color: #b8303f; }
+
+/* Guide : listes à puces lisibles, flèche d'ouverture */
+#settings .guide ul { margin: 0 0 10px; padding-left: 18px; }
+#settings .guide li { margin: 0 0 6px; line-height: 1.45; color: var(--ink); }
+#settings .guide li::marker { color: var(--accent); }
+#settings .guide summary::after { content: '▾'; margin-left: auto; opacity: .5; transition: transform .2s; }
+#settings .guide details[open] summary::after { transform: rotate(180deg); }

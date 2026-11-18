@@ -270,7 +270,13 @@ export class UI {
     const sw = (key, label, icon) => this.choiceHTML(`data-set="${key}"`, icon, label, s[key] ? `✅ ${t('Activé')}` : `⬜ ${t('Coupé')}`, true);
     const chips = (key, opts) => `<div class="chips">${opts.map(([v, l]) => `<button class="chip ${String(s[key]) === String(v) ? 'on' : ''}" data-setk="${key}" data-setv="${v}">${esc(t(l))}</button>`).join('')}</div>`;
     const TABS = [['guide', '📖', 'Guide'], ['general', '🌍', 'Langue et affichage'], ['sound', '🔊', 'Son'], ['comfort', '📱', 'Confort'], ['battery', '🔋', 'Batterie']];
-    const guide = (GUIDE[s.lang] || GUIDE.fr).map(([ic, title, text], i) => `<details ${i === 0 ? 'open' : ''}><summary><span>${ic}</span>${esc(title)}</summary><p>${esc(text).replace(/\n/g, '<br>')}</p></details>`).join('');
+    // (lignes qui commencent par « • » = liste à puces, les autres = paragraphe)
+    const gBody = text => {
+      const lines = text.split('\n'), items = lines.filter(l => l.startsWith('• ')).map(l => `<li>${esc(l.slice(2))}</li>`).join('');
+      const paras = lines.filter(l => !l.startsWith('• ')).map(l => `<p>${esc(l)}</p>`).join('');
+      return `${paras}${items ? `<ul>${items}</ul>` : ''}`;
+    };
+    const guide = (GUIDE[s.lang] || GUIDE.fr).map(([ic, title, text], i) => `<details ${i === 0 ? 'open' : ''}><summary><span>${ic}</span>${esc(title)}</summary>${gBody(text)}</details>`).join('');
     const PAGES = {
       guide: `<h3>📖 ${t('Guide du jeu')}</h3><div class="choices">${this.choiceHTML('data-rewelcome class="c-rest"', '👋', 'Revoir l’accueil', '', true)}</div><div class="guide">${guide}</div>`,
       general: `<h3>🌍 ${t('Langue')}</h3>${chips('lang', LANGS)}
