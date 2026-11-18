@@ -618,7 +618,7 @@ function landmark(type, r, cx, cz, w, d, base, top) {
 }
 const aoRects = [];
 const tops = {}; // hauteur du toit de chaque lieu (pour les épingles)
-function building(r, type, seed, bid = null, floorsOverride = null) {
+function building(r, type, seed, bid = null, floorsOverride = null, styleOverride = null) {
   const x = r.x0 + r.w / 2 - 0.5, z = r.y0 + r.h / 2 - 0.5;
   let w = r.w - 0.04, d = r.h - 0.04;
   aoRects.push([x, z, w, d]);
@@ -641,7 +641,7 @@ function building(r, type, seed, bid = null, floorsOverride = null) {
     return;
   }
   const plainType = !PUBLIC[type] && !SHOP_COLOR[type] && type !== 'gym' || type === 'filler' || type === 'filler-shop';
-  const style = plainType ? styleOf(seed) : 'haus';
+  const style = styleOverride || (plainType ? styleOf(seed) : 'haus');
   const stone = style !== 'haus' ? STYLE_COLORS[style][seed % STYLE_COLORS[style].length] : PUBLIC[type] ?? STONE[seed % STONE.length];
   const shopType = SHOP_COLOR[type];
   let y = base;
@@ -697,6 +697,40 @@ function building(r, type, seed, bid = null, floorsOverride = null) {
         solidGeos.push(paint(box(bw, 0.075, bd, x + ox, lvl + 0.025, z + oz), 0x2a2c33));             // garde-corps
       }
     }
+  }
+  // ---------- Structure de la façade ----------
+  // Bandeaux de pierre à chaque étage (haussmannien, vieille pierre) : la façade a du relief
+  if (style === 'haus' || style === 'old') {
+    for (let k = 1; k < upper; k++) {
+      const lvl = wallBase + k * FLOOR - 0.012;
+      solidGeos.push(paint(box(w + 0.028, 0.016, d + 0.028, x, lvl, z), shade(stone, 1.07)));
+    }
+  }
+  const ref = r.ref || r;                 // (emprise entière en cases, pour savoir où est la rue)
+  const n = frontOf(ref);
+  const sideTiles = n[0] ? Array.from({ length: ref.h }, (_, k) => [n[0] > 0 ? ref.x0 + ref.w : ref.x0 - 1, ref.y0 + k]) : Array.from({ length: ref.w }, (_, k) => [ref.x0 + k, n[1] > 0 ? ref.y0 + ref.h : ref.y0 - 1]);
+  const onStreet = sideTiles.some(([tx, tz]) => T(tx, tz) && T(tx, tz).walk);
+  const half = n[0] ? w / 2 : d / 2, along = n[1] !== 0;
+  const fx = x + n[0] * half, fz = z + n[1] * half;
+  // Bow-window : une avancée vitrée sur plusieurs étages, au milieu de la façade côté rue
+  if (plain && onStreet && (style === 'haus' || style === 'brick' || style === 'modern') && upper >= 4 && !attic && seed % 4 === 1) {
+    const ow = 0.44, od = 0.13, oy = wallBase + FLOOR, oh = (upper - 2) * FLOOR;
+    const ox = fx + n[0] * od / 2, oz = fz + n[1] * od / 2;
+    const g = along ? box(ow, oh, od, ox, oy, oz) : box(od, oh, ow, ox, oy, oz);
+    wallArr.push(paint(wallUV(g, along ? ow : od, oh, along ? od : ow, oy - base), shade(stone, 1.04)));
+    solidGeos.push(paint(along ? box(ow + 0.05, 0.04, od + 0.04, ox, oy + oh, oz) : box(od + 0.04, 0.04, ow + 0.05, ox, oy + oh, oz), shade(stone, 0.9)));   // petit toit
+    solidGeos.push(paint(along ? box(ow, 0.06, od, ox, oy - 0.06, oz) : box(od, 0.06, ow, ox, oy - 0.06, oz), shade(stone, 0.85)));                 // console
+  }
+  // Porte d'entrée côté rue (immeubles sans boutique au rez-de-chaussée) : encadrement de pierre, porte en bois ou vitrée
+  if (plain && onStreet && wallBase === base) {
+    const doorCol = style === 'modern' ? 0x3a5068 : [0x3b2a20, 0x2b3a55, 0x4a2a2a, 0x2f4a3a][seed % 4];
+    const frameCol = style === 'brick' ? 0xe8e0d2 : style === 'timber' ? 0x5b3a24 : shade(stone, 0.86);
+    const dw = 0.24, dh = 0.4, fw = 0.34, fh = 0.48;
+    const px = fx + n[0] * 0.012, pz = fz + n[1] * 0.012;
+    solidGeos.push(paint(along ? box(fw, fh, 0.02, px, base, pz) : box(0.02, fh, fw, px, base, pz), frameCol));
+    solidGeos.push(paint(along ? box(dw, dh, 0.03, px + 0, base, pz + n[1] * 0.006) : box(0.03, dh, dw, px + n[0] * 0.006, base, pz), doorCol));
+    if (style === 'modern') solidGeos.push(paint(along ? box(fw + 0.1, 0.025, 0.22, px, base + fh + 0.02, pz + n[1] * 0.1) : box(0.22, 0.025, fw + 0.1, px + n[0] * 0.1, base + fh + 0.02, pz), 0xdfe6ea)); // marquise
+    else solidGeos.push(paint(along ? box(fw + 0.04, 0.035, 0.05, px, base + fh, pz + n[1] * 0.02) : box(0.05, 0.035, fw + 0.04, px + n[0] * 0.02, base + fh, pz), shade(frameCol, 1.1))); // linteau
   }
   y += h;
   const bw = w, bd = d; // emprise au sol (enseignes, landmark)
@@ -776,6 +810,24 @@ function building(r, type, seed, bid = null, floorsOverride = null) {
   }
 }
 
+// Grands immeubles ordinaires : deux corps de hauteurs différentes (et non plus un seul bloc)
+function plainBuilding(r, type, seed, bid = null, floorsOverride = null) {
+  const st = styleOf(seed);
+  const n = Math.max(r.w, r.h);
+  if (n >= 2 && st !== 'timber' && seed % 3 !== 0) {
+    const alongX = r.w >= r.h, cut = Math.floor(n / 2), E = 0.04; // (E : les deux corps se touchent, sans fente entre eux)
+    const a = alongX ? { x0: r.x0, y0: r.y0, w: cut + E, h: r.h } : { x0: r.x0, y0: r.y0, w: r.w, h: cut + E };
+    const b = alongX ? { x0: r.x0 + cut - E, y0: r.y0, w: r.w - cut + E, h: r.h } : { x0: r.x0, y0: r.y0 + cut - E, w: r.w, h: r.h - cut + E };
+    a.ref = alongX ? { x0: r.x0, y0: r.y0, w: cut, h: r.h } : { x0: r.x0, y0: r.y0, w: r.w, h: cut };
+    b.ref = alongX ? { x0: r.x0 + cut, y0: r.y0, w: r.w - cut, h: r.h } : { x0: r.x0, y0: r.y0 + cut, w: r.w, h: r.h - cut };
+    const f = floorsOverride ?? TYPE_FLOORS[type] ?? 6, delta = seed % 2 ? 1 : 2;
+    building(a, type, seed, bid, f, st);
+    building(b, type, seed + 101, bid, Math.max(2, f + (seed % 4 < 2 ? delta : -delta)), st);
+    return;
+  }
+  building(r, type, seed, bid, floorsOverride, st);
+}
+
 // ---------- Maisons individuelles (quartier des Jardins) ----------
 // Façade de maison : une fenêtre sur deux, volets peints, appuis ; 3 couleurs de volets
 function houseTex(shutter) {
@@ -843,6 +895,7 @@ function house(r, seed, bid) {
 let seed = 1;
 for (const b of map.buildings) for (const r of rects(b.tiles)) {
   if (b.style === 'house') house(r, seed++ * 7 + b.id, b.id);
+  else if (b.type === 'home') plainBuilding(r, b.type, seed++ * 7 + b.id, b.id); // logements : un ou deux corps
   else building(r, b.type, seed++ * 7 + b.id, b.id, b.style === 'village' ? 3 : null); // commerces de quartier : petits immeubles
 }
 HOUSE_MATS.forEach((m, i) => add(houseGeos[i], m));
@@ -915,7 +968,7 @@ for (const t of fillerTiles) {
   const nearStreet = [[0, -1], [0, h], [-1, 0], [w, 0]].some(([dx, dy]) => T(t.x + dx, t.y + dy) && T(t.x + dx, t.y + dy).walk);
   TYPE_FLOORS.filler = 5 + (s % 3);
   TYPE_FLOORS['filler-shop'] = TYPE_FLOORS.filler;
-  building({ x0: t.x, y0: t.y, w, h }, nearStreet && s % 3 === 0 ? 'filler-shop' : 'filler', s);
+  plainBuilding({ x0: t.x, y0: t.y, w, h }, nearStreet && s % 3 === 0 ? 'filler-shop' : 'filler', s);
 }
 add(wallGeos, mats.wall);
 for (const k of Object.keys(STYLE_GEOS)) add(STYLE_GEOS[k], STYLE_MATS[k]);
