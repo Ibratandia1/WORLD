@@ -49,8 +49,8 @@ const lowGfx = GFX === 'low';
 const PR_FIXED = GFX === 'high' ? Math.min(devicePixelRatio, mobile ? 1.6 : 2) : GFX === 'medium' ? Math.min(devicePixelRatio, mobile ? 1.15 : 1.25) : lowGfx ? 1 : null;
 // Téléphone, petits détails retirés (garde-corps des balcons, bandeaux d'étage : ils scintillent à cette taille et coûtent cher)
 const LITE = (mobile && GFX !== 'high') || lowGfx;
-const PR_MAX = PR_FIXED ?? Math.min(devicePixelRatio, mobile ? 1.3 : 1.75), PR_MIN = PR_FIXED ?? Math.min(devicePixelRatio, mobile ? 0.9 : 1);
-let pixelRatio = PR_FIXED ?? Math.min(devicePixelRatio, mobile ? 1.3 : 1.5); // (l'anticrénelage garde les bords lisses ; on monte si l'appareil suit)
+const PR_MAX = PR_FIXED ?? Math.min(devicePixelRatio, mobile ? 1.4 : 1.75), PR_MIN = PR_FIXED ?? Math.min(devicePixelRatio, mobile ? 1 : 1);
+let pixelRatio = PR_FIXED ?? Math.min(devicePixelRatio, mobile ? 1.4 : 1.5); // (téléphone : on redescend tout seul si l'image rame) // (l'anticrénelage garde les bords lisses ; on monte si l'appareil suit)
 renderer.setPixelRatio(pixelRatio);
 renderer.setSize(innerWidth, innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -740,6 +740,17 @@ function building(r, type, seed, bid = null, floorsOverride = null, styleOverrid
     if (style === 'modern') solidGeos.push(paint(along ? box(fw + 0.1, 0.025, 0.22, px, base + fh + 0.02, pz + n[1] * 0.1) : box(0.22, 0.025, fw + 0.1, px + n[0] * 0.1, base + fh + 0.02, pz), 0xdfe6ea)); // marquise
     else solidGeos.push(paint(along ? box(fw + 0.04, 0.035, 0.05, px, base + fh, pz + n[1] * 0.02) : box(0.05, 0.035, fw + 0.04, px + n[0] * 0.02, base + fh, pz), shade(frameCol, 1.1))); // linteau
   }
+  // Jardinières fleuries sous les fenêtres (vieille pierre, côté rue), une fenêtre sur deux
+  if (style === 'old' && onStreet && upper >= 2) {
+    const span = along ? w : d, nb = Math.max(1, Math.floor(span / BAY));
+    const FL = [0xe2475b, 0xf2c94c, 0xe86a8c, 0xffffff];
+    for (let fl = 1; fl < upper; fl++) for (let k = 0; k < nb; k++) {
+      if ((k + fl + seed) % 2) continue;
+      const o = -span / 2 + (k + 0.5) * (span / nb), yy = wallBase + fl * FLOOR + 0.06;
+      const bx = fx + n[0] * 0.03 + (along ? o : 0), bz = fz + n[1] * 0.03 + (along ? 0 : o);
+      solidGeos.push(paint(along ? box(0.17, 0.045, 0.05, bx, yy, bz) : box(0.05, 0.045, 0.17, bx, yy, bz), 0x8a5a3c, FL[(k + fl) % FL.length]));
+    }
+  }
   y += h;
   const bw = w, bd = d; // emprise au sol (enseignes, landmark)
   if (attic) { w -= 0.26; d -= 0.26; } // le toit coiffe l'étage en retrait
@@ -809,6 +820,22 @@ function building(r, type, seed, bid = null, floorsOverride = null, styleOverrid
     for (let k = 0; k < n; k++) {
       const cx = x - w / 2 + 0.3 + ((seed * 7 + k * 3) % 10) / 10 * (w - 0.6);
       solidGeos.push(paint(box(0.12, 0.28, 0.2, cx, y + roofH - 0.05, z + (k ? 0.15 : -0.15)), 0xb5654a, 0x8a4a36));
+    }
+  }
+  // Toits habités : antennes, paraboles, aérations (immeubles ordinaires ; une sur deux au téléphone)
+  if (plain && !garden && (!LITE || seed % 2 === 0)) {
+    const topY = y + roofH, h2 = (seed >> 3) % 7;
+    const ax = x + (h2 / 6 - 0.5) * (w - 0.5), az = z + ((seed >> 5) % 2 ? 0.12 : -0.12) * Math.max(0.3, d - 0.6);
+    if (seed % 3 === 0) { // antenne râteau
+      solidGeos.push(paint(box(0.012, 0.32, 0.012, ax, topY - 0.02, az), 0x3a3d45));
+      for (let k = 0; k < 3; k++) solidGeos.push(paint(box(0.16 - k * 0.03, 0.008, 0.008, ax, topY + 0.18 + k * 0.05, az), 0x3a3d45));
+    }
+    if (seed % 4 === 1) { // parabole
+      solidGeos.push(paint(new THREE.CylinderGeometry(0.07, 0.03, 0.025, 10).rotateX(-1.0).translate(x - (h2 / 6 - 0.5) * (w - 0.6), topY + 0.06, z + d * 0.2), 0xe8e8e4));
+      solidGeos.push(paint(box(0.01, 0.07, 0.01, x - (h2 / 6 - 0.5) * (w - 0.6), topY - 0.01, z + d * 0.2), 0x6a6d75));
+    }
+    if (flat || style === 'modern' || seed % 5 === 2) { // aérations
+      for (let k = 0; k < 2; k++) solidGeos.push(paint(new THREE.CylinderGeometry(0.035, 0.035, 0.1, 8).translate(x + (k ? 0.25 : -0.2) * (w - 0.5), topY + 0.03, z - d * 0.18), 0xa7acb4, 0x5f646c));
     }
   }
   // drapeau sur les bâtiments publics
@@ -1628,6 +1655,14 @@ function updateRoute() {
   routeDots.count = n; routeDots.instanceMatrix.needsUpdate = true;
 }
 const marks = { home: null, work: null };
+// Lieu sélectionné (bandeau « Y aller ») : liseré blanc qui pulse au sol
+let selMark = null;
+api.select = b => {
+  if (selMark) { scene.remove(selMark); selMark.geometry.dispose(); selMark = null; }
+  if (b) selMark = footprintRing(b, 0xffffff);
+  for (const pin of pins) pin.el.classList.toggle('pin-sel', !!b && pin.b === b); // épingle du lieu choisi agrandie
+};
+api.goPlace = b => opts.goPlace && opts.goPlace(b);
 function footprintRing(b, color) {
   const xs = b.tiles.map(t => t.x), zs = b.tiles.map(t => t.y);
   const x0 = Math.min(...xs) - 0.62, x1 = Math.max(...xs) + 0.62, z0 = Math.min(...zs) - 0.62, z1 = Math.max(...zs) + 0.62;
@@ -1651,6 +1686,7 @@ function updateMarks() {
   }
   const k = 0.62 + Math.sin(performance.now() / 900) * 0.12; // liseré qui respire doucement (pas de clignotement)
   for (const m of Object.values(marks)) if (m) m.material.opacity = k;
+  if (selMark) selMark.material.opacity = 0.55 + Math.sin(performance.now() / 260) * 0.35;
 }
 let pinTick = 0, lastPinSig = '';
 function updateGame(dt) {

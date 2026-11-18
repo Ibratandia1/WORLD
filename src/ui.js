@@ -435,6 +435,8 @@ export class UI {
   // ---------- Contenu de la fenêtre ----------
   render(pop = false) {
     const box = $('box');
+    const selB = this.place && this.player.inside == null ? this.place : null;
+    if (selB !== this.selShown && state.city3d && state.city3d.select) { this.selShown = selB; state.city3d.select(selB); }
     let shownPlace = null;
     if (this.place) box.innerHTML = this.placeHTML(this.place);
     else if (this.life) box.innerHTML = this.lifeHTML();
@@ -530,7 +532,6 @@ export class UI {
   placeHTML(b, inside = false) {
     const p = this.player, w = this.world;
     const buttons = [];
-    if (!inside) buttons.push(this.actBtn('enter', { building: b.id }));
     // Ici même (pas dans le commerce du même type le plus proche)
     for (const id of Object.keys(ACTIONS)) if (!ACTIONS[id].custom && w.canDoAt(p, id, b)) buttons.push(this.actBtn(id, ACTIONS[id].place.type ? { at: b.id } : {}));
 
@@ -623,7 +624,16 @@ export class UI {
       if (!this.placeMore) return `${this.head(icon, b.name)}${this.miniPlaceHTML(b)}<div class="mini-row">${leave}</div><p class="mini-hint">${t('👆 Touche le comptoir ou un meuble pour agir')}</p>`;
       return `${this.head(icon, b.name)}${jobTop}${note}<div class="choices">${buttons.join('')}</div>${this.shopHTML(b, inside)}${b.type === 'cityhall' ? this.govHTML(b, inside) : ''}<div class="mini-row">${more}${leave}</div>`;
     }
-    return `${this.head(icon, b.name)}${jobTop}${note}<div class="choices">${buttons.join('')}</div>${this.shopHTML(b, inside)}${b.type === 'cityhall' ? this.govHTML(b, inside) : ''}${leave}`;
+    return `${this.head(icon, b.name)}${inside ? "" : this.goBarHTML(b)}${jobTop}${note}<div class="choices">${buttons.join('')}</div>${this.shopHTML(b, inside)}${b.type === 'cityhall' ? this.govHTML(b, inside) : ''}${leave}`;
+  }
+
+  // Fiche vue de dehors : « Y aller » tout en haut, avec le temps de marche
+  goBarHTML(b) {
+    const p = this.player;
+    const dist = Math.min(...b.entrances.map(e => Math.abs(e.x - p.px) + Math.abs(e.y - p.py)));
+    const mins = Math.max(1, Math.round(dist / 1.1));
+    const label = b.type === 'home' && b.id !== p.home ? t('Y aller') : dist < 1.5 ? t('Entrer') : t('Y aller');
+    return `<div class="gobar"><span>🚶 ${L(`${mins} min à pied`, `${mins} min walk`)}</span><button class="go" data-goplace>${label} ➜</button></div>`;
   }
 
   // Petite fiche d'un lieu vu de l'intérieur : l'emploi et qui travaille ici
@@ -1176,6 +1186,7 @@ export class UI {
     if (btn.dataset.setk) { const v = btn.dataset.setv; const changed = settings()[btn.dataset.setk] !== v; setSetting(btn.dataset.setk, /^\d+$/.test(v) ? Number(v) : v); if (btn.dataset.setk === 'gfx' && changed) { setTimeout(() => location.reload(), 150); return; } return this.render(); }
     if (btn.hasAttribute('data-resettips')) { p.tips = []; this.tipAt = -1e9; this.floatNote(t('Les astuces réapparaîtront.')); return; }
     if (btn.hasAttribute('data-cancel')) { w.cancel(p); return this.render(); }
+    if (btn.hasAttribute('data-goplace')) { const b = this.place; if (b && state.goPlace) { if (!(b.type === 'home' && b.id !== p.home)) this.closePanels(); state.goPlace(b); } return this.render(); }
     if (btn.hasAttribute('data-leave')) { w.perform(p, 'leave'); this.placeMore = false; return this.render(); }
     if (btn.hasAttribute('data-more')) { this.placeMore = !this.placeMore; return this.render(); }
     if (btn.hasAttribute('data-furn')) { this.furnOpen = !this.furnOpen; return this.render(true); }

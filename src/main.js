@@ -77,7 +77,8 @@ import('./city3d.js').then(({ startCity3D }) => {
     onFrame: ms => game.update(ms), // le monde avance à chaque image
     // Toucher un lieu : on y va et on entre directement ; un logement qui n'est pas le tien ouvre sa petite fiche (louer)
     // (toucher un lieu = y aller : si on ne peut pas entrer, on marche jusqu'à la porte et la fiche s'ouvre)
-    onPlace: b => {
+    onPlace: b => { if (player.inside !== b.id) state.ui.showPlace(b); }, // toucher = la fiche du lieu (en bas à droite) avec « Y aller »
+    goPlace: b => {
       if (player.inside === b.id) return;
       state.city3d.setFollow(true);
       const walkToDoor = () => {
@@ -100,6 +101,7 @@ import('./city3d.js').then(({ startCity3D }) => {
     onLeave: () => { world.perform(player, 'leave'); state.ui.render(); },
     onBoom: () => { if (player.outdoors && state.ui.sound && state.ui.sound.boom) state.ui.sound.boom(); }, // feu d'artifice
   });
+  state.goPlace = b => state.city3d.goPlace(b);
   document.body.classList.add('v3d');
   for (const id of Object.keys(world.safety ? world.safety.fires : {})) state.city3d.showFire(world.building(+id));
   world.on('fire', e => state.city3d.showFire(e.building));

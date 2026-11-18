@@ -745,3 +745,29 @@ body.indoors #b-rotl, body.indoors #b-rotr { display: none; }
 #settings .guide li::marker { color: var(--accent); }
 #settings .guide summary::after { content: '▾'; margin-left: auto; opacity: .5; transition: transform .2s; }
 #settings .guide details[open] summary::after { transform: rotate(180deg); }
+
+
+/* Épingles v3 : forme de goutte (pointe en bas), ombre au sol, épingle sélectionnée agrandie */
+.pin3d::after { display: none; }
+.pin3d::before { content: ''; position: absolute; left: -7px; top: -3px; width: 14px; height: 5px; border-radius: 50%; background: rgba(20, 20, 40, .28); filter: blur(1px); }
+.pin3d .ic { width: 30px !important; height: 30px !important; left: -15px !important; top: -42px !important; padding: 5px !important; box-sizing: border-box;
+  border-radius: 50% 50% 50% 3px !important; transform: rotate(-45deg); transition: transform .15s ease-out; }
+.pin3d .ic svg { transform: rotate(45deg); }
+.pin3d .st { left: -19px !important; top: -46px !important; z-index: 1; }
+.pin3d .job { top: -50px !important; left: 7px !important; z-index: 1; }
+.pin3d.pin-home .ic, .pin3d.pin-work .ic { width: 40px !important; height: 40px !important; left: -20px !important; top: -56px !important; padding: 7px !important; }
+.pin3d.pin-sel { z-index: 5; }
+.pin3d.pin-sel .ic { transform: rotate(-45deg) scale(1.3); box-shadow: 0 0 0 4px rgba(255, 255, 255, .7), 0 4px 12px rgba(30, 30, 60, .45) !important; }
+
+/* Fiche d'un lieu vu de dehors : « Y aller » en haut */
+#box .gobar { display: flex; align-items: center; gap: 8px; margin: 2px 0 6px; padding: 6px 6px 6px 10px; background: #f3f0fc; border-radius: 12px; }
+#box .gobar span { flex: 1; font-size: 12px; font-weight: 700; color: #5a5470; white-space: nowrap; }
+#box .gobar .go { border: 0; cursor: pointer; background: #7b5cf0; color: #fff; font: inherit; font-weight: 800; font-size: 14px; padding: 8px 16px; border-radius: 10px; box-shadow: 0 3px 10px rgba(123, 92, 240, .35); white-space: nowrap; }
+#box .gobar .go:active { transform: scale(.96); }
+/* bouton « Postuler » sous la liste des postes : même mise en forme que les autres boutons */
+.mp-posbtn button { display: flex; align-items: center; gap: 6px; border: 0; border-radius: 10px; padding: 7px 12px; background: #7b5cf0; color: #fff; font: inherit; font-weight: 700; cursor: pointer; text-align: left; }
+.mp-posbtn button span { font-family: var(--emoji); font-size: 15px; }
+.mp-posbtn button .lbl { display: flex; flex-direction: column; }
+.mp-posbtn button small { display: block; font-size: 10px; font-weight: 600; color: var(--bad); }
+.mp-posbtn button[disabled] { background: #f1ecfb; color: var(--ink); opacity: .75; cursor: default; }
+.mp-posbtn button em { font-style: normal; font-size: 11px; opacity: .8; white-space: nowrap; }
