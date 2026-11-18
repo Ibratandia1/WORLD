@@ -256,7 +256,11 @@ export class UI {
     if (btn.dataset.tab) return this.openSettings(btn.dataset.tab);
     if (btn.hasAttribute('data-sndtest')) { this.sound.start(); setTimeout(() => this.sound.fanfare(), 120); setTimeout(() => this.sound.sparkle(), 700); return; }
     if (btn.dataset.set) { setSetting(btn.dataset.set, !settings()[btn.dataset.set]); if (btn.dataset.set === 'sound' && settings().sound) this.sound.start(); }
-    else if (btn.dataset.setk) { const v = btn.dataset.setv; setSetting(btn.dataset.setk, /^\d+$/.test(v) ? Number(v) : v); }
+    else if (btn.dataset.setk) {
+      const v = btn.dataset.setv, changed = String(settings()[btn.dataset.setk]) !== v;
+      setSetting(btn.dataset.setk, /^\d+$/.test(v) ? Number(v) : v);
+      if (btn.dataset.setk === 'gfx' && changed) setTimeout(() => location.reload(), 150); // qualité graphique : on relance (la partie est sauvegardée en quittant)
+    }
     else if (btn.hasAttribute('data-resettips')) { p.tips = []; this.tipAt = -1e9; this.floatNote(t('Les astuces réapparaîtront.')); }
     this.openSettings();
   }
@@ -286,7 +290,8 @@ export class UI {
         <div class="choices two">${sw('vibrate', 'Vibrations', '📳')}${sw('tips', 'Astuces', '💡')}</div>
         <h3>⏱️ ${t('Les événements s’effacent après')}</h3>${chips('eventTimer', [[8, '8 s'], [12, '12 s'], [25, '25 s'], [0, 'jamais']])}
         <div class="choices">${this.choiceHTML('data-resettips', '💡', 'Revoir les astuces', '', true)}</div>`,
-      battery: `<p>${t('Moins de passants et de voitures ; résolution réduite au prochain lancement.')}</p>
+      battery: `<h3>🖥️ ${t('Qualité graphique')}</h3>${chips('gfx', [['auto', 'Auto'], ['high', 'Haute'], ['medium', 'Moyenne'], ['low', 'Basse']])}<p>${t('Auto : le jeu s’adapte à ton appareil. Basse : plus fluide sur un appareil peu puissant. Le jeu redémarre (ta partie est sauvegardée).')}</p>
+        <p>${t('Moins de passants et de voitures ; résolution réduite au prochain lancement.')}</p>
         <div class="choices">${sw('saver', 'Économie de batterie', '🔋')}</div>`,
     };
     const tab = PAGES[this.setTab] ? this.setTab : 'general';
@@ -1162,7 +1167,7 @@ export class UI {
     if (btn.hasAttribute('data-close')) { if (p.inside != null && !this.place && !this.panel && !this.person && !this.life) this.stayHidden = p.inside; this.placeMore = false; this.closePanels(); return this.render(); }
     if (btn.hasAttribute('data-evclose')) { this.director.close(); this.evShown = null; return this.render(); }
     if (btn.dataset.set) { setSetting(btn.dataset.set, !settings()[btn.dataset.set]); if (btn.dataset.set === 'sound' && settings().sound) this.sound.start(); return this.render(); }
-    if (btn.dataset.setk) { const v = btn.dataset.setv; setSetting(btn.dataset.setk, /^\d+$/.test(v) ? Number(v) : v); return this.render(); }
+    if (btn.dataset.setk) { const v = btn.dataset.setv; const changed = settings()[btn.dataset.setk] !== v; setSetting(btn.dataset.setk, /^\d+$/.test(v) ? Number(v) : v); if (btn.dataset.setk === 'gfx' && changed) { setTimeout(() => location.reload(), 150); return; } return this.render(); }
     if (btn.hasAttribute('data-resettips')) { p.tips = []; this.tipAt = -1e9; this.floatNote(t('Les astuces réapparaîtront.')); return; }
     if (btn.hasAttribute('data-cancel')) { w.cancel(p); return this.render(); }
     if (btn.hasAttribute('data-leave')) { w.perform(p, 'leave'); this.placeMore = false; return this.render(); }

@@ -18,6 +18,7 @@ export const DEFAULTS = {
   textSize: 'normal',  // 'small' | 'normal' | 'large'
   view3d: true,
   musVol: 0.8, ambVol: 0.8, uiVol: 1,  // volumes séparés (0 à 1)        // ville en 3D (Three.js) ; false = ancienne vue 2D isométrique
+  gfx: 'auto',        // qualité graphique : 'auto' | 'high' | 'medium' | 'low' (relance le jeu)
   saver: false,       // économie de batterie (moins de détails, résolution réduite au prochain lancement)
   welcomed: false,     // cartes de bienvenue déjà vues sur cet appareil
 };

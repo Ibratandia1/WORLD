@@ -37,6 +37,8 @@ L'utilisateur parle français : répondre en français, textes du jeu en frança
 
 - **Structure des immeubles** (city3d.js) : `plainBuilding()` coupe les grands immeubles ordinaires (2 cases ou plus, sauf colombages, 2 sur 3) en deux corps de hauteurs différentes (±1–2 étages, même style ; `r.ref` = emprise entière en cases, les corps se chevauchent de 0,04 pour ne pas laisser de fente). `building(..., styleOverride)`. Façades : bandeaux de pierre à chaque étage (haussmannien, vieille pierre), bow-window côté rue (1 sur 4, 4 étages et plus), porte d'entrée avec encadrement côté rue (immeubles sans boutique au rez-de-chaussée ; marquise vitrée pour le moderne).
 
+- **Qualité graphique** (2026-11-18) : réglage `gfx` (⚙️ → Batterie : Auto / Haute / Moyenne / Basse ; un changement relance le jeu, la partie est sauvée sur `pagehide`). Résolution : téléphone auto 1,3 (haute 1,6, moyenne 1,15, basse 1), PC auto 1,5 adaptatif (haute 2, moyenne 1,25, basse 1). Ombres : téléphone `BasicShadowMap` (PCF en haute), PC PCFSoft (PCF en moyenne), aucune en basse. Halo de nuit seulement PC auto / haute. `LITE` (téléphone hors haute, ou basse) retire garde-corps des balcons et bandeaux d'étage. Images/s max : PC 60 (écrans 120/144 Hz), téléphone et basse 30, économie de batterie 20. Mode auto PC quand ça rame : d'abord halo coupé, puis ombres 1024, la résolution en DERNIER (sinon image floue).
+
 ## Architecture
 - `src/sim/` : simulation pure JS, **aucune dépendance à Phaser ni au DOM** (pour tourner un jour côté serveur).
   - `actions.js` catalogue des actions · `world.js` temps (jour 1 = lundi), météo, déplacements · `ai.js` choix des PNJ **et** routine auto du joueur

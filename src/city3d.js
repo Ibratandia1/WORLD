@@ -43,8 +43,14 @@ const mobile = matchMedia('(pointer: coarse)').matches;
 // (on commence net, on baisse un peu si l'image rame, on remonte quand ça va mieux)
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 // Téléphone : résolution fixe et modérée (l'anticrénelage lisse les bords) — c'est elle qui fait chauffer le plus
-const PR_MAX = Math.min(devicePixelRatio, mobile ? 1.15 : 1.75), PR_MIN = Math.min(devicePixelRatio, mobile ? 0.9 : 1);
-let pixelRatio = Math.min(devicePixelRatio, mobile ? 1.15 : 1.5); // (l'anticrénelage garde les bords lisses ; on monte si l'appareil suit)
+// Qualité graphique (⚙️ → Batterie et graphismes) : auto (s'adapte) / high / medium / low ; un changement relance le jeu
+const GFX = opts.demo ? 'auto' : (settings().gfx || 'auto');
+const lowGfx = GFX === 'low';
+const PR_FIXED = GFX === 'high' ? Math.min(devicePixelRatio, mobile ? 1.6 : 2) : GFX === 'medium' ? Math.min(devicePixelRatio, mobile ? 1.15 : 1.25) : lowGfx ? 1 : null;
+// Téléphone, petits détails retirés (garde-corps des balcons, bandeaux d'étage : ils scintillent à cette taille et coûtent cher)
+const LITE = (mobile && GFX !== 'high') || lowGfx;
+const PR_MAX = PR_FIXED ?? Math.min(devicePixelRatio, mobile ? 1.3 : 1.75), PR_MIN = PR_FIXED ?? Math.min(devicePixelRatio, mobile ? 0.9 : 1);
+let pixelRatio = PR_FIXED ?? Math.min(devicePixelRatio, mobile ? 1.3 : 1.5); // (l'anticrénelage garde les bords lisses ; on monte si l'appareil suit)
 renderer.setPixelRatio(pixelRatio);
 renderer.setSize(innerWidth, innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -52,7 +58,9 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.95;
 renderer.shadowMap.enabled = true;
 const adaptive = { t: 0, frames: 0, calm: 0, slow: 0, level: 0 };
-renderer.shadowMap.type = mobile ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap; // (ombres douces : trop coûteuses au téléphone)
+// ombres : un seul échantillon au téléphone (bien moins coûteux), filtrées en haute qualité, douces sur PC
+renderer.shadowMap.type = mobile ? (GFX === 'high' ? THREE.PCFShadowMap : THREE.BasicShadowMap) : GFX === 'medium' ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
+if (lowGfx) renderer.shadowMap.enabled = false; // qualité basse : pas d'ombres
 renderer.shadowMap.autoUpdate = false;
 renderer.shadowMap.needsUpdate = true;
 if (opts.demo) document.body.appendChild(renderer.domElement);
@@ -104,7 +112,7 @@ const hemi = new THREE.HemisphereLight(0xdfeeff, 0x8a7a66, 0.8);
 scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff1dc, 2.6);
 sun.castShadow = true;
-sun.shadow.mapSize.set(mobile ? 1024 : 2048, mobile ? 1024 : 2048);
+sun.shadow.mapSize.set(mobile || GFX === 'medium' ? 1024 : 2048, mobile || GFX === 'medium' ? 1024 : 2048);
 const sc = sun.shadow.camera; sc.left = -30; sc.right = 30; sc.top = 30; sc.bottom = -30; sc.near = 1; sc.far = 120;
 sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
 scene.add(sun, sun.target);
@@ -690,7 +698,7 @@ function building(r, type, seed, bid = null, floorsOverride = null, styleOverrid
   const wallBase = y;
   if (wallBase === base) solidGeos.push(paint(box(w + 0.03, 0.14, d + 0.03, x, base, z), shade(stone, 0.82)));
   solidGeos.push(paint(box(w + 0.05, 0.035, d + 0.05, x, wallBase === base ? base + FLOOR : wallBase, z), shade(stone, 1.05)));
-  if (upper >= 3 && style === 'haus') {
+  if (upper >= 3 && style === 'haus' && !LITE) {
     for (const lvl of [wallBase + FLOOR * (wallBase === base ? 2 : 1), wallBase + h - FLOOR].slice(0, attic ? 1 : 2)) {
       solidGeos.push(paint(box(w + 0.12, 0.025, d + 0.12, x, lvl, z), shade(stone, 0.95)));          // dalle du balcon
       for (const [bw, bd, ox, oz] of [[w + 0.12, 0.012, 0, d / 2 + 0.06], [w + 0.12, 0.012, 0, -d / 2 - 0.06], [0.012, d + 0.12, w / 2 + 0.06, 0], [0.012, d + 0.12, -w / 2 - 0.06, 0]]) {
@@ -700,7 +708,7 @@ function building(r, type, seed, bid = null, floorsOverride = null, styleOverrid
   }
   // ---------- Structure de la façade ----------
   // Bandeaux de pierre à chaque étage (haussmannien, vieille pierre) : la façade a du relief
-  if (style === 'haus' || style === 'old') {
+  if ((style === 'haus' || style === 'old') && !LITE) {
     for (let k = 1; k < upper; k++) {
       const lvl = wallBase + k * FLOOR - 0.012;
       solidGeos.push(paint(box(w + 0.028, 0.016, d + 0.028, x, lvl, z), shade(stone, 1.07)));
@@ -1387,7 +1395,7 @@ const sky = new THREE.Mesh(new THREE.SphereGeometry(140, 24, 12), skyMat);
 sky.userData.noTap = true; sky.renderOrder = -1; scene.add(sky);
 // Halo lumineux la nuit (fenêtres, lampadaires, feux) : seulement sur les appareils puissants
 let composer = null, bloom = null;
-if (!mobile && !opts.saver) {
+if (!mobile && !opts.saver && (GFX === 'auto' || GFX === 'high')) {
   composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
   bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0, 0.3, 0.9);
@@ -1731,7 +1739,7 @@ function updateGame(dt) {
 }
 
 // ---------- Décor vivant : saisons, neige, déchets, passants, pigeons, stands des fêtes ----------
-const quality = opts.saver ? 0 : mobile ? 1 : 2; // nombre de passants / pigeons selon l'appareil
+const quality = opts.saver || lowGfx ? 0 : mobile || GFX === 'medium' ? 1 : 2; // nombre de passants / pigeons selon l'appareil et la qualité
 // Silhouette d'une personne en un seul maillage (1 appel de dessin par personne)
 function figureGeo(look) {
   const parts = [
@@ -2081,23 +2089,23 @@ function frame() {
   if (opts.onFrame) { try { opts.onFrame(raw * 1000); } catch (err) { if (loopErrors++ < 3) console.error('Jeu :', err); } }
   acc += raw;
   // Images par seconde plafonnées : 30 au téléphone (deux fois moins de travail → il ne chauffe plus), 20 en économie de batterie
-  const capDt = opts.demo ? 0 : opts.saver ? 1 / 20 : mobile ? 1 / 30 : 0;
+  const capDt = opts.demo ? 0 : opts.saver ? 1 / 20 : mobile || lowGfx ? 1 / 30 : 1 / 60;
   if (capDt && acc < capDt - 0.003) { requestAnimationFrame(loop); return; }
   const dt = Math.min(acc, 0.1); acc = 0;
   // Résolution adaptative (pas en économie de batterie, déjà plafonnée à 30 images/s)
-  if (!opts.saver && !opts.demo) {
+  if (!opts.saver && !opts.demo && GFX === 'auto') {
     adaptive.frames++; adaptive.t += dt;
     if (adaptive.t >= 2) {
       const fps = adaptive.frames / adaptive.t; adaptive.frames = 0; adaptive.t = 0;
       let pr = pixelRatio;
       const target = capDt ? 1 / capDt : 60;
-      if (fps < target * 0.75 && pr > PR_MIN) { pr = Math.max(PR_MIN, pr - 0.15); adaptive.calm = 0; }
-      else if (fps < target * 0.68 && pr <= PR_MIN && ++adaptive.slow >= 2 && adaptive.level < 2) {
-        // déjà à la résolution minimale : on retire d'abord le halo lumineux, puis on allège les ombres
-        adaptive.slow = 0; adaptive.level++;
+      if (fps < target * 0.75 && adaptive.level < 2 && !mobile) {
+        // ça rame : on retire d'abord le halo lumineux de nuit, puis on allège les ombres (l'image reste nette)
+        adaptive.level++; adaptive.calm = 0;
         if (adaptive.level === 1) composer = null;
         if (adaptive.level === 2 && sun.shadow.mapSize.x > 1024) { sun.shadow.mapSize.set(1024, 1024); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } renderer.shadowMap.needsUpdate = true; }
       }
+      else if (fps < target * 0.75 && pr > PR_MIN) { pr = Math.max(PR_MIN, pr - 0.1); adaptive.calm = 0; } // en dernier : la résolution
       else if (!mobile && fps > 55) { if (++adaptive.calm >= 3 && pr < PR_MAX) { pr = Math.min(PR_MAX, pr + 0.1); adaptive.calm = 0; } }
       else adaptive.calm = 0;
       if (pr !== pixelRatio) { pixelRatio = pr; renderer.setPixelRatio(pr); if (composer) composer.setPixelRatio(pr); api.pixelRatio = pr; }
