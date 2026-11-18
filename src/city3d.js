@@ -201,6 +201,105 @@ const facadeGlow = canvasTex(512, (g, S) => {
   }
 });
 facadeGlow.colorSpace = THREE.SRGBColorSpace;
+// ---------- Autres styles d'immeubles (pour qu'ils ne se ressemblent pas tous) ----------
+// Même découpage que la façade haussmannienne : 4 travées × 4 étages par motif (une case = une fenêtre).
+// old = vieille pierre à volets (Marais XVIIe) · brick = brique rouge d'atelier · timber = colombages · modern = béton et grandes baies
+const STYLE_DRAW = {
+  old: (g, S, glow) => {
+    const c = S / 4;
+    if (!glow) { g.fillStyle = '#ffffff'; g.fillRect(0, 0, S, S); for (let i = 0; i < 900; i++) { g.fillStyle = Math.random() < 0.5 ? 'rgba(0,0,0,0.035)' : 'rgba(255,255,255,0.05)'; g.fillRect(Math.random() * S, Math.random() * S, 3, 2); } }
+    for (let fy = 0; fy < 4; fy++) for (let bx = 0; bx < 4; bx++) {
+      const x = bx * c, y = fy * c;
+      if (glow) { if (LIT[(fy * 4 + bx + 5) % 16]) { g.fillStyle = '#ffd890'; g.fillRect(x + c * 0.36, y + c * 0.26, c * 0.28, c * 0.5); } continue; }
+      g.fillStyle = '#ece6da'; g.fillRect(x + c * 0.32, y + c * 0.22, c * 0.36, c * 0.58);       // encadrement de pierre
+      g.fillStyle = '#3a4456'; g.fillRect(x + c * 0.36, y + c * 0.26, c * 0.28, c * 0.5);        // vitre (plus étroite)
+      g.fillStyle = '#ece6da'; g.fillRect(x + c * 0.36, y + c * 0.48, c * 0.28, c * 0.02);
+      g.fillStyle = '#4f6b52'; g.fillRect(x + c * 0.18, y + c * 0.24, c * 0.13, c * 0.54); g.fillRect(x + c * 0.69, y + c * 0.24, c * 0.13, c * 0.54); // volets
+      g.fillStyle = 'rgba(0,0,0,0.18)'; for (let k = 1; k < 6; k++) { g.fillRect(x + c * 0.18, y + c * (0.24 + k * 0.09), c * 0.13, 2); g.fillRect(x + c * 0.69, y + c * (0.24 + k * 0.09), c * 0.13, 2); }
+    }
+  },
+  brick: (g, S, glow) => {
+    const c = S / 4;
+    if (!glow) {
+      g.fillStyle = '#d9cfc4'; g.fillRect(0, 0, S, S);                                   // joints
+      const bh = S / 32, bw = S / 12;
+      for (let r = 0; r < 32; r++) for (let k = -1; k < 13; k++) {
+        const v = 0.85 + Math.random() * 0.3;
+        g.fillStyle = `rgb(${Math.round(176 * v)},${Math.round(82 * v)},${Math.round(60 * v)})`;
+        g.fillRect(k * bw + (r % 2) * bw / 2 + 1, r * bh + 1, bw - 2, bh - 2);
+      }
+    }
+    for (let fy = 0; fy < 4; fy++) for (let bx = 0; bx < 4; bx++) {
+      const x = bx * c, y = fy * c;
+      if (glow) { if (LIT[(fy * 4 + bx + 9) % 16]) { g.fillStyle = '#ffe2a8'; g.fillRect(x + c * 0.16, y + c * 0.18, c * 0.68, c * 0.62); } continue; }
+      g.fillStyle = '#efe8dc'; g.fillRect(x + c * 0.12, y + c * 0.12, c * 0.76, c * 0.06);       // linteau clair
+      g.fillStyle = '#2e3542'; g.fillRect(x + c * 0.16, y + c * 0.18, c * 0.68, c * 0.62);       // verrière d'atelier
+      g.fillStyle = '#596273'; for (let k = 1; k < 4; k++) g.fillRect(x + c * (0.16 + k * 0.17), y + c * 0.18, 2, c * 0.62);
+      for (let k = 1; k < 3; k++) g.fillRect(x + c * 0.16, y + c * (0.18 + k * 0.2), c * 0.68, 2);
+      g.fillStyle = '#efe8dc'; g.fillRect(x + c * 0.12, y + c * 0.8, c * 0.76, c * 0.04);
+    }
+  },
+  timber: (g, S, glow) => {
+    const c = S / 4;
+    if (!glow) {
+      g.fillStyle = '#ffffff'; g.fillRect(0, 0, S, S);
+      g.fillStyle = '#5b3a24';
+      for (let fy = 0; fy <= 4; fy++) g.fillRect(0, fy * c - 5, S, 10);                          // sablières (à chaque étage)
+      for (let bx = 0; bx <= 4; bx++) g.fillRect(bx * c - 4, 0, 8, S);                           // poteaux
+      g.lineWidth = 7; g.strokeStyle = '#5b3a24';
+      for (let fy = 0; fy < 4; fy++) for (let bx = 0; bx < 4; bx++) {                             // croix de Saint-André sous les fenêtres
+        const x = bx * c, y = fy * c; g.beginPath(); g.moveTo(x + 6, y + c - 6); g.lineTo(x + c * 0.3, y + c * 0.78); g.moveTo(x + c - 6, y + c - 6); g.lineTo(x + c * 0.7, y + c * 0.78); g.stroke();
+      }
+    }
+    for (let fy = 0; fy < 4; fy++) for (let bx = 0; bx < 4; bx++) {
+      const x = bx * c, y = fy * c;
+      if (glow) { if (LIT[(fy * 4 + bx + 3) % 16]) { g.fillStyle = '#ffcf7a'; g.fillRect(x + c * 0.32, y + c * 0.24, c * 0.36, c * 0.44); } continue; }
+      g.fillStyle = '#5b3a24'; g.fillRect(x + c * 0.28, y + c * 0.2, c * 0.44, c * 0.52);
+      g.fillStyle = '#4a5468'; g.fillRect(x + c * 0.32, y + c * 0.24, c * 0.36, c * 0.44);
+      g.fillStyle = 'rgba(255,255,255,0.25)'; for (let k = 1; k < 3; k++) { g.fillRect(x + c * (0.32 + k * 0.12), y + c * 0.24, 1.5, c * 0.44); g.fillRect(x + c * 0.32, y + c * (0.24 + k * 0.15), c * 0.36, 1.5); }
+    }
+  },
+  modern: (g, S, glow) => {
+    const c = S / 4;
+    if (!glow) { g.fillStyle = '#ffffff'; g.fillRect(0, 0, S, S); }
+    for (let fy = 0; fy < 4; fy++) for (let bx = 0; bx < 4; bx++) {
+      const x = bx * c, y = fy * c;
+      if (glow) { if (LIT[(fy * 4 + bx + 11) % 16]) { g.fillStyle = '#fff0d0'; g.fillRect(x + c * 0.04, y + c * 0.14, c * 0.92, c * 0.7); } continue; }
+      const grd = g.createLinearGradient(x, y, x + c, y + c); grd.addColorStop(0, '#7fa6c8'); grd.addColorStop(1, '#3f5f80');
+      g.fillStyle = grd; g.fillRect(x + c * 0.04, y + c * 0.14, c * 0.92, c * 0.7);               // grande baie
+      g.fillStyle = 'rgba(255,255,255,0.25)'; g.fillRect(x + c * 0.04, y + c * 0.14, c * 0.92, c * 0.08);
+      g.fillStyle = '#2b2f36'; g.fillRect(x + c * 0.49, y + c * 0.14, 3, c * 0.7);
+    }
+  },
+};
+const STYLE_MATS = {};
+for (const [k, draw] of Object.entries(STYLE_DRAW)) {
+  const map = canvasTex(512, (g, S) => draw(g, S, false));
+  const glow = canvasTex(512, (g, S) => { g.fillStyle = '#000'; g.fillRect(0, 0, S, S); draw(g, S, true); });
+  STYLE_MATS[k] = new THREE.MeshStandardMaterial({ vertexColors: true, map, emissiveMap: glow, emissive: 0xffffff, emissiveIntensity: 0, roughness: k === 'modern' ? 0.55 : 0.88 });
+}
+const STYLE_GEOS = { old: [], brick: [], timber: [], modern: [] };
+// Couleurs (multipliées par la texture) : enduits du Marais, briques plus ou moins sombres, béton clair
+const STYLE_COLORS = {
+  old: [0xf3ead6, 0xeedcb8, 0xe9d3c0, 0xe2e0d6, 0xf0dcae],
+  brick: [0xffffff, 0xf0dcd2, 0xe2c8bc, 0xfff0e6],
+  timber: [0xf6eedd, 0xf2e2bf, 0xeadfcf, 0xf4e6d0],
+  modern: [0xe8eaec, 0xd9dde2, 0xf2efe9, 0xdfe6e3],
+};
+// Style d'un immeuble ordinaire selon sa graine : moitié haussmannien, le reste varié
+function styleOf(seed) {
+  const k = ((seed * 2654435761) >>> 0) % 20;
+  return k < 9 ? 'haus' : k < 13 ? 'old' : k < 16 ? 'brick' : k < 18 ? 'timber' : 'modern';
+}
+// Toit à deux pans (faîtage le long du grand côté) : pans au toit, pignons triangulaires au mur
+function gable(w, d, h, x, y, z) {
+  const a = w / 2, b = d / 2, alongX = w >= d;
+  const v = alongX ? [-a, 0, -b, a, 0, -b, a, 0, b, -a, 0, b, -a, h, 0, a, h, 0] : [-a, 0, -b, a, 0, -b, a, 0, b, -a, 0, b, 0, h, -b, 0, h, b];
+  const slopes = alongX ? [0, 4, 5, 0, 5, 1, 3, 2, 5, 3, 5, 4] : [0, 3, 5, 0, 5, 4, 1, 4, 5, 1, 5, 2];
+  const ends = alongX ? [0, 3, 4, 1, 5, 2] : [0, 4, 1, 3, 2, 5];
+  const mk = idx => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); g.setIndex(idx); const n = g.toNonIndexed(); n.computeVertexNormals(); return n.translate(x, y, z); };
+  return { slopes: mk(slopes), ends: mk(ends) };
+}
 // Rez-de-chaussée commerçant : grande vitrine + porte, devanture teintée par la couleur du commerce
 const shopMap = canvasTex(256, (g, S) => {
   g.fillStyle = '#ffffff'; g.fillRect(0, 0, S, S);
@@ -541,7 +640,9 @@ function building(r, type, seed, bid = null, floorsOverride = null) {
     if (bid != null) tops[bid] = base + h + 0.1;
     return;
   }
-  const stone = PUBLIC[type] ?? STONE[seed % STONE.length];
+  const plainType = !PUBLIC[type] && !SHOP_COLOR[type] && type !== 'gym' || type === 'filler' || type === 'filler-shop';
+  const style = plainType ? styleOf(seed) : 'haus';
+  const stone = style !== 'haus' ? STYLE_COLORS[style][seed % STYLE_COLORS[style].length] : PUBLIC[type] ?? STONE[seed % STONE.length];
   const shopType = SHOP_COLOR[type];
   let y = base;
   if (shopType || type === 'filler-shop') { // rez-de-chaussée commerçant + store
@@ -553,14 +654,22 @@ function building(r, type, seed, bid = null, floorsOverride = null) {
     }
     y += FLOOR;
   }
-  const upper = Math.max(1, floors - (y > base ? 1 : 0));
+  // hauteur selon le style : les vieilles maisons sont basses, les immeubles modernes plus hauts
+  const styleFloors = style === 'old' ? Math.min(floors, 4 + (seed % 2)) : style === 'timber' ? Math.min(floors, 3 + (seed % 2)) : style === 'brick' ? Math.max(3, Math.min(floors, 4 + (seed % 3))) : style === 'modern' ? Math.max(floors, 6 + (seed % 3)) : floors;
+  const upper = Math.max(1, styleFloors - (y > base ? 1 : 0));
   const h = upper * FLOOR;
   // Silhouettes variées : un immeuble sur trois a un dernier étage en retrait (terrasse filante) ;
   // chaînes d'angle en pierre plus claire pour bien lire les volumes
   const plain = !PUBLIC[type] && !SHOP_COLOR[type] || type === 'filler' || type === 'filler-shop';
-  const attic = plain && upper >= 4 && seed % 3 === 0;
+  const attic = plain && style === 'haus' && upper >= 4 && seed % 3 === 0;
   const hMain = attic ? h - FLOOR : h;
-  wallGeos.push(paint(wallUV(box(w, hMain, d, x, y, z), w, hMain, d, y - base), stone));
+  const wallArr = style === 'haus' ? wallGeos : STYLE_GEOS[style];
+  if (style === 'timber' && hMain > FLOOR) { // colombages : les étages débordent au-dessus du rez-de-chaussée (encorbellement)
+    wallArr.push(paint(wallUV(box(w - 0.06, FLOOR, d - 0.06, x, y, z), w - 0.06, FLOOR, d - 0.06, y - base), stone));
+    wallArr.push(paint(wallUV(box(w + 0.06, hMain - FLOOR, d + 0.06, x, y + FLOOR, z), w + 0.06, hMain - FLOOR, d + 0.06, y + FLOOR - base), stone));
+    solidGeos.push(paint(box(w + 0.1, 0.05, d + 0.1, x, y + FLOOR - 0.02, z), 0x5b3a24));
+  } else wallArr.push(paint(wallUV(box(w, hMain, d, x, y, z), w, hMain, d, y - base), stone));
+  if (style === 'modern') for (let k = 1; k <= upper; k++) solidGeos.push(paint(box(w + 0.05, 0.03, d + 0.05, x, y + k * FLOOR - 0.03, z), 0xf4f4f2)); // dalles en bandeau
   if (attic) {
     const aw = w - 0.26, ad = d - 0.26;
     wallGeos.push(paint(wallUV(box(aw, FLOOR, ad, x, y + hMain, z), aw, FLOOR, ad, y + hMain - base), shade(stone, 1.03)));
@@ -571,7 +680,7 @@ function building(r, type, seed, bid = null, floorsOverride = null) {
     // jardinières sur la terrasse
     for (let k = 0; k < 3; k++) solidGeos.push(paint(box(0.12, 0.08, 0.08, x - w / 2 + 0.2 + k * (w - 0.4) / 2, y + hMain + 0.05, z + d / 2 - 0.08), 0x9a5b3c, 0x5aa04a));
   }
-  if (plain && type !== 'filler-shop' || type === 'filler') {
+  if ((plain && type !== 'filler-shop' || type === 'filler') && (style === 'haus' || style === 'old')) {
     for (const [ox, oz] of [[w / 2, d / 2], [-w / 2, d / 2], [w / 2, -d / 2], [-w / 2, -d / 2]]) {
       solidGeos.push(paint(box(0.06, hMain, 0.06, x + ox, y, z + oz), shade(stone, 1.08)));
     }
@@ -581,7 +690,7 @@ function building(r, type, seed, bid = null, floorsOverride = null) {
   const wallBase = y;
   if (wallBase === base) solidGeos.push(paint(box(w + 0.03, 0.14, d + 0.03, x, base, z), shade(stone, 0.82)));
   solidGeos.push(paint(box(w + 0.05, 0.035, d + 0.05, x, wallBase === base ? base + FLOOR : wallBase, z), shade(stone, 1.05)));
-  if (upper >= 3) {
+  if (upper >= 3 && style === 'haus') {
     for (const lvl of [wallBase + FLOOR * (wallBase === base ? 2 : 1), wallBase + h - FLOOR].slice(0, attic ? 1 : 2)) {
       solidGeos.push(paint(box(w + 0.12, 0.025, d + 0.12, x, lvl, z), shade(stone, 0.95)));          // dalle du balcon
       for (const [bw, bd, ox, oz] of [[w + 0.12, 0.012, 0, d / 2 + 0.06], [w + 0.12, 0.012, 0, -d / 2 - 0.06], [0.012, d + 0.12, w / 2 + 0.06, 0], [0.012, d + 0.12, -w / 2 - 0.06, 0]]) {
@@ -593,11 +702,13 @@ function building(r, type, seed, bid = null, floorsOverride = null) {
   const bw = w, bd = d; // emprise au sol (enseignes, landmark)
   if (attic) { w -= 0.26; d -= 0.26; } // le toit coiffe l'étage en retrait
   // Toit-terrasse végétalisé sur un immeuble ordinaire sur cinq (sinon toit à la Mansart en zinc ou ardoise)
-  const garden = plain && !attic && seed % 5 === 1;
+  const garden = plain && !attic && (style === 'haus' ? seed % 5 === 1 : style === 'modern' && seed % 2 === 0);
+  const flat = style === 'brick' || (style === 'modern' && !garden);
+  const pitched = style === 'old' || style === 'timber';
   // corniche + toit, cheminées
-  solidGeos.push(paint(box(w + 0.08, 0.06, d + 0.08, x, y, z), 0xd8cfbd));
+  solidGeos.push(paint(box(w + 0.08, 0.06, d + 0.08, x, y, z), style === 'brick' ? shade(0xb5583f, 0.9) : style === 'timber' ? 0x5b3a24 : style === 'modern' ? 0xf4f4f2 : 0xd8cfbd));
   y += 0.06;
-  const roofH = garden ? 0.06 : type === 'firestation' || type === 'prison' ? 0.12 : 0.5;
+  const roofH = flat ? 0.1 : style === 'timber' ? 0.75 : style === 'old' ? 0.6 : garden ? 0.06 : type === 'firestation' || type === 'prison' ? 0.12 : 0.5;
   const rcol = ROOF_BY_TYPE[type] ?? ROOFS[seed % ROOFS.length]; // les lieux importants ont un toit de couleur reconnaissable
   if (garden) {
     solidGeos.push(paint(box(w - 0.04, 0.05, d - 0.04, x, y, z), 0x9aa0aa));                            // dalle
@@ -611,11 +722,32 @@ function building(r, type, seed, bid = null, floorsOverride = null) {
     for (const [bw2, bd2, ox, oz] of [[w, 0.015, 0, d / 2], [w, 0.015, 0, -d / 2], [0.015, d, w / 2, 0], [0.015, d, -w / 2, 0]]) {
       solidGeos.push(paint(box(bw2, 0.08, bd2, x + ox, y, z + oz), 0x2a2c33));                          // garde-corps
     }
+  } else if (flat) {
+    // toit plat : muret tout autour, château d'eau ou verrières (brique), climatiseurs (moderne)
+    const pc = style === 'brick' ? shade(0xb5583f, 0.85) : 0xe6e6e2;
+    solidGeos.push(paint(box(w - 0.02, 0.04, d - 0.02, x, y, z), 0x8f949c));
+    for (const [pw, pd, ox, oz] of [[w, 0.06, 0, d / 2 - 0.03], [w, 0.06, 0, -d / 2 + 0.03], [0.06, d, w / 2 - 0.03, 0], [0.06, d, -w / 2 + 0.03, 0]]) solidGeos.push(paint(box(pw, 0.12, pd, x + ox, y, z + oz), pc));
+    if (style === 'brick' && seed % 2 === 0) { // château d'eau en bois sur pieds
+      const tx = x + (w / 2 - 0.35) * (seed % 4 < 2 ? 1 : -1);
+      for (const [ox, oz] of [[-0.1, -0.1], [0.1, -0.1], [-0.1, 0.1], [0.1, 0.1]]) solidGeos.push(paint(box(0.025, 0.25, 0.025, tx + ox, y, z + oz), 0x3a3a40));
+      solidGeos.push(paint(new THREE.CylinderGeometry(0.17, 0.17, 0.3, 12).translate(tx, y + 0.4, z), 0x8a5a3c));
+      solidGeos.push(paint(new THREE.ConeGeometry(0.19, 0.14, 12).translate(tx, y + 0.62, z), 0x4a4a52));
+    } else if (style === 'brick') { // verrières en dents de scie
+      for (let k = 0; k < 3; k++) solidGeos.push(paint(new THREE.BoxGeometry(w * 0.7, 0.14, 0.05).rotateX(-0.6).translate(x, y + 0.1, z - d * 0.25 + k * d * 0.25), 0x9fc4e8));
+    } else { // climatiseurs et cage d'escalier
+      solidGeos.push(paint(box(0.3, 0.22, 0.3, x - w * 0.2, y, z + d * 0.15), 0xd0d4da));
+      for (let k = 0; k < 2; k++) solidGeos.push(paint(box(0.16, 0.1, 0.12, x + w * 0.15 + k * 0.2, y + 0.02, z - d * 0.2), 0xb9bec6));
+    }
+  } else if (pitched) {
+    // toit à deux pans : ardoise (vieille pierre) ou tuiles (colombages), qui déborde un peu
+    const gr = gable(w + 0.14, d + 0.14, roofH, x, y, z);
+    roofGeos.push(paint(gr.slopes, style === 'timber' ? [0x9c4a32, 0x8a4a36, 0xa5573a][seed % 3] : [0x4a5160, 0x3f4552, 0x56606f][seed % 3]));
+    roofGeos.push(paint(gr.ends, stone)); // (pignons : même format que les toits, non indexé)
   } else roofGeos.push(paint(mansard(w + 0.02, d + 0.02, roofH, Math.min(0.32, Math.min(w, d) * 0.3), x, y, z), rcol));
   if (bid != null) tops[bid] = Math.max(tops[bid] || 0, y + roofH);
   if (bid != null) landmark(type, r, x, z, bw, bd, base, y);
   // Lucarnes dans le toit en zinc (petites fenêtres à fronton), réparties sur les longs côtés
-  if (roofH > 0.2) {
+  if (roofH > 0.2 && style !== 'timber') {
     const inset = Math.min(0.32, Math.min(w, d) * 0.3);
     const along = w >= d;
     const len = along ? w : d, n = Math.max(1, Math.floor(len / 0.55));
@@ -786,6 +918,7 @@ for (const t of fillerTiles) {
   building({ x0: t.x, y0: t.y, w, h }, nearStreet && s % 3 === 0 ? 'filler-shop' : 'filler', s);
 }
 add(wallGeos, mats.wall);
+for (const k of Object.keys(STYLE_GEOS)) add(STYLE_GEOS[k], STYLE_MATS[k]);
 add(shopGeos, mats.shop);
 add(glassGeos, mats.glass);
 add(roofGeos, mats.roof);
@@ -1233,7 +1366,7 @@ function lighting() {
   // halo des lumières la nuit
   if (bloom) bloom.strength = night * 0.38;
   const glow = night * 1.6;
-  mats.wall.emissiveIntensity = glow; for (const m of HOUSE_MATS) m.emissiveIntensity = glow * 0.9; mats.shop.emissiveIntensity = glow * 1.1; mats.glass.emissiveIntensity = glow * 0.3;
+  mats.wall.emissiveIntensity = glow; for (const m of Object.values(STYLE_MATS)) m.emissiveIntensity = glow; for (const m of HOUSE_MATS) m.emissiveIntensity = glow * 0.9; mats.shop.emissiveIntensity = glow * 1.1; mats.glass.emissiveIntensity = glow * 0.3;
   mats.bulb.emissiveIntensity = night * 3;
   renderer.toneMappingExposure = 0.95;
 }
