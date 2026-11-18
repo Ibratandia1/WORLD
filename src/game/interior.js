@@ -188,6 +188,8 @@ export class InteriorLogic {
     const it = this.itemAt.get(`${tx},${ty}`);
     const st = this.stations.find(s => s.floor === this.floorIdx && s.x === tx && s.y === ty);
     if (it || st) return this.useItem(it, st);
+    // un endroit vide de la pièce : la fiche du lieu revient (si on l'avait fermée)
+    if (state.ui.stayHidden != null) { state.ui.stayHidden = null; state.ui.render(true); }
   }
 
   // Toucher un meuble : on agit tout de suite (la première action possible), sans passer par un menu.
@@ -196,7 +198,7 @@ export class InteriorLogic {
     const w = this.world, p = state.player, b = this.building;
     if (it && it.k === 'stairs_up') return this.setFloor((this.floorIdx + 1) % this.floors.length);
     const own = [...(it && it.actions ? it.actions : []), ...(it && it.action ? [it.action] : []), ...(st ? st.a.filter(a => a !== 'any') : [])];
-    if (own.includes('shop')) { state.ui.placeMore = true; return state.ui.render(true); }
+    if (own.includes('shop')) { state.ui.stayHidden = null; state.ui.placeMore = true; return state.ui.render(true); }
     const cand = own.length ? own : (it ? genericActions(it.k) : []);
     const paramsOf = id => (own.length ? (ACTIONS[id] && ACTIONS[id].place && ACTIONS[id].place.type ? { at: b.id } : {}) : { what: it.k });
     const ok = id => ACTIONS[id] && (ACTIONS[id].place ? w.canDoAt(p, id, b) : w.check(p, id, paramsOf(id)) === true);

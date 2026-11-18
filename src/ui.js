@@ -342,7 +342,7 @@ export class UI {
     this.tickEvent(dt);
 
     // Ambiance sonore : dehors / dedans, météo, heure, saison
-    if (p.inside !== this.lastInside) { if (this.lastInside !== undefined) this.sound.door(); this.lastInside = p.inside; }
+    if (p.inside !== this.lastInside) { if (this.lastInside !== undefined) this.sound.door(); this.lastInside = p.inside; this.stayHidden = null; }
     this.sound.setScene({
       outdoors: p.outdoors, weather: w.weather, hour: w.hour, season: w.season,
       place: p.inside != null ? w.building(p.inside).type : null, pulse: cityPulse(w.hour),
@@ -445,7 +445,7 @@ export class UI {
     else {
       const info = this.statusInfo();
       this.statusKey = info.key;
-      box.innerHTML = info.stay ? this.placeHTML(info.stay, true) : info.hidden ? '' : this.statusHTML(info);
+      box.innerHTML = info.stay ? (this.stayHidden === info.stay.id ? '' : this.placeHTML(info.stay, true)) : info.hidden ? '' : this.statusHTML(info);
       if (info.stay) shownPlace = info.stay;
     }
     box.classList.toggle('empty', !box.innerHTML.trim());
@@ -609,10 +609,10 @@ export class UI {
     // les gestes se font en touchant les meubles, ou via « ⋯ Plus » qui déplie la fiche complète
     if (inside && b.type !== 'home') {
       const more = this.choiceHTML('data-more class="c-misc"', this.placeMore ? '▴' : '⋯', this.placeMore ? 'Moins' : L(`Plus (${buttons.length} actions)`, `More (${buttons.length} actions)`), '', true);
-      if (!this.placeMore) return `${this.head(icon, b.name, false)}${this.miniPlaceHTML(b)}<div class="mini-row">${leave}</div><p class="mini-hint">${t('👆 Touche le comptoir ou un meuble pour agir')}</p>`;
-      return `${this.head(icon, b.name, false)}${jobTop}${note}<div class="choices">${buttons.join('')}</div>${this.shopHTML(b, inside)}${b.type === 'cityhall' ? this.govHTML(b, inside) : ''}<div class="mini-row">${more}${leave}</div>`;
+      if (!this.placeMore) return `${this.head(icon, b.name)}${this.miniPlaceHTML(b)}<div class="mini-row">${leave}</div><p class="mini-hint">${t('👆 Touche le comptoir ou un meuble pour agir')}</p>`;
+      return `${this.head(icon, b.name)}${jobTop}${note}<div class="choices">${buttons.join('')}</div>${this.shopHTML(b, inside)}${b.type === 'cityhall' ? this.govHTML(b, inside) : ''}<div class="mini-row">${more}${leave}</div>`;
     }
-    return `${this.head(icon, b.name, !inside)}${jobTop}${note}<div class="choices">${buttons.join('')}</div>${this.shopHTML(b, inside)}${b.type === 'cityhall' ? this.govHTML(b, inside) : ''}${leave}`;
+    return `${this.head(icon, b.name)}${jobTop}${note}<div class="choices">${buttons.join('')}</div>${this.shopHTML(b, inside)}${b.type === 'cityhall' ? this.govHTML(b, inside) : ''}${leave}`;
   }
 
   // Petite fiche d'un lieu vu de l'intérieur : l'emploi et qui travaille ici
@@ -1159,7 +1159,7 @@ export class UI {
     const btn = e.target.closest('button');
     if (!btn || btn.disabled) return;
     const w = this.world, p = this.player;
-    if (btn.hasAttribute('data-close')) { this.closePanels(); return this.render(); }
+    if (btn.hasAttribute('data-close')) { if (p.inside != null && !this.place && !this.panel && !this.person && !this.life) this.stayHidden = p.inside; this.placeMore = false; this.closePanels(); return this.render(); }
     if (btn.hasAttribute('data-evclose')) { this.director.close(); this.evShown = null; return this.render(); }
     if (btn.dataset.set) { setSetting(btn.dataset.set, !settings()[btn.dataset.set]); if (btn.dataset.set === 'sound' && settings().sound) this.sound.start(); return this.render(); }
     if (btn.dataset.setk) { const v = btn.dataset.setv; setSetting(btn.dataset.setk, /^\d+$/.test(v) ? Number(v) : v); return this.render(); }
